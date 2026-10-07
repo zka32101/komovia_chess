@@ -1,8 +1,8 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:komovia_core/komovia_core.dart';
 import '../services/ranking_service.dart';
 
-export '../services/ranking_service.dart'
-    show RankingService, RankingEntry, RankingStats;
+export '../services/ranking_service.dart' show RankingService, RankingStats;
 
 /// Leaderboard filter type
 enum LeaderboardFilter {
@@ -24,7 +24,7 @@ class LeaderboardState {
     this.monthKeyFilter,
     this.lastRefreshed,
   });
-  final List<RankingEntry> entries;
+  final List<LeaderboardEntry> entries;
   final RankingStats? stats;
   final bool isLoading;
   final String? error;
@@ -36,7 +36,7 @@ class LeaderboardState {
   final DateTime? lastRefreshed;
 
   LeaderboardState copyWith({
-    List<RankingEntry>? entries,
+    List<LeaderboardEntry>? entries,
     RankingStats? stats,
     bool? isLoading,
     String? error,
@@ -250,7 +250,7 @@ class UserRankNotifier extends StateNotifier<AsyncValue<int?>> {
 
 /// Nearby rankings notifier
 class NearbyRankingsNotifier
-    extends StateNotifier<AsyncValue<List<RankingEntry>>> {
+    extends StateNotifier<AsyncValue<List<LeaderboardEntry>>> {
   NearbyRankingsNotifier(this.rankingService, this.uid)
       : super(const AsyncValue.loading()) {
     _initialize();
@@ -291,7 +291,7 @@ final leaderboardProvider =
 });
 
 /// Global ranking stream provider (real-time)
-final globalRankingStreamProvider = StreamProvider<List<RankingEntry>>((ref) {
+final globalRankingStreamProvider = StreamProvider<List<LeaderboardEntry>>((ref) {
   final rankingService = ref.watch(rankingServiceProvider);
   return rankingService.watchGlobalRanking(limit: 100);
 });
@@ -306,14 +306,14 @@ final userRankProvider =
 
 /// Nearby rankings provider
 final nearbyRankingsProvider = StateNotifierProvider.family<
-    NearbyRankingsNotifier, AsyncValue<List<RankingEntry>>, String>((ref, uid) {
+    NearbyRankingsNotifier, AsyncValue<List<LeaderboardEntry>>, String>((ref, uid) {
   final rankingService = ref.watch(rankingServiceProvider);
   return NearbyRankingsNotifier(rankingService, uid);
 });
 
 /// Watch user's own ranking (real-time)
 final watchUserRankingProvider =
-    StreamProvider.family<RankingEntry?, String>((ref, uid) {
+    StreamProvider.family<LeaderboardEntry?, String>((ref, uid) {
   final rankingService = ref.watch(rankingServiceProvider);
   return rankingService.watchUserRanking(uid);
 });

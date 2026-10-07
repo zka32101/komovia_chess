@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:komovia_core/komovia_core.dart';
 import '../../providers/auth_provider.dart';
 import '../../providers/leaderboard_provider.dart';
 import '../../models/user.dart';
@@ -353,7 +354,7 @@ class MyRankingScreen extends ConsumerWidget {
   /// Build nearby players list
   Widget _buildNearbyPlayersList(
     BuildContext context,
-    List<RankingEntry> rankings,
+    List<LeaderboardEntry> rankings,
     String currentUserId,
   ) {
     final theme = Theme.of(context);
@@ -448,7 +449,7 @@ class MyRankingScreen extends ConsumerWidget {
                       ),
                       const SizedBox(height: 4),
                       Text(
-                        '${entry.shogiRankString} • 勝率 $winRate% • ${entry.rating}',
+                        '${ShogiRankService.displayName(ShogiRankService.calculateRank(entry.rating))} • 勝率 $winRate% • ${entry.rating}',
                         style: theme.textTheme.labelSmall,
                       ),
                     ],

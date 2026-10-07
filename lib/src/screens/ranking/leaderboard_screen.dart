@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:komovia_core/komovia_core.dart';
 import '../../providers/leaderboard_provider.dart';
 import '../../services/shogi_rank_service.dart';
 import '../../widgets/shogi_rank_display.dart';
@@ -347,7 +348,7 @@ class RankCard extends ConsumerWidget {
     required this.index,
     Key? key,
   }) : super(key: key);
-  final RankingEntry entry;
+  final LeaderboardEntry entry;
   final int index;
 
   @override
@@ -454,9 +455,9 @@ class RankCard extends ConsumerWidget {
                   'レート',
                   style: theme.textTheme.labelSmall,
                 ),
-                if (entry.lastGameAt != null)
+                if (entry.lastUpdated.millisecondsSinceEpoch > 0)
                   Text(
-                    _formatTime(entry.lastGameAt!),
+                    _formatTime(entry.lastUpdated),
                     style: theme.textTheme.labelSmall?.copyWith(
                       color: theme.colorScheme.outline,
                     ),

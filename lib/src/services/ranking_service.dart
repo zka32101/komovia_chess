@@ -1,4 +1,47 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:komovia_core/komovia_core.dart';
+import 'firestore_time.dart';
+
+/// Builds a komovia_core [LeaderboardEntry] from a raw `users`/ranking
+/// Firestore doc. Distinct from [LeaderboardEntry.fromJson]: that factory
+/// defaults a missing `lastUpdated` to `DateTime.now()`, which would make
+/// every player with no real `updatedAt` on their doc look like they just
+/// played — this uses the Unix epoch as the "never updated" sentinel
+/// instead, so callers can tell the difference (see
+/// `RankCard._formatTime`'s caller in `leaderboard_screen.dart`).
+///
+/// Note: komovia_core's `LeaderboardEntry` has no shogi-rank-string field
+/// (chess has no such concept) — the leaderboard/ranking screens compute
+/// that purely from `rating` via `ShogiRankService` themselves instead of
+/// reading it off the entry, keeping "what score is this" (this model)
+/// separate from "how do we print it as a word" (`ShogiRankService`/
+/// `ShogiRankDisplay`, untouched by this migration).
+LeaderboardEntry _leaderboardEntryFromJson(
+  Map<String, dynamic> json, {
+  int rank = 0,
+}) {
+  final wins = (json['wins'] as num?)?.toInt() ?? 0;
+  final losses = (json['losses'] as num?)?.toInt() ?? 0;
+  final gamesPlayed =
+      (json['gamesPlayed'] as num?)?.toInt() ?? (wins + losses);
+  return LeaderboardEntry(
+    uid: (json['userId'] as String?) ?? '',
+    displayName: (json['displayName'] as String?) ??
+        (json['username'] as String?) ??
+        'Anonymous',
+    rank: rank,
+    rating: (json['rating'] as num?)?.toInt() ?? 1000,
+    gamesPlayed: gamesPlayed,
+    wins: wins,
+    winRate: (json['winRate'] as num?)?.toDouble() ??
+        (gamesPlayed > 0 ? wins / gamesPlayed : 0.0),
+    puzzlesSolved: (json['puzzlesSolved'] as num?)?.toInt() ?? 0,
+    lastUpdated: dateTimeFromTimestamp(
+      json['updatedAt'],
+      DateTime.fromMillisecondsSinceEpoch(0),
+    ),
+  );
+}
 
 class RankingService {
   factory RankingService() => _instance;
@@ -157,10 +200,10 @@ class RankingService {
     }
   }
 
-  /// Get a page of the global ranking as [RankingEntry] (used by the
+  /// Get a page of the global ranking as [LeaderboardEntry] (used by the
   /// leaderboard screen, which needs richer per-entry display fields than
   /// [getGlobalRankings]/[PlayerRanking] provide).
-  Future<List<RankingEntry>> getGlobalRanking({
+  Future<List<LeaderboardEntry>> getGlobalRanking({
     required int limit,
     int offset = 0,
   }) async {
@@ -176,7 +219,7 @@ class RankingService {
           .toList()
           .asMap()
           .entries
-          .map((e) => RankingEntry.fromJson(
+          .map((e) => _leaderboardEntryFromJson(
                 {...e.value.data(), 'userId': e.value.id},
                 rank: offset + e.key + 1,
               ))
@@ -188,7 +231,7 @@ class RankingService {
   }
 
   /// Get the global ranking filtered to a single shogi rank tier.
-  Future<List<RankingEntry>> getRankingByShogi(
+  Future<List<LeaderboardEntry>> getRankingByShogi(
     String shogiRank, {
     required int limit,
   }) async {
@@ -205,7 +248,7 @@ class RankingService {
       return snapshot.docs
           .asMap()
           .entries
-          .map((e) => RankingEntry.fromJson(e.value.data(), rank: e.key + 1))
+          .map((e) => _leaderboardEntryFromJson(e.value.data(), rank: e.key + 1))
           .toList();
     } catch (e) {
       print('Error fetching shogi-rank ranking: $e');
@@ -214,7 +257,7 @@ class RankingService {
   }
 
   /// Get the ranking for a given month (defaults to the current month).
-  Future<List<RankingEntry>> getMonthlyRanking({
+  Future<List<LeaderboardEntry>> getMonthlyRanking({
     required int limit,
     String? monthKey,
   }) async {
@@ -230,7 +273,7 @@ class RankingService {
       return snapshot.docs
           .asMap()
           .entries
-          .map((e) => RankingEntry.fromJson(e.value.data(), rank: e.key + 1))
+          .map((e) => _leaderboardEntryFromJson(e.value.data(), rank: e.key + 1))
           .toList();
     } catch (e) {
       print('Error fetching monthly ranking: $e');
@@ -262,7 +305,7 @@ class RankingService {
 
   /// Get the [proximityCount] players immediately above and below [uid] in
   /// the global ranking (inclusive of [uid] itself).
-  Future<List<RankingEntry>> getNearbyRankings(
+  Future<List<LeaderboardEntry>> getNearbyRankings(
     String uid, {
     required int proximityCount,
   }) async {
@@ -283,7 +326,7 @@ class RankingService {
           .sublist(start, end)
           .asMap()
           .entries
-          .map((e) => RankingEntry.fromJson(
+          .map((e) => _leaderboardEntryFromJson(
                 {...e.value.data(), 'userId': e.value.id},
                 rank: start + e.key + 1,
               ))
@@ -295,7 +338,7 @@ class RankingService {
   }
 
   /// Real-time stream of the global ranking's top [limit] entries.
-  Stream<List<RankingEntry>> watchGlobalRanking({required int limit}) =>
+  Stream<List<LeaderboardEntry>> watchGlobalRanking({required int limit}) =>
       _firestore
           .collection('users')
           .orderBy('rating', descending: true)
@@ -304,19 +347,19 @@ class RankingService {
           .map((snapshot) => snapshot.docs
               .asMap()
               .entries
-              .map((e) => RankingEntry.fromJson(
+              .map((e) => _leaderboardEntryFromJson(
                     {...e.value.data(), 'userId': e.value.id},
                     rank: e.key + 1,
                   ))
               .toList());
 
   /// Real-time stream of a single user's own ranking entry.
-  Stream<RankingEntry?> watchUserRanking(String uid) => _firestore
+  Stream<LeaderboardEntry?> watchUserRanking(String uid) => _firestore
       .collection('users')
       .doc(uid)
       .snapshots()
       .map((doc) => doc.exists
-          ? RankingEntry.fromJson({...doc.data()!, 'userId': doc.id})
+          ? _leaderboardEntryFromJson({...doc.data()!, 'userId': doc.id})
           : null);
 
   /// Aggregate stats over the whole global ranking (used by the leaderboard
@@ -457,50 +500,6 @@ class GameResult {
   GameResult({required this.isWin, required this.isDraw});
   final bool isWin;
   final bool isDraw;
-}
-
-/// A single leaderboard row, as shown on the leaderboard/ranking screens.
-class RankingEntry {
-  RankingEntry({
-    required this.uid,
-    required this.displayName,
-    required this.shogiRankString,
-    required this.rating,
-    required this.rank,
-    required this.gamesPlayed,
-    required this.winRate,
-    this.lastGameAt,
-  });
-
-  factory RankingEntry.fromJson(Map<String, dynamic> json, {int rank = 0}) {
-    final wins = json['wins'] ?? 0;
-    final losses = json['losses'] ?? 0;
-    final gamesPlayed = json['gamesPlayed'] ?? (wins + losses) as int;
-    return RankingEntry(
-      uid: json['userId'] ?? '',
-      displayName: json['displayName'] ?? json['username'] ?? '',
-      // `shogiRank` on a `users` doc is a nested object (see
-      // UserModel._ShogiRankConverter), not the plain string this field
-      // expects, so only accept it when it's actually a string.
-      shogiRankString: json['shogiRank'] is String ? json['shogiRank'] : '',
-      rating: json['rating'] ?? 1000,
-      rank: rank,
-      gamesPlayed: gamesPlayed,
-      winRate: (json['winRate'] ?? (gamesPlayed > 0 ? wins / gamesPlayed : 0.0))
-          .toDouble(),
-      lastGameAt: json['updatedAt'] != null
-          ? (json['updatedAt'] as Timestamp).toDate()
-          : null,
-    );
-  }
-  final String uid;
-  final String displayName;
-  final String shogiRankString;
-  final int rating;
-  final int rank;
-  final int gamesPlayed;
-  final double winRate;
-  final DateTime? lastGameAt;
 }
 
 /// Aggregate statistics over the whole ranking, shown in the leaderboard
