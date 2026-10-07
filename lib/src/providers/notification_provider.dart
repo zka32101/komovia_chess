@@ -1,7 +1,73 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
-import '../models/notification.dart';
+import 'package:komovia_core/komovia_core.dart';
+import '../services/firestore_time.dart';
 import 'auth_provider.dart';
+
+// `AppNotification` used to be declared locally here (in
+// `models/notification.dart`) with its own freezed/Firestore-coupled
+// shape (enum `NotificationType`, `NotificationPriority`, a
+// `notificationId`/`userId` naming, and type-specific factory
+// constructors/`getIcon()`/`getColor()` helpers). That shape has been
+// replaced by `package:komovia_core`'s game-agnostic `AppNotification`,
+// which has no storage dependency - converting to/from Firestore's
+// `DocumentSnapshot`/`Timestamp` is this file's own responsibility (the
+// same split komovia_go's `notification_provider.dart`/`models/
+// notification.dart` already use).
+//
+// komovia_core's `AppNotification.type` is a plain `String` (not an enum)
+// and its `data` map is exactly where the old model's extra
+// `opponentName`/`gameId`/`ratingDelta`/`actionUrl`/`priority` fields now
+// live - see `_notificationFromDoc` below. Icon/color dispatch per type
+// moved to `notifications_screen.dart` (a simple `switch` on the type
+// string), the same place komovia_go moved its own per-type dispatch to
+// when it made this same migration.
+
+/// Converts a Firestore notification doc into `AppNotification`. The doc's
+/// own id becomes `AppNotification.id`; any of the old model's
+/// type-specific extra fields found on the doc (`opponentName`/`gameId`/
+/// `ratingDelta`/`actionUrl`/`priority`) are folded into `data` so callers
+/// that still write them (see `FriendService`) keep working.
+AppNotification notificationFromDoc(
+  DocumentSnapshot<Map<String, dynamic>> doc,
+) {
+  final raw = doc.data() ?? const <String, dynamic>{};
+  final existingData = raw['data'];
+  final data = <String, Object?>{
+    if (existingData is Map) ...existingData.cast<String, Object?>(),
+    for (final key in const [
+      'opponentName',
+      'gameId',
+      'ratingDelta',
+      'actionUrl',
+      'priority',
+    ])
+      if (raw[key] != null) key: raw[key],
+  };
+  return AppNotification.fromJson({
+    ...raw,
+    'id': doc.id,
+    'uid': raw['uid'] ?? raw['userId'],
+    'data': data.isEmpty ? null : data,
+    'createdAt': isoFromTimestamp(raw['createdAt']),
+    'readAt': isoFromTimestamp(raw['readAt']),
+  });
+}
+
+/// A page of notifications plus the derived unread count - a thin,
+/// app-local convenience wrapper (not a komovia_core concept) kept so the
+/// existing screens/providers below don't need reshaping beyond the model
+/// swap itself.
+class NotificationBatch {
+  const NotificationBatch({
+    required this.notifications,
+    required this.unreadCount,
+    required this.lastFetchedAt,
+  });
+  final List<AppNotification> notifications;
+  final int unreadCount;
+  final DateTime lastFetchedAt;
+}
 
 /// Firebase notifications provider
 final firebaseNotificationsProvider =
@@ -18,15 +84,13 @@ final firebaseNotificationsProvider =
       .map((snapshot) {
     if (snapshot.docs.isEmpty) {
       return NotificationBatch(
-        notifications: [],
+        notifications: const [],
         unreadCount: 0,
         lastFetchedAt: DateTime.now(),
       );
     }
 
-    final notifications = snapshot.docs
-        .map((doc) => AppNotification.fromJson(doc.data()))
-        .toList();
+    final notifications = snapshot.docs.map(notificationFromDoc).toList();
 
     final unreadCount = notifications.where((n) => !n.isRead).length;
 
@@ -184,7 +248,7 @@ class NotificationActionNotifier extends StateNotifier<AsyncValue<void>> {
     state = await AsyncValue.guard(() => service.markAllAsRead(userId));
   }
 
-  /// Delete notification
+  /// Delete a notification
   Future<void> deleteNotification(String userId, String notificationId) async {
     state = const AsyncValue.loading();
     final service = ref.watch(notificationServiceProvider);

@@ -121,15 +121,18 @@ class FriendService {
                 .collection('notifications')
                 .doc(notificationId),
             {
-              'notificationId': notificationId,
-              'userId': toUserId,
-              'type': 'friendRequest',
+              // 'uid'/no top-level 'actionUrl'/'priority' - this doc is read
+              // back as a `package:komovia_core` `AppNotification` (see
+              // notification_provider.dart's `notificationFromDoc`), whose
+              // extra fields live inside 'data' rather than at the top
+              // level.
+              'uid': toUserId,
+              'type': 'friend_request',
               'title': 'Friend Request',
               'body': '$fromUsername sent you a friend request',
               'createdAt': FieldValue.serverTimestamp(),
               'isRead': false,
-              'actionUrl': '/friends',
-              'priority': 'normal',
+              'data': {'actionUrl': '/friends', 'priority': 'normal'},
             });
       });
 
@@ -225,15 +228,15 @@ class FriendService {
                 .collection('notifications')
                 .doc(notificationId),
             {
-              'notificationId': notificationId,
-              'userId': friendId,
-              'type': 'friendRequest',
+              // See the sibling notification set() above for why the
+              // extras live under 'data' rather than at the top level.
+              'uid': friendId,
+              'type': 'friend_request',
               'title': 'Friend Request Accepted',
               'body': '$accepterName accepted your friend request',
               'createdAt': FieldValue.serverTimestamp(),
               'isRead': false,
-              'actionUrl': '/friends',
-              'priority': 'normal',
+              'data': {'actionUrl': '/friends', 'priority': 'normal'},
             });
       });
 
