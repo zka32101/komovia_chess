@@ -73,56 +73,15 @@ class RankingStats with _$RankingStats {
 }
 
 // ========== Friend System Models ==========
-
-@freezed
-class Friend with _$Friend {
-  const factory Friend({
-    required String friendId,
-    required String friendUsername,
-    required String friendAvatar,
-    // ignore: invalid_annotation_target
-    @JsonKey(fromJson: _requiredDateTimeFromTimestamp)
-    required DateTime connectedAt,
-    required bool isOnline,
-    // ignore: invalid_annotation_target
-    @JsonKey(fromJson: _dateTimeFromTimestamp) required DateTime? lastSeen,
-    required int friendRating,
-    @Default(0) int mutualChallenges,
-  }) = _Friend;
-
-  factory Friend.fromJson(Map<String, dynamic> json) => _$FriendFromJson(json);
-}
-
-@freezed
-class FriendRequest with _$FriendRequest {
-  const factory FriendRequest({
-    required String requestId,
-    required String fromUserId,
-    required String fromUsername,
-    required String fromAvatar,
-    // ignore: invalid_annotation_target
-    @JsonKey(fromJson: _requiredDateTimeFromTimestamp) required DateTime sentAt,
-    required String status, // 'pending', 'accepted', 'rejected', 'cancelled'
-    // ignore: invalid_annotation_target
-    @JsonKey(fromJson: _dateTimeFromTimestamp) required DateTime? respondedAt,
-  }) = _FriendRequest;
-
-  factory FriendRequest.fromJson(Map<String, dynamic> json) =>
-      _$FriendRequestFromJson(json);
-}
-
-@freezed
-class BlockedUser with _$BlockedUser {
-  const factory BlockedUser({
-    required String blockedUserId,
-    required String blockedUsername,
-    required DateTime blockedAt,
-    required String? reason,
-  }) = _BlockedUser;
-
-  factory BlockedUser.fromJson(Map<String, dynamic> json) =>
-      _$BlockedUserFromJson(json);
-}
+//
+// `Friend`/`FriendRequest`/`BlockedUser` used to live here as 3 separate
+// shapes (a friends list, a requestId-keyed request inbox/outbox, and a
+// standalone blocked-user record). They have been replaced by
+// `package:komovia_core`'s `Friendship` — a single denormalized
+// relationship-doc-per-pair with a `status` field ('pending'/'accepted'/
+// 'blocked') instead of a separate request object. See
+// `friend_service.dart` for the new shape and `friend_provider.dart`/
+// `friends_screen.dart` for its friendUid-keyed call sites.
 
 @freezed
 class FriendActivity with _$FriendActivity {
@@ -210,83 +169,23 @@ class ChallengeResult with _$ChallengeResult {
 }
 
 // ========== Tournament System Models ==========
-
-@freezed
-class Tournament with _$Tournament {
-  const factory Tournament({
-    required String tournamentId,
-    required String name,
-    required String description,
-    required String
-        status, // 'registration', 'in-progress', 'completed', 'cancelled'
-    // ignore: invalid_annotation_target
-    @JsonKey(fromJson: _requiredDateTimeFromTimestamp)
-    required DateTime startDate,
-    // ignore: invalid_annotation_target
-    @JsonKey(fromJson: _requiredDateTimeFromTimestamp)
-    required DateTime endDate,
-    required String
-        format, // 'single-elimination', 'double-elimination', 'round-robin', 'swiss'
-    required int maxParticipants,
-    required int currentParticipants,
-    required String timeControl,
-    required int entryFee,
-    required int prizePool,
-    required String createdBy,
-    required List<String> participantIds,
-  }) = _Tournament;
-
-  factory Tournament.fromJson(Map<String, dynamic> json) =>
-      _$TournamentFromJson(json);
-}
-
-@freezed
-class TournamentParticipant with _$TournamentParticipant {
-  const factory TournamentParticipant({
-    required String participantId,
-    required String tournamentId,
-    required String userId,
-    required String username,
-    required int seedRating,
-    // ignore: invalid_annotation_target
-    @JsonKey(fromJson: _requiredDateTimeFromTimestamp)
-    required DateTime joinedAt,
-    required String status, // 'registered', 'active', 'eliminated', 'withdrew'
-    required int points,
-    required int wins,
-    required int losses,
-    required int draws,
-    @Default([]) List<String> opponentIds,
-  }) = _TournamentParticipant;
-
-  factory TournamentParticipant.fromJson(Map<String, dynamic> json) =>
-      _$TournamentParticipantFromJson(json);
-}
-
-@freezed
-class TournamentMatch with _$TournamentMatch {
-  const factory TournamentMatch({
-    required String matchId,
-    required String tournamentId,
-    required int round,
-    required String player1Id,
-    required String player2Id,
-    required String status, // 'scheduled', 'in-progress', 'completed'
-    // ignore: invalid_annotation_target
-    @JsonKey(fromJson: _requiredDateTimeFromTimestamp)
-    required DateTime scheduledAt,
-    // ignore: invalid_annotation_target
-    @JsonKey(fromJson: _dateTimeFromTimestamp) required DateTime? startedAt,
-    // ignore: invalid_annotation_target
-    @JsonKey(fromJson: _dateTimeFromTimestamp) required DateTime? completedAt,
-    required String? winnerId,
-    required String? loserId,
-    required String? gameId,
-  }) = _TournamentMatch;
-
-  factory TournamentMatch.fromJson(Map<String, dynamic> json) =>
-      _$TournamentMatchFromJson(json);
-}
+//
+// `Tournament`/`TournamentParticipant`/`TournamentMatch` used to live here
+// with chess-specific status/format vocabulary ('registration'/
+// 'in-progress', 'single-elimination'/'double-elimination', non-nullable
+// player slots with no bye support) and monetization fields (entryFee/
+// prizePool). They have been replaced by `package:komovia_core`'s
+// `Tournament`/`TournamentParticipant`/`TournamentMatch` (status vocabulary
+// 'upcoming'/'active'/'completed'/'cancelled', format
+// 'single_elimination'/'round_robin'/'swiss', nullable bye-aware player
+// slots). `entryFee`/`prizePool`/`currentParticipants`/`timeControl` have
+// no komovia_core equivalent and are kept as extra Firestore fields outside
+// the shared model's toJson/fromJson — see `tournament_service.dart`.
+// `TournamentStandings`/`TournamentRanking` below are unaffected: they're
+// computed from each participant subdocument's own points/wins/losses/
+// draws fields (also chess-specific, also kept outside the shared
+// `TournamentParticipant`'s toJson/fromJson), not from the removed
+// `TournamentParticipant` model itself.
 
 @freezed
 class TournamentStandings with _$TournamentStandings {

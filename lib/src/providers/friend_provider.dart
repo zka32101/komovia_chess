@@ -1,6 +1,6 @@
-import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import '../models/phase_k_models.dart';
+import 'package:komovia_core/komovia_core.dart';
+import '../models/phase_k_models.dart' show FriendActivity;
 import '../models/user.dart';
 import '../services/friend_service.dart';
 import 'auth_provider.dart';
@@ -9,15 +9,18 @@ final friendServiceProvider =
     Provider<FriendService>((ref) => FriendService.instance);
 
 /// The signed-in user's accepted friends.
-final userFriendsProvider = FutureProvider<List<Friend>>((ref) async {
+final userFriendsProvider = FutureProvider<List<Friendship>>((ref) async {
   final user = ref.watch(currentUserProvider).value;
   if (user == null) return [];
-  return ref.watch(friendServiceProvider).getUserFriends(user.uid);
+  return ref.watch(friendServiceProvider).getFriends(user.uid);
 });
 
-/// Friend requests the signed-in user has received and hasn't responded to.
+/// Friend requests the signed-in user has either received or sent and
+/// hasn't been resolved yet — see `Friendship.wasRequestedBy` to tell an
+/// incoming request (show accept/decline) from one the viewer sent
+/// themselves (show cancel).
 final pendingFriendRequestsProvider =
-    FutureProvider<List<FriendRequest>>((ref) async {
+    FutureProvider<List<Friendship>>((ref) async {
   final user = ref.watch(currentUserProvider).value;
   if (user == null) return [];
   return ref.watch(friendServiceProvider).getPendingRequests(user.uid);
@@ -37,8 +40,9 @@ final activityFeedProvider = FutureProvider<List<FriendActivity>>((ref) async {
   return ref.watch(friendServiceProvider).getActivityFeed(user.uid);
 });
 
-/// Mutating friend actions (send/accept/reject/remove), refreshing the
-/// list/request providers afterward so the UI reflects the change.
+/// Mutating friend actions (send/accept/reject/remove/block/unblock),
+/// refreshing the list/request providers afterward so the UI reflects the
+/// change.
 class FriendActionsNotifier extends StateNotifier<AsyncValue<void>> {
   FriendActionsNotifier(this._ref) : super(const AsyncValue.data(null));
   final Ref _ref;
@@ -49,40 +53,25 @@ class FriendActionsNotifier extends StateNotifier<AsyncValue<void>> {
 
     state = const AsyncValue.loading();
     try {
-      await _ref.read(friendServiceProvider).sendFriendRequest(
-            me.uid,
-            toUser.uid,
-            me.displayName ?? 'Anonymous',
-            me.photoUrl ?? '',
-          );
+      await _ref
+          .read(friendServiceProvider)
+          .sendFriendRequest(me.uid, toUser.uid);
+      _ref.invalidate(pendingFriendRequestsProvider);
       state = const AsyncValue.data(null);
     } catch (e, st) {
       state = AsyncValue.error(e, st);
     }
   }
 
-  Future<void> acceptRequest(FriendRequest request) async {
+  Future<void> acceptRequest(Friendship request) async {
     final me = _ref.read(currentUserProvider).value;
     if (me == null) return;
 
     state = const AsyncValue.loading();
     try {
-      // FriendRequest doesn't carry the sender's current rating, so look
-      // it up fresh rather than passing a stale/guessed value.
-      final requesterDoc = await FirebaseFirestore.instance
-          .collection('users')
-          .doc(request.fromUserId)
-          .get();
-      final requesterRating =
-          (requesterDoc.data()?['rating'] as num?)?.toInt() ?? 1200;
-
       await _ref.read(friendServiceProvider).acceptFriendRequest(
-            me.uid,
-            request.requestId,
-            request.fromUserId,
-            request.fromUsername,
-            request.fromAvatar,
-            requesterRating,
+            currentUid: me.uid,
+            friendUid: request.friendUid,
           );
       _ref.invalidate(userFriendsProvider);
       _ref.invalidate(pendingFriendRequestsProvider);
@@ -92,16 +81,17 @@ class FriendActionsNotifier extends StateNotifier<AsyncValue<void>> {
     }
   }
 
-  Future<void> rejectRequest(FriendRequest request) async {
+  /// Declines an incoming request, or cancels one the viewer sent — both
+  /// are the same data operation (see `FriendService.rejectFriendRequest`).
+  Future<void> rejectRequest(Friendship request) async {
     final me = _ref.read(currentUserProvider).value;
     if (me == null) return;
 
     state = const AsyncValue.loading();
     try {
       await _ref.read(friendServiceProvider).rejectFriendRequest(
-            me.uid,
-            request.requestId,
-            request.fromUserId,
+            currentUid: me.uid,
+            friendUid: request.friendUid,
           );
       _ref.invalidate(pendingFriendRequestsProvider);
       state = const AsyncValue.data(null);
@@ -110,7 +100,7 @@ class FriendActionsNotifier extends StateNotifier<AsyncValue<void>> {
     }
   }
 
-  Future<void> removeFriend(Friend friend) async {
+  Future<void> removeFriend(Friendship friend) async {
     final me = _ref.read(currentUserProvider).value;
     if (me == null) return;
 
@@ -118,8 +108,42 @@ class FriendActionsNotifier extends StateNotifier<AsyncValue<void>> {
     try {
       await _ref
           .read(friendServiceProvider)
-          .removeFriend(me.uid, friend.friendId);
+          .removeFriend(me.uid, friend.friendUid);
       _ref.invalidate(userFriendsProvider);
+      state = const AsyncValue.data(null);
+    } catch (e, st) {
+      state = AsyncValue.error(e, st);
+    }
+  }
+
+  Future<void> blockFriend(Friendship friend) async {
+    final me = _ref.read(currentUserProvider).value;
+    if (me == null) return;
+
+    state = const AsyncValue.loading();
+    try {
+      await _ref.read(friendServiceProvider).blockFriend(
+            currentUid: me.uid,
+            friendUid: friend.friendUid,
+          );
+      _ref.invalidate(userFriendsProvider);
+      _ref.invalidate(pendingFriendRequestsProvider);
+      state = const AsyncValue.data(null);
+    } catch (e, st) {
+      state = AsyncValue.error(e, st);
+    }
+  }
+
+  Future<void> unblockFriend(Friendship friend) async {
+    final me = _ref.read(currentUserProvider).value;
+    if (me == null) return;
+
+    state = const AsyncValue.loading();
+    try {
+      await _ref.read(friendServiceProvider).unblockFriend(
+            currentUid: me.uid,
+            friendUid: friend.friendUid,
+          );
       state = const AsyncValue.data(null);
     } catch (e, st) {
       state = AsyncValue.error(e, st);
