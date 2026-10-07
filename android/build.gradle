@@ -1,0 +1,33 @@
+allprojects {
+    repositories {
+        google()
+        mavenCentral()
+    }
+}
+
+// Compatibility shim for legacy plugins (e.g. desktop_webview_auth, pulled in
+// transitively via firebase_ui_auth -> firebase_ui_oauth) that still read the
+// pre-Flutter-3.10 `flutter.compileSdkVersion` / `flutter.minSdkVersion`
+// project property directly in their own android/build.gradle. The current
+// Flutter Gradle Plugin only registers the real `flutter` extension on the
+// `:app` module, so sibling plugin subprojects no longer see it. Values below
+// match this Flutter version's own FlutterExtension defaults (see
+// packages/flutter_tools/gradle/src/main/groovy/flutter.groovy).
+ext.flutter = [
+    compileSdkVersion: 34,
+    minSdkVersion: 21,
+    targetSdkVersion: 34,
+    ndkVersion: "23.1.7779620",
+]
+
+rootProject.buildDir = "../build"
+subprojects {
+    project.buildDir = "${rootProject.buildDir}/${project.name}"
+}
+subprojects {
+    project.evaluationDependsOn(":app")
+}
+
+tasks.register("clean", Delete) {
+    delete rootProject.buildDir
+}

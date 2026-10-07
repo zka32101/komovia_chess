@@ -1,0 +1,51 @@
+[
+  {
+    "id": "mate1-queen-corner-02",
+    "fen": "7k/Q7/6K1/8/8/8/8/8 w - - 0 1",
+    "moves": ["a7g7"],
+    "rating": 350,
+    "themes": ["checkmate", "mate-in-1", "queen-mate"]
+  },
+  {
+    "id": "mate1-queen-corner-01",
+    "fen": "k7/8/1K6/8/8/8/8/7Q w - - 0 1",
+    "moves": ["h1h8"],
+    "rating": 450,
+    "themes": ["checkmate", "mate-in-1", "queen-mate"]
+  },
+  {
+    "id": "mate1-back-rank-01",
+    "fen": "6k1/5ppp/8/8/8/8/8/R5K1 w - - 0 1",
+    "moves": ["a1a8"],
+    "rating": 500,
+    "themes": ["checkmate", "mate-in-1", "back-rank-mate"]
+  },
+  {
+    "id": "mate1-queen-supported-01",
+    "fen": "7k/8/6K1/8/8/8/8/7Q w - - 0 1",
+    "moves": ["h1h7"],
+    "rating": 550,
+    "themes": ["checkmate", "mate-in-1", "queen-mate"]
+  },
+  {
+    "id": "mate1-two-rook-01",
+    "fen": "7k/1R6/8/8/8/8/8/R5K1 w - - 0 1",
+    "moves": ["a1a8"],
+    "rating": 600,
+    "themes": ["checkmate", "mate-in-1", "rook-mate", "back-rank-mate"]
+  },
+  {
+    "id": "mate1-promotion-01",
+    "fen": "k7/1P6/K7/8/8/8/8/1R6 w - - 0 1",
+    "moves": ["b7b8q"],
+    "rating": 700,
+    "themes": ["checkmate", "mate-in-1", "promotion", "queen-mate"]
+  },
+  {
+    "id": "mate1-smothered-01",
+    "fen": "6rk/6pp/8/6N1/8/8/8/6K1 w - - 0 1",
+    "moves": ["g5f7"],
+    "rating": 900,
+    "themes": ["checkmate", "mate-in-1", "smothered-mate", "knight"]
+  }
+]

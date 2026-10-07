@@ -1,0 +1,89 @@
+name: komovia_chess
+description: "Komovia Chess - Learn chess with AI-powered tactics puzzles and multiplayer online matches."
+publish_to: 'none'
+
+version: 1.0.0+1
+
+environment:
+  sdk: '>=3.0.0 <4.0.0'
+
+dependencies:
+  flutter:
+    sdk: flutter
+
+  komovia_core:
+    git:
+      url: https://github.com/zka32101/komovia_core
+      ref: main
+
+  # State Management
+  riverpod: ^2.2.0
+  flutter_riverpod: ^2.2.0
+  riverpod_generator: ^2.2.0
+
+  # Firebase
+  firebase_core: ^2.13.0
+  firebase_auth: ^4.4.0
+  cloud_firestore: ^4.4.0
+  firebase_database: ^10.0.0
+  firebase_storage: ^11.0.0
+  firebase_analytics: ^10.0.0
+  firebase_crashlytics: ^3.0.0
+
+  # UI/UX
+  lottie: ^2.0.0
+  google_fonts: ^5.1.0
+  flutter_svg: ^2.0.0
+
+  # Audio
+  just_audio: ^0.9.36
+
+  # Chess Engine
+  chess: ^0.7.0
+  stockfish: ^1.7.0
+
+  # Local Storage
+  sqflite: ^2.2.0
+  path: ^1.8.0
+  path_provider: ^2.0.0
+
+  # Authentication UI
+  firebase_ui_auth: ^1.5.0
+  google_sign_in: ^6.0.0
+  sign_in_with_apple: ^5.0.0
+
+  # Payment (in-app purchases)
+  in_app_purchase: ^3.1.0
+
+  # Charts
+  fl_chart: ^0.66.0
+
+  # Device / connectivity info
+  connectivity_plus: ^4.0.2
+  device_info_plus: ^9.1.0
+  package_info_plus: ^4.2.0
+
+  # Utilities
+  freezed_annotation: ^2.4.0
+  json_annotation: ^4.8.0
+  intl: ^0.19.0
+  logger: ^2.0.0
+  dio: ^5.2.0
+  flutter_dotenv: ^5.0.0
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^2.0.0
+  build_runner: ^2.2.0
+  riverpod_generator: ^2.2.0
+  freezed: ^2.1.0
+  json_serializable: ^6.1.0
+
+flutter:
+  uses-material-design: true
+
+  # Assets
+  assets:
+    - .env
+    - assets/images/
