@@ -20,26 +20,14 @@ DateTime _requiredDateTimeFromTimestamp(Object? json) =>
     (json is Timestamp) ? json.toDate() : DateTime.parse(json as String);
 
 // ========== Leaderboard Models ==========
-
-@freezed
-class LeaderboardEntry with _$LeaderboardEntry {
-  const factory LeaderboardEntry({
-    required String userId,
-    required String username,
-    required int rating,
-    required int rank,
-    required int wins,
-    required int losses,
-    required int draws,
-    required DateTime lastUpdated,
-    @Default('') String region,
-    @Default(0.0) double winRate,
-    @Default([]) List<DateTime> recentMatches,
-  }) = _LeaderboardEntry;
-
-  factory LeaderboardEntry.fromJson(Map<String, dynamic> json) =>
-      _$LeaderboardEntryFromJson(json);
-}
+//
+// `LeaderboardEntry` used to be declared here, but it was dead scaffolding
+// with zero real callers (its only consumers were `phase_t_providers.dart`,
+// `leaderboard_service.dart` and `leaderboard_service_optimized.dart`,
+// themselves unreachable from anywhere in the app) — deleted, along with
+// those three files, in favor of komovia_core's `LeaderboardEntry`, which
+// is what the real, routed leaderboard (`ranking_service.dart` /
+// `leaderboard_provider.dart` / the `screens/ranking/*` screens) uses.
 
 @freezed
 class LeaderboardHistory with _$LeaderboardHistory {

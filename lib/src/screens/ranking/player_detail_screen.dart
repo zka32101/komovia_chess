@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:komovia_core/komovia_core.dart';
 import '../../providers/leaderboard_provider.dart';
 import '../../services/shogi_rank_service.dart';
 import '../../widgets/shogi_rank_display.dart';
@@ -313,7 +314,7 @@ class PlayerDetailScreen extends ConsumerWidget {
   /// Build nearby rankings list
   Widget _buildNearbyRankings(
     BuildContext context,
-    List<RankingEntry> rankings,
+    List<LeaderboardEntry> rankings,
   ) {
     if (rankings.isEmpty) {
       return const Text('近くのプレイヤーが見つかりません');
@@ -380,7 +381,9 @@ class PlayerDetailScreen extends ConsumerWidget {
                     ),
                     const SizedBox(height: 4),
                     Text(
-                      entry.shogiRankString,
+                      ShogiRankService.displayName(
+                        ShogiRankService.calculateRank(entry.rating),
+                      ),
                       style: theme.textTheme.labelSmall,
                     ),
                   ],
