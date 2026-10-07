@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import '../../models/phase_k_models.dart';
+import 'package:komovia_core/komovia_core.dart';
+import '../../models/phase_k_models.dart' show TournamentRanking;
 import '../../providers/auth_provider.dart';
 import '../../providers/tournament_provider.dart';
 
@@ -37,30 +38,27 @@ class TournamentsScreen extends ConsumerWidget {
             itemBuilder: (context, index) {
               final tournament = list[index];
               final isRegistered =
-                  me != null && tournament.participantIds.contains(me.uid);
-              final isFull =
-                  tournament.currentParticipants >= tournament.maxParticipants;
+                  me != null && tournament.participantUids.contains(me.uid);
 
               return Card(
                 child: ListTile(
                   onTap: () => Navigator.of(context).push(
                     MaterialPageRoute(
                       builder: (_) => TournamentDetailScreen(
-                        tournamentId: tournament.tournamentId,
+                        tournamentId: tournament.id,
                       ),
                     ),
                   ),
                   title: Text(tournament.name),
                   subtitle: Text(
-                    '${tournament.format} · ${tournament.timeControl} · '
-                    '${tournament.currentParticipants}/${tournament.maxParticipants} players',
+                    '${tournament.format} · '
+                    '${tournament.participantUids.length}/${tournament.maxParticipants} players',
                   ),
                   trailing: _buildActionWidget(
                     context,
                     ref,
                     tournament,
                     isRegistered: isRegistered,
-                    isFull: isFull,
                   ),
                 ),
               );
@@ -76,7 +74,6 @@ class TournamentsScreen extends ConsumerWidget {
     WidgetRef ref,
     Tournament tournament, {
     required bool isRegistered,
-    required bool isFull,
   }) {
     if (isRegistered) {
       return const Chip(
@@ -85,11 +82,11 @@ class TournamentsScreen extends ConsumerWidget {
       );
     }
 
-    if (tournament.status != 'registration') {
+    if (!tournament.isUpcoming) {
       return Chip(label: Text(tournament.status));
     }
 
-    if (isFull) {
+    if (tournament.isFull) {
       return const Chip(label: Text('Full'));
     }
 
@@ -118,6 +115,7 @@ class TournamentDetailScreen extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final tournament = ref.watch(tournamentDetailsProvider(tournamentId));
+    final extras = ref.watch(tournamentExtrasProvider(tournamentId));
     final standings = ref.watch(tournamentStandingsProvider(tournamentId));
     final matches = ref.watch(tournamentMatchesProvider(tournamentId));
 
@@ -129,24 +127,17 @@ class TournamentDetailScreen extends ConsumerWidget {
         loading: () => const Center(child: CircularProgressIndicator()),
         error: (error, stack) => Center(child: Text('Error: $error')),
         data: (data) {
-          // Build a userId -> username lookup from standings so matches can
-          // show names instead of raw ids (TournamentMatch only stores ids).
-          final usernames = <String, String>{
-            for (final r in standings.value?.rankings ?? <TournamentRanking>[])
-              r.userId: r.username,
-          };
-
           return ListView(
             padding: const EdgeInsets.all(16),
             children: [
-              _buildHeader(data),
+              _buildHeader(data, extras.value),
               const SizedBox(height: 24),
               Text('Standings', style: Theme.of(context).textTheme.titleMedium),
               const SizedBox(height: 8),
               standings.when(
                 loading: () => const Center(child: CircularProgressIndicator()),
                 error: (error, stack) => Text('Error: $error'),
-                data: (data) => _buildStandings(data.rankings),
+                data: (data) => _buildStandings(data),
               ),
               const SizedBox(height: 24),
               Text('Matches', style: Theme.of(context).textTheme.titleMedium),
@@ -154,7 +145,7 @@ class TournamentDetailScreen extends ConsumerWidget {
               matches.when(
                 loading: () => const Center(child: CircularProgressIndicator()),
                 error: (error, stack) => Text('Error: $error'),
-                data: (data) => _buildMatches(data, usernames),
+                data: (data) => _buildMatches(data),
               ),
             ],
           );
@@ -163,7 +154,10 @@ class TournamentDetailScreen extends ConsumerWidget {
     );
   }
 
-  Widget _buildHeader(Tournament tournament) {
+  Widget _buildHeader(Tournament tournament, Map<String, dynamic>? extras) {
+    final timeControl = extras?['timeControl'] as String? ?? '';
+    final prizePool = extras?['prizePool'] as int? ?? 0;
+
     return Card(
       child: Padding(
         padding: const EdgeInsets.all(16),
@@ -173,12 +167,11 @@ class TournamentDetailScreen extends ConsumerWidget {
             Text(tournament.description),
             const SizedBox(height: 8),
             Text('Format: ${tournament.format}'),
-            Text('Time control: ${tournament.timeControl}'),
+            if (timeControl.isNotEmpty) Text('Time control: $timeControl'),
             Text(
-              'Participants: ${tournament.currentParticipants}/${tournament.maxParticipants}',
+              'Participants: ${tournament.participantUids.length}/${tournament.maxParticipants}',
             ),
-            if (tournament.prizePool > 0)
-              Text('Prize pool: ${tournament.prizePool}'),
+            if (prizePool > 0) Text('Prize pool: $prizePool'),
           ],
         ),
       ),
@@ -207,16 +200,13 @@ class TournamentDetailScreen extends ConsumerWidget {
     );
   }
 
-  Widget _buildMatches(
-    List<TournamentMatch> matches,
-    Map<String, String> usernames,
-  ) {
+  Widget _buildMatches(List<TournamentMatch> matches) {
     if (matches.isEmpty) {
       return const Text('No matches scheduled yet.');
     }
 
-    String nameFor(String userId) =>
-        usernames[userId] ?? userId.substring(0, userId.length.clamp(0, 8));
+    String nameFor(String? uid, String? displayName) =>
+        displayName ?? uid?.substring(0, uid.length.clamp(0, 8)) ?? 'TBD';
 
     final byRound = <int, List<TournamentMatch>>{};
     for (final match in matches) {
@@ -233,17 +223,30 @@ class TournamentDetailScreen extends ConsumerWidget {
             children: [
               Text('Round ${entry.key}',
                   style: const TextStyle(fontWeight: FontWeight.bold)),
-              ...entry.value.map((match) => ListTile(
-                    dense: true,
-                    title: Text(
-                      '${nameFor(match.player1Id)} vs ${nameFor(match.player2Id)}',
-                    ),
-                    trailing: Text(
-                      match.status == 'completed' && match.winnerId != null
-                          ? '${nameFor(match.winnerId!)} won'
-                          : match.status,
-                    ),
-                  )),
+              ...entry.value.map((match) {
+                final p1 = nameFor(match.player1Uid, match.player1DisplayName);
+                final p2 = match.isBye
+                    ? 'Bye'
+                    : nameFor(match.player2Uid, match.player2DisplayName);
+                final winnerName = match.winnerUid != null
+                    ? nameFor(
+                        match.winnerUid,
+                        match.winnerUid == match.player1Uid
+                            ? match.player1DisplayName
+                            : match.player2DisplayName,
+                      )
+                    : null;
+
+                return ListTile(
+                  dense: true,
+                  title: Text('$p1 vs $p2'),
+                  trailing: Text(
+                    match.isCompleted && winnerName != null
+                        ? '$winnerName won'
+                        : match.status,
+                  ),
+                );
+              }),
             ],
           ),
         );

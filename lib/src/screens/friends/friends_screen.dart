@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import '../../models/phase_k_models.dart';
+import 'package:komovia_core/komovia_core.dart';
 import '../../providers/auth_provider.dart';
 import '../../providers/friend_provider.dart';
 import '../../providers/challenge_provider.dart';
@@ -78,16 +78,9 @@ class _FriendsListTab extends ConsumerWidget {
             final friend = list[index];
             return Card(
               child: ListTile(
-                leading: CircleAvatar(
-                  backgroundImage: friend.friendAvatar.isNotEmpty
-                      ? NetworkImage(friend.friendAvatar)
-                      : null,
-                  child: friend.friendAvatar.isEmpty
-                      ? const Icon(Icons.person)
-                      : null,
-                ),
-                title: Text(friend.friendUsername),
-                subtitle: Text('Rating: ${friend.friendRating}'),
+                leading: const CircleAvatar(child: Icon(Icons.person)),
+                title: Text(friend.displayName),
+                subtitle: Text('Friends since ${_dateLabel(friend.addedAt)}'),
                 trailing: Row(
                   mainAxisSize: MainAxisSize.min,
                   children: [
@@ -111,28 +104,31 @@ class _FriendsListTab extends ConsumerWidget {
     );
   }
 
+  String _dateLabel(DateTime date) =>
+      '${date.year}-${date.month.toString().padLeft(2, '0')}-${date.day.toString().padLeft(2, '0')}';
+
   Future<void> _sendChallenge(
     BuildContext context,
     WidgetRef ref,
-    Friend friend,
+    Friendship friend,
   ) async {
     await ref.read(challengeActionsProvider.notifier).sendChallenge(
-          toUserId: friend.friendId,
-          toUsername: friend.friendUsername,
+          toUserId: friend.friendUid,
+          toUsername: friend.displayName,
         );
     if (context.mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Challenge sent to ${friend.friendUsername}')),
+        SnackBar(content: Text('Challenge sent to ${friend.displayName}')),
       );
     }
   }
 
-  void _confirmRemove(BuildContext context, WidgetRef ref, Friend friend) {
+  void _confirmRemove(BuildContext context, WidgetRef ref, Friendship friend) {
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
         title: const Text('Remove Friend?'),
-        content: Text('Remove ${friend.friendUsername} from your friends?'),
+        content: Text('Remove ${friend.displayName} from your friends?'),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context),
@@ -157,12 +153,13 @@ class _RequestsTab extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final requests = ref.watch(pendingFriendRequestsProvider);
+    final me = ref.watch(currentUserProvider).value;
 
     return requests.when(
       loading: () => const Center(child: CircularProgressIndicator()),
       error: (error, stack) => Center(child: Text('Error: $error')),
       data: (list) {
-        if (list.isEmpty) {
+        if (list.isEmpty || me == null) {
           return const Center(child: Text('No pending friend requests'));
         }
 
@@ -172,36 +169,42 @@ class _RequestsTab extends ConsumerWidget {
           separatorBuilder: (_, __) => const SizedBox(height: 8),
           itemBuilder: (context, index) {
             final request = list[index];
+            // A request the viewer sent themselves shows "sent" + cancel;
+            // one they received shows accept/decline.
+            final isOutgoing = request.wasRequestedBy(me.uid);
+
             return Card(
               child: ListTile(
-                leading: CircleAvatar(
-                  backgroundImage: request.fromAvatar.isNotEmpty
-                      ? NetworkImage(request.fromAvatar)
-                      : null,
-                  child: request.fromAvatar.isEmpty
-                      ? const Icon(Icons.person)
-                      : null,
-                ),
-                title: Text(request.fromUsername),
-                trailing: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    IconButton(
-                      icon: const Icon(Icons.check_circle, color: Colors.green),
-                      tooltip: 'Accept',
-                      onPressed: () => ref
-                          .read(friendActionsProvider.notifier)
-                          .acceptRequest(request),
-                    ),
-                    IconButton(
-                      icon: const Icon(Icons.cancel, color: Colors.red),
-                      tooltip: 'Decline',
-                      onPressed: () => ref
-                          .read(friendActionsProvider.notifier)
-                          .rejectRequest(request),
-                    ),
-                  ],
-                ),
+                leading: const CircleAvatar(child: Icon(Icons.person)),
+                title: Text(request.displayName),
+                subtitle: isOutgoing ? const Text('Request sent') : null,
+                trailing: isOutgoing
+                    ? TextButton(
+                        onPressed: () => ref
+                            .read(friendActionsProvider.notifier)
+                            .rejectRequest(request),
+                        child: const Text('Cancel'),
+                      )
+                    : Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          IconButton(
+                            icon: const Icon(Icons.check_circle,
+                                color: Colors.green),
+                            tooltip: 'Accept',
+                            onPressed: () => ref
+                                .read(friendActionsProvider.notifier)
+                                .acceptRequest(request),
+                          ),
+                          IconButton(
+                            icon: const Icon(Icons.cancel, color: Colors.red),
+                            tooltip: 'Decline',
+                            onPressed: () => ref
+                                .read(friendActionsProvider.notifier)
+                                .rejectRequest(request),
+                          ),
+                        ],
+                      ),
               ),
             );
           },

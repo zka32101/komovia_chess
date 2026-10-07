@@ -19,6 +19,14 @@ service cloud.firestore {
              get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin';
     }
 
+    function unchanged(field) {
+      return request.resource.data[field] == resource.data[field];
+    }
+
+    function onlyChanged(fields) {
+      return request.resource.data.diff(resource.data).affectedKeys().hasOnly(fields);
+    }
+
     // ============================================
     // Users Collection
     // ============================================
@@ -32,6 +40,91 @@ service cloud.firestore {
 
       // ✅ 削除は本人またはadminのみ
       allow delete: if isOwner(userId) || isAdmin();
+
+      // ----------------------------------------------
+      // Friendships (users/{uid}/friends/{friendUid})
+      // ----------------------------------------------
+      // `FriendService` denormalizes a relationship onto BOTH sides' own
+      // `friends` subcollection in one batch (sendFriendRequest,
+      // acceptFriendRequest, blockFriend, ...), so a user must also be able
+      // to touch their OWN mirror entry (friendUid == caller) inside
+      // another user's list. Kept narrow: a new entry must be a pending
+      // request that points back at the caller and records who sent it, an
+      // existing entry may only move to accepted/blocked (and only the side
+      // that did NOT send the request can accept it), and the caller may
+      // always remove their own mirror (covers decline/cancel/unfriend/
+      // undoing a block mirror on unblockFriend — see FriendService).
+      match /friends/{friendUid} {
+        allow read: if isOwner(userId);
+        allow create: if isOwner(friendUid) &&
+          request.resource.data.uid == request.auth.uid &&
+          request.resource.data.status == 'pending' &&
+          request.resource.data.requestedBy == request.auth.uid;
+        allow update: if isOwner(friendUid) &&
+          unchanged('uid') &&
+          onlyChanged(['status', 'blockedBy']) &&
+          (
+            request.resource.data.status == 'blocked' ||
+            (request.resource.data.status == 'accepted' &&
+              resource.data.get('requestedBy', null) != request.auth.uid)
+          );
+        allow delete: if isOwner(friendUid);
+      }
+
+      // Cross-user: a friend-request/accept notification is written into
+      // the OTHER party's inbox by `FriendService`.
+      match /notifications/{notificationId} {
+        allow read, update, delete: if isOwner(userId);
+        allow create: if isSignedIn() && request.resource.data.uid == userId;
+      }
+    }
+
+    // ============================================
+    // Tournaments Collection
+    // ============================================
+    // `Tournament`/`TournamentParticipant`/`TournamentMatch` are
+    // `package:komovia_core`'s shared shapes — see `phase_k_models.dart`'s
+    // doc comment on the models these replaced.
+    match /tournaments/{tournamentId} {
+      allow read: if isSignedIn();
+      allow create: if isSignedIn() && request.resource.data.createdBy == request.auth.uid;
+      allow update: if isSignedIn() && (
+        // Organizer: any field (status, participantUids after a bracket is
+        // regenerated, etc.)
+        resource.data.createdBy == request.auth.uid ||
+        // Any signed-in user may append only themselves to participantUids
+        // (registerParticipant).
+        (onlyChanged(['participantUids']) &&
+         request.resource.data.participantUids == resource.data.participantUids.concat([request.auth.uid]))
+      );
+      allow delete: if isSignedIn() && resource.data.createdBy == request.auth.uid;
+
+      match /participants/{participantUid} {
+        allow read: if isSignedIn();
+        // registerParticipant writes the caller's own participant doc,
+        // inside the same transaction as the tournament's participantUids
+        // update above.
+        allow create: if isOwner(participantUid);
+        // recordMatchResult increments a participant's own wins/losses/
+        // points from the match's winner/loser side, not necessarily the
+        // participant themselves — restricted to the tournament organizer,
+        // who is the one actually calling it (there is no per-match result
+        // -reporting flow in this app yet, unlike sibling apps' PvpGame
+        // -backed tournaments).
+        allow update: if isOwner(participantUid) ||
+          (isSignedIn() &&
+           get(/databases/$(database)/documents/tournaments/$(tournamentId)).data.createdBy == request.auth.uid);
+        allow delete: if isOwner(participantUid);
+      }
+
+      match /matches/{matchId} {
+        allow read: if isSignedIn();
+        // Bracket generation and result recording are both currently done
+        // by the organizer (see tournament_service.dart — this app has no
+        // PvpGame-backed per-match result flow yet, unlike sibling apps).
+        allow write: if isSignedIn() &&
+          get(/databases/$(database)/documents/tournaments/$(tournamentId)).data.createdBy == request.auth.uid;
+      }
     }
 
     // ============================================

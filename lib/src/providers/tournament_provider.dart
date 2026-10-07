@@ -1,5 +1,6 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import '../models/phase_k_models.dart';
+import 'package:komovia_core/komovia_core.dart';
+import '../models/phase_k_models.dart' show TournamentRanking;
 import '../services/tournament_service.dart';
 import 'auth_provider.dart';
 
@@ -17,9 +18,16 @@ final tournamentDetailsProvider =
   return ref.watch(tournamentServiceProvider).getTournament(tournamentId);
 });
 
+/// `entryFee`/`prizePool`/`timeControl` — chess-specific fields kept outside
+/// the shared `Tournament` model (see `tournament_service.dart`).
+final tournamentExtrasProvider =
+    FutureProvider.family<Map<String, dynamic>, String>((ref, tournamentId) {
+  return ref.watch(tournamentServiceProvider).getTournamentExtras(tournamentId);
+});
+
 /// A tournament's current standings, ranked by points then wins.
 final tournamentStandingsProvider =
-    FutureProvider.family<TournamentStandings, String>((ref, tournamentId) {
+    FutureProvider.family<List<TournamentRanking>, String>((ref, tournamentId) {
   return ref.watch(tournamentServiceProvider).getStandings(tournamentId);
 });
 
@@ -44,13 +52,13 @@ class TournamentActionsNotifier extends StateNotifier<AsyncValue<void>> {
     state = const AsyncValue.loading();
     try {
       await _ref.read(tournamentServiceProvider).registerParticipant(
-            tournament.tournamentId,
+            tournament.id,
             me.uid,
             me.displayName ?? 'Anonymous',
             me.rating,
           );
       _ref.invalidate(activeTournamentsProvider);
-      _ref.invalidate(tournamentDetailsProvider(tournament.tournamentId));
+      _ref.invalidate(tournamentDetailsProvider(tournament.id));
       state = const AsyncValue.data(null);
     } catch (e, st) {
       state = AsyncValue.error(e, st);
