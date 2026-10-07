@@ -1,8 +1,56 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import '../models/notification.dart';
+import 'package:komovia_core/komovia_core.dart';
 import '../providers/auth_provider.dart';
 import '../providers/notification_provider.dart';
+
+// `AppNotification.type` is a plain string (komovia_core doesn't define
+// a fixed enum of notification types - see its own doc comments), so the
+// icon/color dispatch that used to live as methods on this app's own
+// AppNotification model now lives here instead, the same place
+// komovia_go moved its equivalent per-type dispatch to when it made this
+// same migration.
+String _iconForType(String type) {
+  switch (type) {
+    case 'friend_request':
+      return '🤝';
+    case 'game_matched':
+      return '👥';
+    case 'game_turn':
+      return '♟️';
+    case 'game_ended':
+      return '🏁';
+    case 'rating_changed':
+      return '📊';
+    case 'achievement':
+      return '🏆';
+    case 'message':
+      return '💬';
+    default:
+      return '🔔';
+  }
+}
+
+Color _colorForType(String type) {
+  switch (type) {
+    case 'friend_request':
+      return const Color(0xff9C27B0);
+    case 'game_matched':
+      return const Color(0xff4CAF50);
+    case 'game_turn':
+      return const Color(0xff2196F3);
+    case 'game_ended':
+      return const Color(0xffFF9800);
+    case 'rating_changed':
+      return const Color(0xff00BCD4);
+    case 'achievement':
+      return const Color(0xffFFC107);
+    case 'message':
+      return const Color(0xff3F51B5);
+    default:
+      return const Color(0xff607D8B);
+  }
+}
 
 /// Notifications screen displaying all user notifications
 class NotificationsScreen extends ConsumerWidget {
@@ -134,10 +182,11 @@ class NotificationsScreen extends ConsumerWidget {
       child: InkWell(
         onTap: () async {
           if (!notification.isRead) {
-            await service.markAsRead(userId, notification.notificationId);
+            await service.markAsRead(userId, notification.id);
           }
-          if (notification.actionUrl != null) {
-            _navigateToAction(context, notification.actionUrl!);
+          final actionUrl = notification.data?['actionUrl'] as String?;
+          if (actionUrl != null) {
+            _navigateToAction(context, actionUrl);
           }
         },
         child: Container(
@@ -150,16 +199,12 @@ class NotificationsScreen extends ConsumerWidget {
                 width: 48,
                 height: 48,
                 decoration: BoxDecoration(
-                  color: Color(
-                    int.parse(
-                      notification.getColor().replaceFirst('#', '0xff'),
-                    ),
-                  ).withOpacity(0.1),
+                  color: _colorForType(notification.type).withOpacity(0.1),
                   shape: BoxShape.circle,
                 ),
                 child: Center(
                   child: Text(
-                    notification.getIcon(),
+                    _iconForType(notification.type),
                     style: const TextStyle(fontSize: 24),
                   ),
                 ),
@@ -189,13 +234,7 @@ class NotificationsScreen extends ConsumerWidget {
                             width: 8,
                             height: 8,
                             decoration: BoxDecoration(
-                              color: Color(
-                                int.parse(
-                                  notification
-                                      .getColor()
-                                      .replaceFirst('#', '0xff'),
-                                ),
-                              ),
+                              color: _colorForType(notification.type),
                               shape: BoxShape.circle,
                             ),
                           ),
@@ -228,7 +267,7 @@ class NotificationsScreen extends ConsumerWidget {
                                 onPressed: () async {
                                   await service.markAsRead(
                                     userId,
-                                    notification.notificationId,
+                                    notification.id,
                                   );
                                 },
                                 icon: const Icon(Icons.done_all, size: 16),
@@ -243,7 +282,7 @@ class NotificationsScreen extends ConsumerWidget {
                               onPressed: () async {
                                 await service.deleteNotification(
                                   userId,
-                                  notification.notificationId,
+                                  notification.id,
                                 );
                               },
                               icon: const Icon(Icons.delete, size: 16),
