@@ -6,7 +6,7 @@ part 'performance_stats.g.dart';
 
 /// Comprehensive performance statistics for a player
 @freezed
-class PerformanceStats with _$PerformanceStats {
+abstract class PerformanceStats with _$PerformanceStats {
   const factory PerformanceStats({
     required String playerId,
     required List<RatingProgression> progressionLast30Days,

@@ -4,7 +4,7 @@ part 'analytics_models.freezed.dart';
 part 'analytics_models.g.dart';
 
 @freezed
-class PerformanceMetrics with _$PerformanceMetrics {
+abstract class PerformanceMetrics with _$PerformanceMetrics {
   const factory PerformanceMetrics({
     required String operationName,
     required int durationMs,
@@ -19,7 +19,7 @@ class PerformanceMetrics with _$PerformanceMetrics {
 }
 
 @freezed
-class QueryPerformanceTrend with _$QueryPerformanceTrend {
+abstract class QueryPerformanceTrend with _$QueryPerformanceTrend {
   const factory QueryPerformanceTrend({
     required String queryType,
     required int p50Latency,
@@ -35,7 +35,7 @@ class QueryPerformanceTrend with _$QueryPerformanceTrend {
 }
 
 @freezed
-class UserEngagementMetrics with _$UserEngagementMetrics {
+abstract class UserEngagementMetrics with _$UserEngagementMetrics {
   const factory UserEngagementMetrics({
     required String userId,
     required int sessionsCount,
@@ -50,7 +50,7 @@ class UserEngagementMetrics with _$UserEngagementMetrics {
 }
 
 @freezed
-class CacheAnalytics with _$CacheAnalytics {
+abstract class CacheAnalytics with _$CacheAnalytics {
   const factory CacheAnalytics({
     required String cacheName,
     required int hitCount,
@@ -66,7 +66,7 @@ class CacheAnalytics with _$CacheAnalytics {
 }
 
 @freezed
-class CompetitiveFeatureStats with _$CompetitiveFeatureStats {
+abstract class CompetitiveFeatureStats with _$CompetitiveFeatureStats {
   const factory CompetitiveFeatureStats({
     required String feature,
     required int activeUsers,
@@ -81,7 +81,7 @@ class CompetitiveFeatureStats with _$CompetitiveFeatureStats {
 }
 
 @freezed
-class RetentionMetrics with _$RetentionMetrics {
+abstract class RetentionMetrics with _$RetentionMetrics {
   const factory RetentionMetrics({
     required String cohortDate,
     required int cohortSize,
@@ -96,7 +96,7 @@ class RetentionMetrics with _$RetentionMetrics {
 }
 
 @freezed
-class BuildMetrics with _$BuildMetrics {
+abstract class BuildMetrics with _$BuildMetrics {
   const factory BuildMetrics({
     required String version,
     required int apkSizeMb,
@@ -112,7 +112,7 @@ class BuildMetrics with _$BuildMetrics {
 }
 
 @freezed
-class DashboardKPI with _$DashboardKPI {
+abstract class DashboardKPI with _$DashboardKPI {
   const factory DashboardKPI({
     required String label,
     required String value,
@@ -129,7 +129,7 @@ class DashboardKPI with _$DashboardKPI {
 
 /// Game statistics for a player
 @freezed
-class GameStats with _$GameStats {
+abstract class GameStats with _$GameStats {
   const factory GameStats({
     required int totalGames,
     required int wins,
@@ -147,7 +147,7 @@ class GameStats with _$GameStats {
 
 /// Performance metrics over time
 @freezed
-class PerformanceMetric with _$PerformanceMetric {
+abstract class PerformanceMetric with _$PerformanceMetric {
   const factory PerformanceMetric({
     required DateTime timestamp,
     required double accuracy,
@@ -162,7 +162,7 @@ class PerformanceMetric with _$PerformanceMetric {
 
 /// Aggregated performance data for trends
 @freezed
-class PerformanceTrend with _$PerformanceTrend {
+abstract class PerformanceTrend with _$PerformanceTrend {
   const factory PerformanceTrend({
     required List<PerformanceMetric> metrics,
     required double trendDirection,
@@ -177,7 +177,7 @@ class PerformanceTrend with _$PerformanceTrend {
 
 /// Difficulty-specific performance breakdown
 @freezed
-class DifficultyBreakdown with _$DifficultyBreakdown {
+abstract class DifficultyBreakdown with _$DifficultyBreakdown {
   const factory DifficultyBreakdown({
     required String difficulty,
     required int gamesPlayed,
@@ -192,7 +192,7 @@ class DifficultyBreakdown with _$DifficultyBreakdown {
 
 /// Streak information
 @freezed
-class StreakInfo with _$StreakInfo {
+abstract class StreakInfo with _$StreakInfo {
   const factory StreakInfo({
     required int currentWinStreak,
     required int longestWinStreak,
@@ -207,7 +207,7 @@ class StreakInfo with _$StreakInfo {
 
 /// Overall player analytics dashboard
 @freezed
-class PlayerAnalyticsDashboard with _$PlayerAnalyticsDashboard {
+abstract class PlayerAnalyticsDashboard with _$PlayerAnalyticsDashboard {
   const factory PlayerAnalyticsDashboard({
     required String userId,
     required GameStats gameStats,

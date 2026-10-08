@@ -35,7 +35,7 @@ enum ActionType {
 }
 
 @freezed
-class ChangelogEntry with _$ChangelogEntry {
+abstract class ChangelogEntry with _$ChangelogEntry {
   const factory ChangelogEntry({
     required String id,
     required ChangeType type,
@@ -50,7 +50,7 @@ class ChangelogEntry with _$ChangelogEntry {
 }
 
 @freezed
-class AppVersion with _$AppVersion {
+abstract class AppVersion with _$AppVersion {
   const factory AppVersion({
     required String versionNumber,
     required int buildNumber,
@@ -68,7 +68,7 @@ class AppVersion with _$AppVersion {
 }
 
 @freezed
-class UpdateNotification with _$UpdateNotification {
+abstract class UpdateNotification with _$UpdateNotification {
   const factory UpdateNotification({
     required String id,
     required String userId,
@@ -87,7 +87,7 @@ class UpdateNotification with _$UpdateNotification {
 }
 
 @freezed
-class VersionStat with _$VersionStat {
+abstract class VersionStat with _$VersionStat {
   const factory VersionStat({
     required String version,
     required int activeUsers,

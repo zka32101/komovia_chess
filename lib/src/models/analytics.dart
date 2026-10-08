@@ -50,7 +50,7 @@ enum AnalyticsEventType {
 
 /// Analytics event model
 @freezed
-class AnalyticsEvent with _$AnalyticsEvent {
+abstract class AnalyticsEvent with _$AnalyticsEvent {
   const factory AnalyticsEvent({
     required String eventName,
     required AnalyticsEventType eventType,
@@ -66,7 +66,7 @@ class AnalyticsEvent with _$AnalyticsEvent {
 
 /// User property for analytics
 @freezed
-class UserAnalyticsProperty with _$UserAnalyticsProperty {
+abstract class UserAnalyticsProperty with _$UserAnalyticsProperty {
   const factory UserAnalyticsProperty({
     required String userId,
     required String propertyName,
@@ -80,7 +80,7 @@ class UserAnalyticsProperty with _$UserAnalyticsProperty {
 
 /// Game analytics data
 @freezed
-class GameAnalyticsData with _$GameAnalyticsData {
+abstract class GameAnalyticsData with _$GameAnalyticsData {
   const factory GameAnalyticsData({
     required String gameId,
     required String gameType, // 'puzzle', 'cpu', 'online_pvp'
@@ -99,7 +99,7 @@ class GameAnalyticsData with _$GameAnalyticsData {
 
 /// Screen view tracking
 @freezed
-class ScreenViewData with _$ScreenViewData {
+abstract class ScreenViewData with _$ScreenViewData {
   const factory ScreenViewData({
     required String screenName,
     required String screenClass,
@@ -114,7 +114,7 @@ class ScreenViewData with _$ScreenViewData {
 
 /// Analytics session
 @freezed
-class AnalyticsSession with _$AnalyticsSession {
+abstract class AnalyticsSession with _$AnalyticsSession {
   const factory AnalyticsSession({
     required String sessionId,
     required String userId,
@@ -137,7 +137,7 @@ class AnalyticsSession with _$AnalyticsSession {
 
 /// Cohort analysis
 @freezed
-class CohortAnalytics with _$CohortAnalytics {
+abstract class CohortAnalytics with _$CohortAnalytics {
   const factory CohortAnalytics({
     required String cohortId,
     required DateTime cohortDate,
@@ -155,7 +155,7 @@ class CohortAnalytics with _$CohortAnalytics {
 
 /// User engagement metrics
 @freezed
-class EngagementMetrics with _$EngagementMetrics {
+abstract class EngagementMetrics with _$EngagementMetrics {
   const factory EngagementMetrics({
     required String userId,
     required int totalSessions,

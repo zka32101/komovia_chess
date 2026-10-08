@@ -35,7 +35,7 @@ enum LessonStatus {
 }
 
 @freezed
-class ChessLesson with _$ChessLesson {
+abstract class ChessLesson with _$ChessLesson {
   const factory ChessLesson({
     required String id,
     required String title,
@@ -60,7 +60,7 @@ class ChessLesson with _$ChessLesson {
 }
 
 @freezed
-class OpeningExplanation with _$OpeningExplanation {
+abstract class OpeningExplanation with _$OpeningExplanation {
   const factory OpeningExplanation({
     required String id,
     required String name,
@@ -86,7 +86,7 @@ class OpeningExplanation with _$OpeningExplanation {
 }
 
 @freezed
-class TacticsPattern with _$TacticsPattern {
+abstract class TacticsPattern with _$TacticsPattern {
   const factory TacticsPattern({
     required String id,
     required String name,
@@ -106,7 +106,7 @@ class TacticsPattern with _$TacticsPattern {
 }
 
 @freezed
-class StrategyGuide with _$StrategyGuide {
+abstract class StrategyGuide with _$StrategyGuide {
   const factory StrategyGuide({
     required String id,
     required String title,
@@ -126,7 +126,7 @@ class StrategyGuide with _$StrategyGuide {
 }
 
 @freezed
-class UserLessonProgress with _$UserLessonProgress {
+abstract class UserLessonProgress with _$UserLessonProgress {
   const factory UserLessonProgress({
     required String id,
     required String userId,
@@ -147,7 +147,7 @@ class UserLessonProgress with _$UserLessonProgress {
 }
 
 @freezed
-class LessonCollection with _$LessonCollection {
+abstract class LessonCollection with _$LessonCollection {
   const factory LessonCollection({
     required String id,
     required String name,

@@ -6,7 +6,7 @@ part 'head_to_head_stats.g.dart';
 
 /// Head-to-head statistics between two players
 @freezed
-class HeadToHeadStats with _$HeadToHeadStats {
+abstract class HeadToHeadStats with _$HeadToHeadStats {
   const factory HeadToHeadStats({
     required String player1Id,
     required String player2Id,

@@ -17,7 +17,7 @@ enum RoadmapStatus {
 }
 
 @freezed
-class RoadmapItem with _$RoadmapItem {
+abstract class RoadmapItem with _$RoadmapItem {
   const factory RoadmapItem({
     required String id,
     required String title,
@@ -49,7 +49,7 @@ enum TestStatus {
 }
 
 @freezed
-class Variant with _$Variant {
+abstract class Variant with _$Variant {
   const factory Variant({
     required String id,
     required String name,
@@ -64,7 +64,7 @@ class Variant with _$Variant {
 }
 
 @freezed
-class TestResult with _$TestResult {
+abstract class TestResult with _$TestResult {
   const factory TestResult({
     required Map<String, double> controlVariantMetrics,
     required Map<String, double> treatmentVariantMetrics,
@@ -78,7 +78,7 @@ class TestResult with _$TestResult {
 }
 
 @freezed
-class ABTest with _$ABTest {
+abstract class ABTest with _$ABTest {
   const factory ABTest({
     required String id,
     required String name,

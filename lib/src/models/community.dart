@@ -35,7 +35,7 @@ enum ChallengeStatus {
 }
 
 @freezed
-class UserProfile with _$UserProfile {
+abstract class UserProfile with _$UserProfile {
   const factory UserProfile({
     required String userId,
     required String displayName,
@@ -56,7 +56,7 @@ class UserProfile with _$UserProfile {
 }
 
 @freezed
-class CommunityPost with _$CommunityPost {
+abstract class CommunityPost with _$CommunityPost {
   const factory CommunityPost({
     required String id,
     required String authorId,
@@ -74,7 +74,7 @@ class CommunityPost with _$CommunityPost {
 }
 
 @freezed
-class PuzzleChallenge with _$PuzzleChallenge {
+abstract class PuzzleChallenge with _$PuzzleChallenge {
   const factory PuzzleChallenge({
     required String id,
     required String challengerId,
@@ -92,7 +92,7 @@ class PuzzleChallenge with _$PuzzleChallenge {
 }
 
 @freezed
-class CommunityGroup with _$CommunityGroup {
+abstract class CommunityGroup with _$CommunityGroup {
   const factory CommunityGroup({
     required String id,
     required String name,
@@ -123,7 +123,7 @@ enum FlagReason {
 }
 
 @freezed
-class FlaggedContent with _$FlaggedContent {
+abstract class FlaggedContent with _$FlaggedContent {
   const factory FlaggedContent({
     required String id,
     required String contentId,

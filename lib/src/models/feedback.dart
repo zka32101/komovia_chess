@@ -52,7 +52,7 @@ enum RequestStatus {
 }
 
 @freezed
-class UserFeedback with _$UserFeedback {
+abstract class UserFeedback with _$UserFeedback {
   const factory UserFeedback({
     required String id,
     required String userId,
@@ -70,7 +70,7 @@ class UserFeedback with _$UserFeedback {
 }
 
 @freezed
-class BugReport with _$BugReport {
+abstract class BugReport with _$BugReport {
   const factory BugReport({
     required String id,
     required String userId,
@@ -91,7 +91,7 @@ class BugReport with _$BugReport {
 }
 
 @freezed
-class FeatureRequest with _$FeatureRequest {
+abstract class FeatureRequest with _$FeatureRequest {
   const factory FeatureRequest({
     required String id,
     required String userId,

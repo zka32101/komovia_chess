@@ -26,7 +26,7 @@ enum CrashStatus {
 }
 
 @freezed
-class PerformanceMetric with _$PerformanceMetric {
+abstract class PerformanceMetric with _$PerformanceMetric {
   const factory PerformanceMetric({
     required String id,
     required MetricType type,
@@ -44,7 +44,7 @@ class PerformanceMetric with _$PerformanceMetric {
 }
 
 @freezed
-class CrashReport with _$CrashReport {
+abstract class CrashReport with _$CrashReport {
   const factory CrashReport({
     required String id,
     required String userId,
@@ -62,7 +62,7 @@ class CrashReport with _$CrashReport {
 }
 
 @freezed
-class OptimizationSuggestion with _$OptimizationSuggestion {
+abstract class OptimizationSuggestion with _$OptimizationSuggestion {
   const factory OptimizationSuggestion({
     required String id,
     required String component,

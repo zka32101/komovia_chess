@@ -5,7 +5,7 @@ part 'purchase_result.g.dart';
 
 /// Result of a purchase operation
 @freezed
-class PurchaseResult with _$PurchaseResult {
+abstract class PurchaseResult with _$PurchaseResult {
   /// Successful purchase
   const factory PurchaseResult.success({
     required String transactionId,
@@ -31,7 +31,7 @@ class PurchaseResult with _$PurchaseResult {
 
 /// Purchase error details
 @freezed
-class PurchaseErrorDetail with _$PurchaseErrorDetail {
+abstract class PurchaseErrorDetail with _$PurchaseErrorDetail {
   const factory PurchaseErrorDetail({
     required String code,
     required String message,

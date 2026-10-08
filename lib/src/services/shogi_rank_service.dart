@@ -210,7 +210,7 @@ class ShogiRankService {
 
 /// 将棋の段位を表すクラス
 @freezed
-class ShogiRank with _$ShogiRank {
+abstract class ShogiRank with _$ShogiRank {
   const factory ShogiRank.dan(int level) = _Dan;
   const factory ShogiRank.kyu(int level) = _Kyu;
 
