@@ -4,7 +4,7 @@ part 'puzzle.freezed.dart';
 part 'puzzle.g.dart';
 
 @freezed
-class PuzzleModel with _$PuzzleModel {
+abstract class PuzzleModel with _$PuzzleModel {
   const factory PuzzleModel({
     required String id,
     required String fen,
@@ -20,7 +20,7 @@ class PuzzleModel with _$PuzzleModel {
 }
 
 @freezed
-class UserPuzzleResultModel with _$UserPuzzleResultModel {
+abstract class UserPuzzleResultModel with _$UserPuzzleResultModel {
   const factory UserPuzzleResultModel({
     required String userId,
     required String puzzleId,
@@ -35,7 +35,7 @@ class UserPuzzleResultModel with _$UserPuzzleResultModel {
 }
 
 @freezed
-class DailyChallengeModel with _$DailyChallengeModel {
+abstract class DailyChallengeModel with _$DailyChallengeModel {
   const factory DailyChallengeModel({
     required String date,
     required String theme,

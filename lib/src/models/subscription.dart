@@ -42,7 +42,7 @@ enum PremiumFeature {
 
 /// User subscription model
 @freezed
-class UserSubscription with _$UserSubscription {
+abstract class UserSubscription with _$UserSubscription {
   const factory UserSubscription({
     required String userId,
     required SubscriptionTier currentTier,
@@ -78,7 +78,7 @@ class UserSubscription with _$UserSubscription {
 
 /// Subscription offering
 @freezed
-class SubscriptionOffering with _$SubscriptionOffering {
+abstract class SubscriptionOffering with _$SubscriptionOffering {
   const factory SubscriptionOffering({
     required SubscriptionTier tier,
     required String packageId,
@@ -96,7 +96,7 @@ class SubscriptionOffering with _$SubscriptionOffering {
 
 /// RevenueCat entitlement
 @freezed
-class Entitlement with _$Entitlement {
+abstract class Entitlement with _$Entitlement {
   const factory Entitlement({
     required String identifier,
     required bool isActive,
@@ -111,7 +111,7 @@ class Entitlement with _$Entitlement {
 
 /// Paywall data with offerings
 @freezed
-class PaywallData with _$PaywallData {
+abstract class PaywallData with _$PaywallData {
   const factory PaywallData({
     required List<SubscriptionOffering> offerings,
     required String? introductoryOffer,
@@ -125,7 +125,7 @@ class PaywallData with _$PaywallData {
 
 /// Purchase record
 @freezed
-class PurchaseRecord with _$PurchaseRecord {
+abstract class PurchaseRecord with _$PurchaseRecord {
   const factory PurchaseRecord({
     required String transactionId,
     required String productId,

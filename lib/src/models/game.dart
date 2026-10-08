@@ -4,7 +4,7 @@ part 'game.freezed.dart';
 part 'game.g.dart';
 
 @freezed
-class GameModel with _$GameModel {
+abstract class GameModel with _$GameModel {
   const factory GameModel({
     required String gameId,
     required String type, // 'online_pvp', 'cpu', 'puzzle'

@@ -30,7 +30,7 @@ DateTime _requiredDateTimeFromTimestamp(Object? json) =>
 // `leaderboard_provider.dart` / the `screens/ranking/*` screens) uses.
 
 @freezed
-class LeaderboardHistory with _$LeaderboardHistory {
+abstract class LeaderboardHistory with _$LeaderboardHistory {
   const factory LeaderboardHistory({
     required String userId,
     required DateTime timestamp,
@@ -44,7 +44,7 @@ class LeaderboardHistory with _$LeaderboardHistory {
 }
 
 @freezed
-class RankingStats with _$RankingStats {
+abstract class RankingStats with _$RankingStats {
   const factory RankingStats({
     required String userId,
     required int currentRating,
@@ -72,7 +72,7 @@ class RankingStats with _$RankingStats {
 // `friends_screen.dart` for its friendUid-keyed call sites.
 
 @freezed
-class FriendActivity with _$FriendActivity {
+abstract class FriendActivity with _$FriendActivity {
   const factory FriendActivity({
     required String activityId,
     required String userId,
@@ -92,7 +92,7 @@ class FriendActivity with _$FriendActivity {
 // ========== Challenge System Models ==========
 
 @freezed
-class Challenge with _$Challenge {
+abstract class Challenge with _$Challenge {
   const factory Challenge({
     required String challengeId,
     required String challengerUserId,
@@ -119,7 +119,7 @@ class Challenge with _$Challenge {
 }
 
 @freezed
-class ChallengeStreak with _$ChallengeStreak {
+abstract class ChallengeStreak with _$ChallengeStreak {
   const factory ChallengeStreak({
     required String userId,
     required int currentStreak,
@@ -137,7 +137,7 @@ class ChallengeStreak with _$ChallengeStreak {
 }
 
 @freezed
-class ChallengeResult with _$ChallengeResult {
+abstract class ChallengeResult with _$ChallengeResult {
   const factory ChallengeResult({
     required String resultId,
     required String challengeId,
@@ -176,7 +176,7 @@ class ChallengeResult with _$ChallengeResult {
 // `TournamentParticipant` model itself.
 
 @freezed
-class TournamentStandings with _$TournamentStandings {
+abstract class TournamentStandings with _$TournamentStandings {
   const factory TournamentStandings({
     required String tournamentId,
     required List<TournamentRanking> rankings,
@@ -188,7 +188,7 @@ class TournamentStandings with _$TournamentStandings {
 }
 
 @freezed
-class TournamentRanking with _$TournamentRanking {
+abstract class TournamentRanking with _$TournamentRanking {
   const factory TournamentRanking({
     required int position,
     required String userId,
@@ -206,7 +206,7 @@ class TournamentRanking with _$TournamentRanking {
 }
 
 @freezed
-class TournamentPrize with _$TournamentPrize {
+abstract class TournamentPrize with _$TournamentPrize {
   const factory TournamentPrize({
     required String prizeId,
     required String tournamentId,
@@ -223,7 +223,7 @@ class TournamentPrize with _$TournamentPrize {
 // ========== Activity Feed Models ==========
 
 @freezed
-class SocialActivity with _$SocialActivity {
+abstract class SocialActivity with _$SocialActivity {
   const factory SocialActivity({
     required String activityId,
     required String userId,
@@ -241,7 +241,7 @@ class SocialActivity with _$SocialActivity {
 }
 
 @freezed
-class LeaderboardComparison with _$LeaderboardComparison {
+abstract class LeaderboardComparison with _$LeaderboardComparison {
   const factory LeaderboardComparison({
     required String userId1,
     required String username1,

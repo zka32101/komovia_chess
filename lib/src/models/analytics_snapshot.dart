@@ -5,7 +5,7 @@ part 'analytics_snapshot.g.dart';
 
 /// Monthly analytics snapshot for a player
 @freezed
-class AnalyticsSnapshot with _$AnalyticsSnapshot {
+abstract class AnalyticsSnapshot with _$AnalyticsSnapshot {
   const factory AnalyticsSnapshot({
     required String playerId,
     required int monthYear, // e.g., 202608 for Aug 2026

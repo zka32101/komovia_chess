@@ -5,7 +5,7 @@ part 'rating_progression.g.dart';
 
 /// Represents a daily rating snapshot for progression tracking
 @freezed
-class RatingProgression with _$RatingProgression {
+abstract class RatingProgression with _$RatingProgression {
   const factory RatingProgression({
     required DateTime date,
     required int rating,

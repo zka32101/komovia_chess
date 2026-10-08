@@ -5,7 +5,7 @@ part 'match_record.g.dart';
 
 /// Represents a single match/game record
 @freezed
-class MatchRecord with _$MatchRecord {
+abstract class MatchRecord with _$MatchRecord {
   const factory MatchRecord({
     required String matchId,
     required String playerId,
