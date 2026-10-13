@@ -27,6 +27,10 @@ service cloud.firestore {
       return request.resource.data.diff(resource.data).affectedKeys().hasOnly(fields);
     }
 
+    function isParticipant(ids) {
+      return isSignedIn() && request.auth.uid in ids;
+    }
+
     // ============================================
     // Users Collection
     // ============================================
@@ -167,6 +171,38 @@ service cloud.firestore {
 
       // ✅ システムのみ書き込み可能
       allow write: if false;
+    }
+
+    // ============================================
+    // Direct Messages (message_threads/{threadId})
+    // ============================================
+    // Private 1:1 DMs between friends. threadId is always the two
+    // participants' uids sorted and joined (see
+    // `DirectMessageService.threadIdFor`), so participantUids is exactly
+    // 2 fixed uids that never change for the life of the thread.
+    match /message_threads/{threadId} {
+      allow read: if isParticipant(resource.data.participantUids);
+      allow create: if isSignedIn() &&
+        request.auth.uid in request.resource.data.participantUids &&
+        request.resource.data.participantUids.size() == 2;
+      // Sending a later message and marking the thread read both go
+      // through this same merge-set; only a participant can write, and
+      // the two participants themselves can never change.
+      allow update: if isParticipant(resource.data.participantUids) &&
+        request.resource.data.participantUids == resource.data.participantUids;
+      allow delete: if false;
+
+      match /messages/{messageId} {
+        function threadParticipants() {
+          return get(/databases/$(database)/documents/message_threads/$(threadId)).data.participantUids;
+        }
+
+        allow read: if isParticipant(threadParticipants());
+        allow create: if isSignedIn() &&
+          request.auth.uid == request.resource.data.fromUid &&
+          isParticipant(threadParticipants());
+        allow update, delete: if false;
+      }
     }
 
     // ============================================

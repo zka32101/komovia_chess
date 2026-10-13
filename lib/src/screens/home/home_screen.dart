@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../models/user.dart';
 import '../../providers/auth_provider.dart';
 import '../../providers/notification_provider.dart';
+import '../../providers/direct_message_provider.dart';
 import '../../utils/animations.dart';
 import '../puzzle/puzzle_screen.dart';
 import '../settings/settings_screen.dart';
@@ -11,6 +12,7 @@ import '../online/matchmaking_screen.dart';
 import '../game/cpu_game_selection_screen.dart';
 import '../premium/premium_screen.dart';
 import '../notifications_screen.dart';
+import '../messages/message_threads_screen.dart';
 import '../ranking/leaderboard_screen.dart';
 import '../learn/learn_hub_screen.dart';
 
@@ -77,6 +79,61 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
         },
       );
 
+  Widget _buildMessagesButton(
+    BuildContext context,
+    AsyncValue<UserModel?> userAsync,
+  ) =>
+      userAsync.when(
+        loading: () => const SizedBox(),
+        error: (_, __) => const SizedBox(),
+        data: (user) {
+          if (user == null) return const SizedBox();
+
+          return Consumer(
+            builder: (context, ref, _) {
+              final unreadCount = ref.watch(unreadMessageCountProvider);
+
+              return Stack(
+                children: [
+                  IconButton(
+                    icon: const Icon(Icons.mail_outline),
+                    onPressed: () {
+                      Navigator.of(context).push(
+                        SmoothPageTransition(page: const MessageThreadsScreen()),
+                      );
+                    },
+                    tooltip: 'Messages',
+                  ),
+                  if (unreadCount > 0)
+                    Positioned(
+                      right: 8,
+                      top: 8,
+                      child: Container(
+                        width: 20,
+                        height: 20,
+                        decoration: const BoxDecoration(
+                          color: Colors.red,
+                          shape: BoxShape.circle,
+                        ),
+                        child: Center(
+                          child: Text(
+                            unreadCount > 99 ? '99+' : '$unreadCount',
+                            style: const TextStyle(
+                              color: Colors.white,
+                              fontSize: 10,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                        ),
+                      ),
+                    ),
+                ],
+              );
+            },
+          );
+        },
+      );
+
   @override
   Widget build(BuildContext context) {
     final userAsync = ref.watch(authStateNotifierProvider);
@@ -111,6 +168,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
             elevation: 0,
             actions: [
               _buildNotificationButton(context, userAsync),
+              _buildMessagesButton(context, userAsync),
               IconButton(
                 icon: const Icon(Icons.school_outlined),
                 onPressed: () {
