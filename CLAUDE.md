@@ -12,6 +12,10 @@ This repo is a migration of the standalone app at `zka32101/chess` into the "Kom
 
 The direct-messaging feature (service/provider/`ChatScreen`/`MessageThreadsScreen`, reachable from a friend's "Message" button and a home-screen mail icon with an unread badge) was ported from `komovia_go`'s equivalent feature, which is itself the only Komovia sibling that had already built it.
 
+## Lesson progress tracking
+
+`lib/src/data/chess_curriculum_data.dart`'s static tactics/opening/strategy content (already real, reachable from the 学習センター hub) previously had no per-user progress tracking at all. `ChessLessonsService`/`phase_i_providers.dart` now persist `UserLessonProgress` (from `models/lesson.dart`) under `users/{uid}/lesson_progress/{contentType}_{contentId}`, and each detail screen's app bar has a `LessonProgressAction` to mark it complete. Note: `zka32101/chess`'s own `CLAUDE.md` describes a much larger "Phase I/Phase J" AI-lesson-generation feature set (`chess_lessons_service.dart`, `ai_lesson_generation_service.dart`, etc.) — investigated and confirmed those files never actually existed in that repo at any commit; only `models/lesson.dart` was ever real. So this is new functionality, not a migration of something that existed before.
+
 ## Note on `zka32101/chess`'s own docs
 
 The source repo's root and `docs/` directory contained a large number of fabricated "Phase N" planning/strategy documents (deployment runbooks, financial projections, IPO roadmaps, security audits, etc.) with no corresponding real implementation — a known pattern seen in sibling Komovia projects. These were **not** copied here. Only real application code (lib/, test/, integration_test/, android/, assets/, functions/, firestore config) was migrated.
