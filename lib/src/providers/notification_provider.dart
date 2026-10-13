@@ -3,6 +3,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:komovia_core/komovia_core.dart';
 import '../services/firestore_time.dart';
 import 'auth_provider.dart';
+import 'user_preferences_provider.dart';
 
 // `AppNotification` used to be declared locally here (in
 // `models/notification.dart`) with its own freezed/Firestore-coupled
@@ -69,10 +70,41 @@ class NotificationBatch {
   final DateTime lastFetchedAt;
 }
 
-/// Firebase notifications provider
+/// Maps a notification's `type` string to one of
+/// `UserPreferences`'s per-category toggles. A type this app has never
+/// wired a sender for yet (`game_turn`/`game_ended`/`achievement` etc.)
+/// still gets a mapping here so its filter takes effect the moment
+/// something starts sending it; an unrecognized type defaults to shown
+/// rather than silently hidden.
+bool _passesNotificationPreferences(
+  AppNotification notification,
+  UserPreferences prefs,
+) {
+  if (!prefs.notificationsEnabled) return false;
+
+  switch (notification.type) {
+    case 'friend_request':
+      return prefs.notifyFriendRequests;
+    case 'game_matched':
+    case 'game_turn':
+    case 'game_ended':
+    case 'pvp_challenge':
+      return prefs.notifyGameAlerts;
+    case 'achievement':
+      return prefs.notifyAchievements;
+    default:
+      return true;
+  }
+}
+
+/// Firebase notifications provider. Filters out any notification whose
+/// category the signed-in user has disabled in Settings - the master
+/// `notificationsEnabled` toggle and the per-category ones were
+/// previously saved but never actually consulted anywhere.
 final firebaseNotificationsProvider =
     StreamProvider.family<NotificationBatch?, String>((ref, userId) {
   final firestore = FirebaseFirestore.instance;
+  final prefsAsync = ref.watch(userPreferencesProvider);
 
   return firestore
       .collection('users')
@@ -90,7 +122,16 @@ final firebaseNotificationsProvider =
       );
     }
 
-    final notifications = snapshot.docs.map(notificationFromDoc).toList();
+    var notifications = snapshot.docs.map(notificationFromDoc).toList();
+
+    // No preferences doc has ever been saved yet - show everything rather
+    // than guessing at categories the user never actually disabled.
+    final prefs = prefsAsync.value;
+    if (prefs != null) {
+      notifications = notifications
+          .where((n) => _passesNotificationPreferences(n, prefs))
+          .toList();
+    }
 
     final unreadCount = notifications.where((n) => !n.isRead).length;
 

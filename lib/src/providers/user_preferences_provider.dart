@@ -11,6 +11,9 @@ class UserPreferences {
     this.language = 'en',
     this.soundEnabled = true,
     this.notificationsEnabled = true,
+    this.notifyFriendRequests = true,
+    this.notifyGameAlerts = true,
+    this.notifyAchievements = true,
     this.boardSize = 350,
     this.showCoordinates = true,
     this.pieceStyle = 'default',
@@ -33,6 +36,9 @@ class UserPreferences {
       language: map['language'] ?? 'en',
       soundEnabled: map['soundEnabled'] ?? true,
       notificationsEnabled: map['notificationsEnabled'] ?? true,
+      notifyFriendRequests: map['notifyFriendRequests'] ?? true,
+      notifyGameAlerts: map['notifyGameAlerts'] ?? true,
+      notifyAchievements: map['notifyAchievements'] ?? true,
       boardSize: map['boardSize'] ?? 350,
       showCoordinates: map['showCoordinates'] ?? true,
       pieceStyle: map['pieceStyle'] ?? 'default',
@@ -47,6 +53,14 @@ class UserPreferences {
   final String language; // 'en', 'ja', etc.
   final bool soundEnabled;
   final bool notificationsEnabled;
+
+  /// Per-category filters, only consulted when [notificationsEnabled] is
+  /// true. Each corresponds to one or more of the notification `type`
+  /// strings a service may write under `users/{uid}/notifications` - see
+  /// `notification_provider.dart`'s `_categoryForNotificationType`.
+  final bool notifyFriendRequests;
+  final bool notifyGameAlerts;
+  final bool notifyAchievements;
   final int boardSize; // 300-600 pixels
   final bool showCoordinates;
   final String pieceStyle; // 'default', 'wooden', 'classic'
@@ -59,6 +73,9 @@ class UserPreferences {
         'language': language,
         'soundEnabled': soundEnabled,
         'notificationsEnabled': notificationsEnabled,
+        'notifyFriendRequests': notifyFriendRequests,
+        'notifyGameAlerts': notifyGameAlerts,
+        'notifyAchievements': notifyAchievements,
         'boardSize': boardSize,
         'showCoordinates': showCoordinates,
         'pieceStyle': pieceStyle,
@@ -72,6 +89,9 @@ class UserPreferences {
     String? language,
     bool? soundEnabled,
     bool? notificationsEnabled,
+    bool? notifyFriendRequests,
+    bool? notifyGameAlerts,
+    bool? notifyAchievements,
     int? boardSize,
     bool? showCoordinates,
     String? pieceStyle,
@@ -84,6 +104,9 @@ class UserPreferences {
         language: language ?? this.language,
         soundEnabled: soundEnabled ?? this.soundEnabled,
         notificationsEnabled: notificationsEnabled ?? this.notificationsEnabled,
+        notifyFriendRequests: notifyFriendRequests ?? this.notifyFriendRequests,
+        notifyGameAlerts: notifyGameAlerts ?? this.notifyGameAlerts,
+        notifyAchievements: notifyAchievements ?? this.notifyAchievements,
         boardSize: boardSize ?? this.boardSize,
         showCoordinates: showCoordinates ?? this.showCoordinates,
         pieceStyle: pieceStyle ?? this.pieceStyle,
@@ -194,6 +217,63 @@ class UserPreferencesService {
       );
     } catch (e) {
       print('Error updating notifications preference: $e');
+      rethrow;
+    }
+  }
+
+  // Update friend-request notification category
+  Future<void> setNotifyFriendRequests(bool enabled) async {
+    final user = _auth.currentUser;
+    if (user == null) throw Exception('No user logged in');
+
+    try {
+      await _firestore.collection('user_preferences').doc(user.uid).set(
+        {
+          'notifyFriendRequests': enabled,
+          'lastUpdated': FieldValue.serverTimestamp(),
+        },
+        SetOptions(merge: true),
+      );
+    } catch (e) {
+      print('Error updating friend request notification preference: $e');
+      rethrow;
+    }
+  }
+
+  // Update game-alert (matches/rematches/challenges) notification category
+  Future<void> setNotifyGameAlerts(bool enabled) async {
+    final user = _auth.currentUser;
+    if (user == null) throw Exception('No user logged in');
+
+    try {
+      await _firestore.collection('user_preferences').doc(user.uid).set(
+        {
+          'notifyGameAlerts': enabled,
+          'lastUpdated': FieldValue.serverTimestamp(),
+        },
+        SetOptions(merge: true),
+      );
+    } catch (e) {
+      print('Error updating game alert notification preference: $e');
+      rethrow;
+    }
+  }
+
+  // Update achievement notification category
+  Future<void> setNotifyAchievements(bool enabled) async {
+    final user = _auth.currentUser;
+    if (user == null) throw Exception('No user logged in');
+
+    try {
+      await _firestore.collection('user_preferences').doc(user.uid).set(
+        {
+          'notifyAchievements': enabled,
+          'lastUpdated': FieldValue.serverTimestamp(),
+        },
+        SetOptions(merge: true),
+      );
+    } catch (e) {
+      print('Error updating achievement notification preference: $e');
       rethrow;
     }
   }
@@ -324,6 +404,36 @@ final notificationsEnabledProvider = StateProvider<bool>((ref) {
   final preferences = ref.watch(userPreferencesProvider);
   return preferences.when(
     data: (prefs) => prefs.notificationsEnabled,
+    loading: () => true,
+    error: (_, __) => true,
+  );
+});
+
+// Friend-request notification category provider (state)
+final notifyFriendRequestsProvider = StateProvider<bool>((ref) {
+  final preferences = ref.watch(userPreferencesProvider);
+  return preferences.when(
+    data: (prefs) => prefs.notifyFriendRequests,
+    loading: () => true,
+    error: (_, __) => true,
+  );
+});
+
+// Game-alert notification category provider (state)
+final notifyGameAlertsProvider = StateProvider<bool>((ref) {
+  final preferences = ref.watch(userPreferencesProvider);
+  return preferences.when(
+    data: (prefs) => prefs.notifyGameAlerts,
+    loading: () => true,
+    error: (_, __) => true,
+  );
+});
+
+// Achievement notification category provider (state)
+final notifyAchievementsProvider = StateProvider<bool>((ref) {
+  final preferences = ref.watch(userPreferencesProvider);
+  return preferences.when(
+    data: (prefs) => prefs.notifyAchievements,
     loading: () => true,
     error: (_, __) => true,
   );
