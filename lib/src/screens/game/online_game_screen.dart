@@ -188,41 +188,6 @@ class _OnlineGameScreenState extends ConsumerState<OnlineGameScreen> {
 
                     const SizedBox(height: 16),
 
-                    // Opponent-inactive forfeit claim
-                    if (game.status == 'active' &&
-                        currentUser.value != null &&
-                        game.canClaimAbandonmentForfeit(
-                            currentUser.value!.uid))
-                      Padding(
-                        padding: const EdgeInsets.only(bottom: 16),
-                        child: Container(
-                          padding: const EdgeInsets.all(12),
-                          decoration: BoxDecoration(
-                            color: Colors.red.withOpacity(0.1),
-                            border: Border.all(color: Colors.red),
-                            borderRadius: BorderRadius.circular(8),
-                          ),
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.stretch,
-                            children: [
-                              const Text(
-                                'Your opponent has not moved in a while and '
-                                'appears to be inactive.',
-                                style: TextStyle(fontWeight: FontWeight.w600),
-                              ),
-                              const SizedBox(height: 8),
-                              OutlinedButton(
-                                style: OutlinedButton.styleFrom(
-                                    foregroundColor: Colors.red),
-                                onPressed: () => _showClaimForfeitDialog(
-                                    context, widget.gameId),
-                                child: const Text('Claim win by forfeit'),
-                              ),
-                            ],
-                          ),
-                        ),
-                      ),
-
                     // Action buttons
                     if (game.status == 'active')
                       Row(
@@ -533,33 +498,6 @@ class _OnlineGameScreenState extends ConsumerState<OnlineGameScreen> {
           TextButton(
             onPressed: () => Navigator.pop(context),
             child: const Text('Close'),
-          ),
-        ],
-      ),
-    );
-  }
-
-  void _showClaimForfeitDialog(BuildContext context, String gameId) {
-    showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Claim Win by Forfeit'),
-        content: const Text(
-            'Your opponent has been inactive for a long time. Claim this '
-            'game as a win?'),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('Cancel'),
-          ),
-          FilledButton(
-            onPressed: () {
-              Navigator.pop(context);
-              ref
-                  .read(onlineGameStateProvider(gameId).notifier)
-                  .claimAbandonmentForfeit();
-            },
-            child: const Text('Claim Win'),
           ),
         ],
       ),
