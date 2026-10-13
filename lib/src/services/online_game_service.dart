@@ -1,6 +1,7 @@
 import 'dart:math' show pow;
 
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:chess/chess.dart' as chess_lib;
 import 'package:logger/logger.dart';
 import '../models/online_game.dart';
 import 'friend_service.dart';
@@ -359,6 +360,47 @@ class OnlineGameService {
       _logger.e('Failed to accept draw', error: e, stackTrace: st);
       rethrow;
     }
+  }
+
+  /// Claim a draw under the threefold-repetition or 50-move rule.
+  /// `chess_lib.Chess.fromFEN(currentFen)` alone has no memory of earlier
+  /// positions, so threefold repetition can only be detected by replaying
+  /// every recorded move from the start; the 50-move rule (`half_moves`
+  /// reaching 100 half-moves) falls out of that same replay. Throws
+  /// (no-op on the game itself) if neither condition actually holds, so a
+  /// mistaken or stale claim can't end the game.
+  Future<void> claimDraw(String gameId) async {
+    final gameDoc =
+        await _firestore.collection(_gamesCollection).doc(gameId).get();
+    if (!gameDoc.exists) {
+      throw StateError('Game not found');
+    }
+    final game = OnlineGame.fromJson(gameDoc.data()!);
+
+    final replay = chess_lib.Chess();
+    for (final move in game.moves) {
+      replay.move({
+        'from': move.from,
+        'to': move.to,
+        if (move.promotion != null) 'promotion': move.promotion,
+      });
+    }
+
+    final isThreefold = replay.in_threefold_repetition;
+    final isFiftyMove = replay.half_moves >= 100;
+    if (!isThreefold && !isFiftyMove) {
+      throw StateError(
+          'Draw claim is not valid - no threefold repetition or 50-move rule');
+    }
+
+    await _endGameWithResult(
+      gameId: gameId,
+      result: 'draw',
+      resultReason: isThreefold ? 'draw_claim_threefold' : 'draw_claim_fifty_move',
+    );
+
+    _logger.i('Draw claimed in game $gameId '
+        '(${isThreefold ? "threefold repetition" : "50-move rule"})');
   }
 
   /// Abandon game (player disconnected/timeout)

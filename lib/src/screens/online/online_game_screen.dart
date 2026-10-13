@@ -612,26 +612,22 @@ class _OnlineGameScreenState extends ConsumerState<OnlineGameScreen> {
     }
   }
 
-  /// Claim draw
+  /// Claim draw under the threefold-repetition or 50-move rule
   Future<void> _claimDraw(OnlineGame game) async {
     try {
-      // Validate draw claim eligibility (threefold repetition or 50-move rule)
-      // TODO: Implement draw claim validation logic
+      await ref.read(onlineGameServiceProvider).claimDraw(game.gameId);
 
       final soundService = ref.read(soundServiceProvider);
+      await soundService.play(SoundEffect.success);
 
-      // For now, just show a message
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
-            content: Text('Draw claim validation pending...'),
+            content: Text('Draw claimed'),
             duration: Duration(seconds: 2),
           ),
         );
       }
-
-      // Play success sound if claim would be valid
-      // await soundService.play(SoundEffect.success);
     } catch (e) {
       if (mounted) {
         final soundService = ref.read(soundServiceProvider);
