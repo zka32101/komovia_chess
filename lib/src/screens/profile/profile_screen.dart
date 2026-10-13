@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../providers/auth_provider.dart';
+import '../../providers/achievement_provider.dart';
 import '../../providers/online_game_provider.dart';
 import '../../models/user.dart';
 import '../../models/online_game.dart';
@@ -519,39 +520,108 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
         ),
       );
 
-  Widget _buildAchievementsTab() => Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 16),
-        child: Column(
-          children: [
-            Container(
-              padding: const EdgeInsets.all(24),
+  Widget _buildAchievementsTab() {
+    final progressAsync = ref.watch(userAchievementProgressProvider);
+    final definitionsAsync = ref.watch(achievementDefinitionsProvider);
+
+    return progressAsync.when(
+      loading: () => const Padding(
+        padding: EdgeInsets.all(32),
+        child: Center(child: CircularProgressIndicator()),
+      ),
+      error: (error, stack) => Padding(
+        padding: const EdgeInsets.all(16),
+        child: Text('Error loading achievements: $error'),
+      ),
+      data: (progressList) {
+        final definitions = definitionsAsync.value ?? const {};
+        if (progressList.isEmpty) {
+          return const Padding(
+            padding: EdgeInsets.all(32),
+            child: Center(child: Text('No achievements yet')),
+          );
+        }
+
+        return ListView.separated(
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+          itemCount: progressList.length,
+          separatorBuilder: (_, __) => const SizedBox(height: 10),
+          itemBuilder: (context, index) {
+            final progress = progressList[index];
+            final def = definitions[progress.achievementId];
+
+            return Container(
+              padding: const EdgeInsets.all(16),
               decoration: BoxDecoration(
-                color: Colors.grey.shade100,
+                color: progress.isUnlocked
+                    ? Colors.amber.withOpacity(0.1)
+                    : Colors.grey.shade100,
                 borderRadius: BorderRadius.circular(12),
+                border: progress.isUnlocked
+                    ? Border.all(color: Colors.amber)
+                    : null,
               ),
-              child: Column(
+              child: Row(
                 children: [
-                  const Icon(Icons.emoji_events, size: 48, color: Colors.amber),
-                  const SizedBox(height: 16),
-                  const Text(
-                    'Achievements Coming Soon',
-                    style: TextStyle(
-                      fontSize: 16,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                  const SizedBox(height: 8),
                   Text(
-                    'Unlock achievements by completing milestones',
-                    style: TextStyle(
-                      fontSize: 12,
-                      color: Colors.grey.shade600,
+                    def?.icon.isNotEmpty == true ? def!.icon : '🏆',
+                    style: const TextStyle(fontSize: 32),
+                  ),
+                  const SizedBox(width: 16),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          def?.name ?? progress.achievementId,
+                          style: TextStyle(
+                            fontSize: 15,
+                            fontWeight: FontWeight.bold,
+                            color: progress.isUnlocked
+                                ? null
+                                : Colors.grey.shade600,
+                          ),
+                        ),
+                        if (def?.description.isNotEmpty == true) ...[
+                          const SizedBox(height: 4),
+                          Text(
+                            def!.description,
+                            style: TextStyle(
+                              fontSize: 12,
+                              color: Colors.grey.shade600,
+                            ),
+                          ),
+                        ],
+                        if (!progress.isUnlocked &&
+                            progress.targetValue > 0) ...[
+                          const SizedBox(height: 8),
+                          ClipRRect(
+                            borderRadius: BorderRadius.circular(4),
+                            child: LinearProgressIndicator(
+                              value: progress.progressPercentage / 100,
+                              minHeight: 6,
+                            ),
+                          ),
+                          const SizedBox(height: 4),
+                          Text(
+                            '${progress.currentValue}/${progress.targetValue}',
+                            style: TextStyle(
+                              fontSize: 11,
+                              color: Colors.grey.shade600,
+                            ),
+                          ),
+                        ],
+                      ],
                     ),
                   ),
+                  if (progress.isUnlocked)
+                    const Icon(Icons.check_circle, color: Colors.amber),
                 ],
               ),
-            ),
-          ],
-        ),
-      );
+            );
+          },
+        );
+      },
+    );
+  }
 }

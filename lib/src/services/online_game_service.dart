@@ -1,9 +1,11 @@
+import 'dart:async' show unawaited;
 import 'dart:math' show pow;
 
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:chess/chess.dart' as chess_lib;
 import 'package:logger/logger.dart';
 import '../models/online_game.dart';
+import 'achievement_service.dart';
 import 'friend_service.dart';
 
 /// Manages online multiplayer games in real-time
@@ -239,6 +241,18 @@ class OnlineGameService {
         result: result,
         resultReason: resultReason,
       );
+
+      // Best-effort: a win may have just satisfied an achievement
+      // (first_win/five_wins). Swallows its own errors internally and
+      // never blocks the game from ending.
+      final winnerId = result == 'white_win'
+          ? game.whitePlayerId
+          : result == 'black_win'
+              ? game.blackPlayerId
+              : null;
+      if (winnerId != null) {
+        unawaited(AchievementService().checkAndUnlockAchievements(winnerId));
+      }
     } catch (e, st) {
       _logger.e('Failed to end game', error: e, stackTrace: st);
       rethrow;

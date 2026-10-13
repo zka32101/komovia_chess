@@ -169,6 +169,19 @@ service cloud.firestore {
     }
 
     // ============================================
+    // Achievements Collection
+    // ============================================
+    // AchievementService's Firestore layout is
+    // achievements/{bucket}/{subId}/{achievementId} - bucket is either
+    // 'definitions' (subId is always the fixed string 'all', curated
+    // content, write: false) or 'user_achievements' (subId is a uid,
+    // and only that uid may write their own unlocks).
+    match /achievements/{bucket}/{subId}/{achievementId} {
+      allow read: if isSignedIn();
+      allow write: if bucket == 'user_achievements' && isOwner(subId);
+    }
+
+    // ============================================
     // Rankings Collection
     // ============================================
 
