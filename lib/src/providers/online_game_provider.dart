@@ -403,6 +403,19 @@ class OnlineGameStateNotifier extends StateNotifier<OnlineGameState> {
       state = state.copyWith(lastError: e.toString());
     }
   }
+
+  /// Claim victory by forfeit because the opponent has gone silent.
+  Future<void> claimAbandonmentForfeit() async {
+    final userId = _ref.read(currentUserProvider).value?.uid;
+    if (userId == null) return;
+    try {
+      await _ref
+          .read(onlineGameServiceProvider)
+          .claimAbandonmentForfeit(_gameId, userId);
+    } catch (e) {
+      state = state.copyWith(lastError: e.toString());
+    }
+  }
 }
 
 /// Per-game online play state, keyed by gameId.

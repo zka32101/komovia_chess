@@ -16,6 +16,12 @@ class OnlineGameService {
   static const String _gamesCollection = 'games';
   static const String _gameMovesSubcollection = 'moves';
 
+  /// How long the player whose turn it is must go silent before the other
+  /// player may claim the game by forfeit. Generous on purpose — this is
+  /// for truly-dead games, not impatience (distinct from the per-move
+  /// clock, which is about not rushing an individual move).
+  static const Duration abandonmentThreshold = Duration(hours: 48);
+
   /// Create a new online game from matched players
   Future<OnlineGame> createGame({
     required String whitePlayerId,
@@ -375,6 +381,48 @@ class OnlineGameService {
       _logger.i('Player $playerId abandoned game $gameId');
     } catch (e, st) {
       _logger.e('Failed to abandon game', error: e, stackTrace: st);
+      rethrow;
+    }
+  }
+
+  /// Claim victory by forfeit when the opponent (whoever's turn it
+  /// currently is) has gone silent for at least [threshold]. Re-checks
+  /// every condition server-side (via a fresh read) so a stale client
+  /// can't exploit a race, and is a no-op rather than throwing if the
+  /// claim no longer holds (e.g. the opponent moved in the meantime, or
+  /// the game already ended some other way).
+  Future<void> claimAbandonmentForfeit(
+    String gameId,
+    String claimantPlayerId, {
+    Duration threshold = abandonmentThreshold,
+  }) async {
+    try {
+      final gameDoc =
+          await _firestore.collection(_gamesCollection).doc(gameId).get();
+      if (!gameDoc.exists) return;
+      final game = OnlineGame.fromJson(gameDoc.data()!);
+
+      if (!game.canClaimAbandonmentForfeit(claimantPlayerId,
+          threshold: threshold)) {
+        _logger.w(
+            'Abandonment forfeit claim rejected for game $gameId by $claimantPlayerId');
+        return;
+      }
+
+      final result =
+          claimantPlayerId == game.whitePlayerId ? 'white_win' : 'black_win';
+
+      await _endGameWithResult(
+        gameId: gameId,
+        result: result,
+        resultReason: 'abandonment_forfeit',
+      );
+
+      _logger.i(
+          'Abandonment forfeit claimed in game $gameId by $claimantPlayerId');
+    } catch (e, st) {
+      _logger.e('Failed to claim abandonment forfeit',
+          error: e, stackTrace: st);
       rethrow;
     }
   }
