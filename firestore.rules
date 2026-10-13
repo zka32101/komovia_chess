@@ -81,6 +81,13 @@ service cloud.firestore {
         allow read, update, delete: if isOwner(userId);
         allow create: if isSignedIn() && request.resource.data.uid == userId;
       }
+
+      // Per-user progress against the app's bundled static curriculum
+      // content (ChessLessonsService) - entirely private, never read by
+      // anyone but the owner.
+      match /lesson_progress/{lessonKey} {
+        allow read, write: if isOwner(userId);
+      }
     }
 
     // ============================================
