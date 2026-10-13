@@ -235,6 +235,25 @@ class OnlineGameNotifier extends StateNotifier<AsyncValue<void>> {
       rethrow;
     }
   }
+
+  /// Start a same-opponent rematch of [previousGame], colors swapped.
+  /// Returns the new game's id.
+  Future<String?> rematch(OnlineGame previousGame) async {
+    if (_userId == null) return null;
+
+    state = const AsyncValue.loading();
+    try {
+      final game = await _service.createRematch(
+        previousGame: previousGame,
+        requestedByUid: _userId!,
+      );
+      state = const AsyncValue.data(null);
+      return game.gameId;
+    } catch (e, st) {
+      state = AsyncValue.error(e, st);
+      rethrow;
+    }
+  }
 }
 
 /// State notifier provider for online game operations

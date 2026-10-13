@@ -427,6 +427,71 @@ class OnlineGameService {
     }
   }
 
+  /// Create a same-opponent rematch of [previousGame] with colors swapped
+  /// (whoever was white becomes black). Unlike a fresh matchmaking game, a
+  /// rematch needs no separate "start" step since both players just
+  /// finished playing each other, so it goes straight to 'active'.
+  /// Notifies the other player the same way a fresh match does.
+  Future<OnlineGame> createRematch({
+    required OnlineGame previousGame,
+    required String requestedByUid,
+  }) async {
+    final newWhiteId = previousGame.blackPlayerId;
+    final newWhiteName = previousGame.blackPlayerName;
+    final newWhiteRating =
+        previousGame.blackNewRating ?? previousGame.blackRating;
+    final newBlackId = previousGame.whitePlayerId;
+    final newBlackName = previousGame.whitePlayerName;
+    final newBlackRating =
+        previousGame.whiteNewRating ?? previousGame.whiteRating;
+
+    final game = await createGame(
+      whitePlayerId: newWhiteId,
+      whitePlayerName: newWhiteName,
+      whiteRating: newWhiteRating,
+      blackPlayerId: newBlackId,
+      blackPlayerName: newBlackName,
+      blackRating: newBlackRating,
+      gameType: previousGame.type,
+      timeControl: previousGame.timeControl,
+    );
+    await startGame(game.gameId);
+
+    final isRequesterWhite = requestedByUid == previousGame.whitePlayerId;
+    final opponentId = isRequesterWhite
+        ? previousGame.blackPlayerId
+        : previousGame.whitePlayerId;
+    final requesterName = isRequesterWhite
+        ? previousGame.whitePlayerName
+        : previousGame.blackPlayerName;
+
+    try {
+      final notificationId = '${DateTime.now().millisecondsSinceEpoch}_rematch';
+      await _firestore
+          .collection('users')
+          .doc(opponentId)
+          .collection('notifications')
+          .doc(notificationId)
+          .set({
+        'uid': opponentId,
+        'type': 'game_matched',
+        'title': 'Rematch!',
+        'body': '$requesterName started a rematch',
+        'createdAt': FieldValue.serverTimestamp(),
+        'isRead': false,
+        'data': {
+          'gameId': game.gameId,
+          'actionUrl': '/online-game/${game.gameId}',
+          'priority': 'normal',
+        },
+      });
+    } catch (e) {
+      _logger.w('Failed to send rematch notification: $e');
+    }
+
+    return game;
+  }
+
   /// Get game by ID
   Future<OnlineGame?> getGame(String gameId) async {
     try {
