@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../models/subscription.dart' show PremiumFeature;
 import '../../providers/premium_provider.dart';
+import '../../services/paywall_service.dart' show PurchaseUnavailableException;
 import '../../utils/animations.dart';
 
 /// A purchasable premium plan (mirrors the tiers [UserSubscription] supports)
@@ -35,22 +36,25 @@ class _PremiumScreenState extends ConsumerState<PremiumScreen> {
     setState(() => _isLoading = true);
 
     try {
-      // TODO: Integrate with RevenueCat SDK
-      // final revenueCat = Purchases.shared;
-      // final offerings = await revenueCat.getOfferings();
-      // final package = offerings.current?.getPackage(plan.tier);
-      // final purchaserInfo = await revenueCat.purchasePackage(package!);
-
-      // For now, simulate purchase
-      await Future.delayed(const Duration(seconds: 1));
+      final service = ref.read(paywallServiceProvider);
+      await service.purchaseSubscription(plan.tier);
 
       if (mounted) {
         ref.invalidate(userSubscriptionProvider);
 
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('${plan.displayName} purchase initiated!'),
+            content: Text('${plan.displayName} purchase successful!'),
             backgroundColor: Colors.green,
+          ),
+        );
+      }
+    } on PurchaseUnavailableException catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(e.message),
+            backgroundColor: Colors.orange,
           ),
         );
       }
