@@ -6,6 +6,7 @@ import '../../providers/online_game_provider.dart';
 import '../../models/user.dart';
 import '../../models/online_game.dart';
 import '../online/game_review_screen.dart';
+import 'edit_profile_screen.dart';
 import '../friends/friends_screen.dart';
 import '../tournaments/tournaments_screen.dart';
 import '../challenges/challenges_screen.dart';
@@ -68,9 +69,14 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
           if (widget.userId == null) // Only show edit for own profile
             IconButton(
               icon: const Icon(Icons.edit),
-              onPressed: () {
-                // TODO: Navigate to edit profile screen
-              },
+              onPressed: userAsyncValue.value == null
+                  ? null
+                  : () => Navigator.of(context).push(
+                        MaterialPageRoute(
+                          builder: (_) =>
+                              EditProfileScreen(user: userAsyncValue.value!),
+                        ),
+                      ),
             ),
         ],
       ),
