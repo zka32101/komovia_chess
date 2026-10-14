@@ -12,6 +12,15 @@ final firebaseUserProvider = StreamProvider<User?>((ref) {
   return authService.authStateStream();
 });
 
+// Any user's profile by uid - for viewing someone else's profile (a
+// friend, an opponent), unlike currentUserProvider which only ever
+// resolves the signed-in user.
+final userByIdProvider =
+    FutureProvider.family<UserModel?, String>((ref, uid) async {
+  final authService = ref.watch(firebaseAuthServiceProvider);
+  return authService.getUserById(uid);
+});
+
 // Current app user stream provider
 final currentUserProvider = StreamProvider<UserModel?>((ref) async* {
   final authService = ref.watch(firebaseAuthServiceProvider);

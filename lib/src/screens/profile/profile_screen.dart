@@ -6,6 +6,7 @@ import '../../providers/online_game_provider.dart';
 import '../../models/user.dart';
 import '../../models/online_game.dart';
 import '../online/game_review_screen.dart';
+import 'edit_profile_screen.dart';
 import '../friends/friends_screen.dart';
 import '../tournaments/tournaments_screen.dart';
 import '../challenges/challenges_screen.dart';
@@ -24,16 +25,19 @@ class ProfileScreen extends ConsumerStatefulWidget {
 class _ProfileScreenState extends ConsumerState<ProfileScreen> {
   int _selectedTab = 0; // 0: Stats, 1: Games, 2: Achievements
 
+  bool get _isOwnProfile => widget.userId == null;
+
   @override
   Widget build(BuildContext context) {
-    final currentUser = ref.watch(currentUserProvider);
+    // Viewing someone else's profile (a friend, an opponent) resolves
+    // their own doc via userByIdProvider instead of always showing the
+    // signed-in user's - this used to ignore widget.userId entirely.
+    final userAsyncValue = _isOwnProfile
+        ? ref.watch(currentUserProvider)
+        : ref.watch(userByIdProvider(widget.userId!));
     final gameHistory = ref.watch(userRecentGamesProvider).whenData(
           (games) => games.where((g) => g.status == 'completed').toList(),
         );
-
-    // If userId is provided, fetch that user's profile (TODO)
-    // For now, show current user's profile
-    final userAsyncValue = currentUser;
 
     return Scaffold(
       appBar: AppBar(
@@ -68,9 +72,14 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
           if (widget.userId == null) // Only show edit for own profile
             IconButton(
               icon: const Icon(Icons.edit),
-              onPressed: () {
-                // TODO: Navigate to edit profile screen
-              },
+              onPressed: userAsyncValue.value == null
+                  ? null
+                  : () => Navigator.of(context).push(
+                        MaterialPageRoute(
+                          builder: (_) =>
+                              EditProfileScreen(user: userAsyncValue.value!),
+                        ),
+                      ),
             ),
         ],
       ),
@@ -226,13 +235,22 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
 
                   const SizedBox(height: 16),
 
-                  // Tab content
+                  // Tab content. Games/Achievements aren't viewable for
+                  // another user yet - userRecentGamesProvider/
+                  // userAchievementProgressProvider are both hardcoded to
+                  // the signed-in user, not parameterized by uid, so
+                  // showing them here would silently display the
+                  // viewer's own data under someone else's name.
                   if (_selectedTab == 0)
                     _buildStatisticsTab(user)
                   else if (_selectedTab == 1)
-                    _buildGamesTab(gameHistory)
+                    (_isOwnProfile
+                        ? _buildGamesTab(gameHistory)
+                        : _buildNotAvailableForOtherUsers())
                   else
-                    _buildAchievementsTab(),
+                    (_isOwnProfile
+                        ? _buildAchievementsTab()
+                        : _buildNotAvailableForOtherUsers()),
 
                   const SizedBox(height: 24),
                 ],
@@ -325,6 +343,16 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
               fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
               color: isSelected ? Colors.blue : Colors.grey.shade600,
             ),
+          ),
+        ),
+      );
+
+  Widget _buildNotAvailableForOtherUsers() => const Padding(
+        padding: EdgeInsets.all(32),
+        child: Center(
+          child: Text(
+            'Game history and achievements are only available on your own profile',
+            textAlign: TextAlign.center,
           ),
         ),
       );
