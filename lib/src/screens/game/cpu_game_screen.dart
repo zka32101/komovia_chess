@@ -1,12 +1,15 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../models/cpu_game_state.dart';
+import '../../models/online_game.dart';
 import '../../services/ai_opponent_engine.dart';
 import '../../widgets/game_board.dart';
 import '../../widgets/game_result.dart';
 import '../../widgets/move_history.dart';
 import '../../providers/cpu_game_provider.dart';
 import '../../providers/board_theme_provider.dart';
+import '../../providers/auth_provider.dart';
+import '../online/game_review_screen.dart';
 
 class CPUGameScreen extends ConsumerStatefulWidget {
   const CPUGameScreen({
@@ -310,11 +313,67 @@ class _CPUGameScreenState extends ConsumerState<CPUGameScreen> {
           onHome: () {
             Navigator.of(context).pop();
           },
-          onAnalyze: () {
-            // TODO: Implement game analysis
-          },
+          onAnalyze: () => _openAnalysis(gameState),
         ),
       );
+
+  /// Builds a synthetic OnlineGame wrapping this finished CPU game's moves
+  /// and pushes the already-existing GameReviewScreen - reusing its
+  /// move-by-move replay/eval-bar UI rather than building new analysis UI
+  /// from scratch. GameReviewScreen never reads currentFen/pgn/timeControlMs/
+  /// time-remaining fields (only moves, player names/ratings, result,
+  /// type, timeControl, gameId, timestamps), so those are harmless
+  /// placeholders here.
+  void _openAnalysis(CpuGameState gameState) {
+    final me = ref.read(currentUserProvider).value;
+    final myName = me?.displayName ?? 'You';
+    final myRating = me?.rating ?? 1200;
+    final cpuName = 'CPU (${widget.difficulty.name})';
+
+    final moves = gameState.moves
+        .map((m) => GameMove(
+              moveNumber: 0,
+              from: m.fromAlgebraic,
+              to: m.toAlgebraic,
+              promotion: m.promotion?.name,
+              timestamp: gameState.startTime,
+              playerId: 'unused',
+            ))
+        .toList();
+
+    final syntheticGame = OnlineGame(
+      gameId: 'cpu-review',
+      type: 'cpu',
+      status: 'completed',
+      createdAt: gameState.startTime,
+      startedAt: gameState.startTime,
+      endedAt: gameState.endTime,
+      whitePlayerId: widget.playerIsWhite ? 'player' : 'cpu',
+      blackPlayerId: widget.playerIsWhite ? 'cpu' : 'player',
+      whitePlayerName: widget.playerIsWhite ? myName : cpuName,
+      blackPlayerName: widget.playerIsWhite ? cpuName : myName,
+      whiteRating: widget.playerIsWhite ? myRating : 1200,
+      blackRating: widget.playerIsWhite ? 1200 : myRating,
+      pgn: '',
+      currentFen: 'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1',
+      moves: moves,
+      timeControl: 'untimed',
+      timeControlMs: 0,
+      whiteTimeRemainingMs: 0,
+      blackTimeRemainingMs: 0,
+      result: gameState.result,
+      resultReason: gameState.endReason,
+    );
+
+    Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (_) => GameReviewScreen(
+          gameId: syntheticGame.gameId,
+          game: syntheticGame,
+        ),
+      ),
+    );
+  }
 
   void _showResignDialog() {
     showDialog(
