@@ -49,6 +49,21 @@ class FirebaseAuthService {
     }
   }
 
+  /// Get any user's app profile by uid - unlike [getCurrentUser], not
+  /// limited to the signed-in user, for viewing e.g. a friend's or
+  /// opponent's profile.
+  Future<UserModel?> getUserById(String uid) async {
+    try {
+      final doc = await _firestore.collection('users').doc(uid).get();
+      if (!doc.exists) return null;
+
+      return UserModel.fromJson(doc.data()!);
+    } catch (e) {
+      _logger.e('Error getting user $uid: $e');
+      return null;
+    }
+  }
+
   /// Register with email and password
   Future<UserModel?> registerWithEmail({
     required String email,
