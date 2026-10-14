@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../../providers/phase_i_providers.dart';
 import 'how_to_play_screen.dart';
 import 'opening_course_screen.dart';
 import 'strategy_screen.dart';
@@ -6,11 +8,14 @@ import 'tactics_screen.dart';
 
 /// Entry point for all built-in learning content: how to play, structured
 /// opening courses, tactical patterns, and strategy guides.
-class LearnHubScreen extends StatelessWidget {
+class LearnHubScreen extends ConsumerWidget {
   const LearnHubScreen({Key? key}) : super(key: key);
 
   @override
-  Widget build(BuildContext context) => Scaffold(
+  Widget build(BuildContext context, WidgetRef ref) {
+    final summary = ref.watch(lessonCompletionSummaryProvider);
+
+    return Scaffold(
         appBar: AppBar(title: const Text('学習センター')),
         body: ListView(
           padding: const EdgeInsets.all(16),
@@ -34,11 +39,21 @@ class LearnHubScreen extends StatelessWidget {
               },
             ),
             const SizedBox(height: 24),
-            Text(
-              'もっと上達したい方へ',
-              style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                    fontWeight: FontWeight.bold,
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Text(
+                  'もっと上達したい方へ',
+                  style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                        fontWeight: FontWeight.bold,
+                      ),
+                ),
+                if (summary.started > 0)
+                  Chip(
+                    label: Text('完了 ${summary.completed}/${summary.started}'),
+                    avatar: const Icon(Icons.check_circle_outline, size: 18),
                   ),
+              ],
             ),
             const SizedBox(height: 12),
             _LearnCard(
@@ -80,6 +95,7 @@ class LearnHubScreen extends StatelessWidget {
           ],
         ),
       );
+  }
 }
 
 class _LearnCard extends StatelessWidget {

@@ -21,8 +21,15 @@ class UserSubscription {
   bool get isFree => !isActive || tier == 'free';
 }
 
-// Get paywall service
-final paywallServiceProvider = Provider((ref) => PaywallService.instance);
+// Get paywall service. Also kicks off PaywallService.initialize() the
+// first time this provider is read (memoized, so once per app run) -
+// nothing called it before, so the purchase stream listener that
+// persists entitlement/completes purchases was never actually attached.
+final paywallServiceProvider = Provider((ref) {
+  final service = PaywallService.instance;
+  service.initialize();
+  return service;
+});
 
 // Get user's current subscription
 final userSubscriptionProvider = FutureProvider<UserSubscription>((ref) async {

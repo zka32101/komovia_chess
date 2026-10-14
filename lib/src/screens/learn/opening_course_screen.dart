@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import '../../data/chess_curriculum_data.dart';
 import '../../models/lesson.dart';
 import '../../widgets/learn/difficulty_badge.dart';
+import '../../widgets/learn/lesson_progress_action.dart';
 
 /// Chessable-style structured opening course: openings are grouped into
 /// difficulty "modules" so beginners are guided toward simpler openings
@@ -174,7 +175,12 @@ class OpeningDetailScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => Scaffold(
-        appBar: AppBar(title: Text(opening.name)),
+        appBar: AppBar(
+          title: Text(opening.name),
+          actions: [
+            LessonProgressAction(contentType: 'opening', contentId: opening.id),
+          ],
+        ),
         body: SingleChildScrollView(
           padding: const EdgeInsets.all(20),
           child: Column(

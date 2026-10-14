@@ -1,8 +1,11 @@
+import 'dart:async' show unawaited;
 import 'dart:math' show pow;
 
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:chess/chess.dart' as chess_lib;
 import 'package:logger/logger.dart';
 import '../models/online_game.dart';
+import 'achievement_service.dart';
 import 'friend_service.dart';
 
 /// Manages online multiplayer games in real-time
@@ -15,6 +18,12 @@ class OnlineGameService {
   // Game collection paths
   static const String _gamesCollection = 'games';
   static const String _gameMovesSubcollection = 'moves';
+
+  /// How long the player whose turn it is must go silent before the other
+  /// player may claim the game by forfeit. Generous on purpose — this is
+  /// for truly-dead games, not impatience (distinct from the per-move
+  /// clock, which is about not rushing an individual move).
+  static const Duration abandonmentThreshold = Duration(hours: 48);
 
   /// Create a new online game from matched players
   Future<OnlineGame> createGame({
@@ -232,6 +241,18 @@ class OnlineGameService {
         result: result,
         resultReason: resultReason,
       );
+
+      // Best-effort: a win may have just satisfied an achievement
+      // (first_win/five_wins). Swallows its own errors internally and
+      // never blocks the game from ending.
+      final winnerId = result == 'white_win'
+          ? game.whitePlayerId
+          : result == 'black_win'
+              ? game.blackPlayerId
+              : null;
+      if (winnerId != null) {
+        unawaited(AchievementService().checkAndUnlockAchievements(winnerId));
+      }
     } catch (e, st) {
       _logger.e('Failed to end game', error: e, stackTrace: st);
       rethrow;
@@ -355,6 +376,47 @@ class OnlineGameService {
     }
   }
 
+  /// Claim a draw under the threefold-repetition or 50-move rule.
+  /// `chess_lib.Chess.fromFEN(currentFen)` alone has no memory of earlier
+  /// positions, so threefold repetition can only be detected by replaying
+  /// every recorded move from the start; the 50-move rule (`half_moves`
+  /// reaching 100 half-moves) falls out of that same replay. Throws
+  /// (no-op on the game itself) if neither condition actually holds, so a
+  /// mistaken or stale claim can't end the game.
+  Future<void> claimDraw(String gameId) async {
+    final gameDoc =
+        await _firestore.collection(_gamesCollection).doc(gameId).get();
+    if (!gameDoc.exists) {
+      throw StateError('Game not found');
+    }
+    final game = OnlineGame.fromJson(gameDoc.data()!);
+
+    final replay = chess_lib.Chess();
+    for (final move in game.moves) {
+      replay.move({
+        'from': move.from,
+        'to': move.to,
+        if (move.promotion != null) 'promotion': move.promotion,
+      });
+    }
+
+    final isThreefold = replay.in_threefold_repetition;
+    final isFiftyMove = replay.half_moves >= 100;
+    if (!isThreefold && !isFiftyMove) {
+      throw StateError(
+          'Draw claim is not valid - no threefold repetition or 50-move rule');
+    }
+
+    await _endGameWithResult(
+      gameId: gameId,
+      result: 'draw',
+      resultReason: isThreefold ? 'draw_claim_threefold' : 'draw_claim_fifty_move',
+    );
+
+    _logger.i('Draw claimed in game $gameId '
+        '(${isThreefold ? "threefold repetition" : "50-move rule"})');
+  }
+
   /// Abandon game (player disconnected/timeout)
   Future<void> abandonGame(String gameId, String playerId) async {
     try {
@@ -377,6 +439,113 @@ class OnlineGameService {
       _logger.e('Failed to abandon game', error: e, stackTrace: st);
       rethrow;
     }
+  }
+
+  /// Claim victory by forfeit when the opponent (whoever's turn it
+  /// currently is) has gone silent for at least [threshold]. Re-checks
+  /// every condition server-side (via a fresh read) so a stale client
+  /// can't exploit a race, and is a no-op rather than throwing if the
+  /// claim no longer holds (e.g. the opponent moved in the meantime, or
+  /// the game already ended some other way).
+  Future<void> claimAbandonmentForfeit(
+    String gameId,
+    String claimantPlayerId, {
+    Duration threshold = abandonmentThreshold,
+  }) async {
+    try {
+      final gameDoc =
+          await _firestore.collection(_gamesCollection).doc(gameId).get();
+      if (!gameDoc.exists) return;
+      final game = OnlineGame.fromJson(gameDoc.data()!);
+
+      if (!game.canClaimAbandonmentForfeit(claimantPlayerId,
+          threshold: threshold)) {
+        _logger.w(
+            'Abandonment forfeit claim rejected for game $gameId by $claimantPlayerId');
+        return;
+      }
+
+      final result =
+          claimantPlayerId == game.whitePlayerId ? 'white_win' : 'black_win';
+
+      await _endGameWithResult(
+        gameId: gameId,
+        result: result,
+        resultReason: 'abandonment_forfeit',
+      );
+
+      _logger.i(
+          'Abandonment forfeit claimed in game $gameId by $claimantPlayerId');
+    } catch (e, st) {
+      _logger.e('Failed to claim abandonment forfeit',
+          error: e, stackTrace: st);
+      rethrow;
+    }
+  }
+
+  /// Create a same-opponent rematch of [previousGame] with colors swapped
+  /// (whoever was white becomes black). Unlike a fresh matchmaking game, a
+  /// rematch needs no separate "start" step since both players just
+  /// finished playing each other, so it goes straight to 'active'.
+  /// Notifies the other player the same way a fresh match does.
+  Future<OnlineGame> createRematch({
+    required OnlineGame previousGame,
+    required String requestedByUid,
+  }) async {
+    final newWhiteId = previousGame.blackPlayerId;
+    final newWhiteName = previousGame.blackPlayerName;
+    final newWhiteRating =
+        previousGame.blackNewRating ?? previousGame.blackRating;
+    final newBlackId = previousGame.whitePlayerId;
+    final newBlackName = previousGame.whitePlayerName;
+    final newBlackRating =
+        previousGame.whiteNewRating ?? previousGame.whiteRating;
+
+    final game = await createGame(
+      whitePlayerId: newWhiteId,
+      whitePlayerName: newWhiteName,
+      whiteRating: newWhiteRating,
+      blackPlayerId: newBlackId,
+      blackPlayerName: newBlackName,
+      blackRating: newBlackRating,
+      gameType: previousGame.type,
+      timeControl: previousGame.timeControl,
+    );
+    await startGame(game.gameId);
+
+    final isRequesterWhite = requestedByUid == previousGame.whitePlayerId;
+    final opponentId = isRequesterWhite
+        ? previousGame.blackPlayerId
+        : previousGame.whitePlayerId;
+    final requesterName = isRequesterWhite
+        ? previousGame.whitePlayerName
+        : previousGame.blackPlayerName;
+
+    try {
+      final notificationId = '${DateTime.now().millisecondsSinceEpoch}_rematch';
+      await _firestore
+          .collection('users')
+          .doc(opponentId)
+          .collection('notifications')
+          .doc(notificationId)
+          .set({
+        'uid': opponentId,
+        'type': 'game_matched',
+        'title': 'Rematch!',
+        'body': '$requesterName started a rematch',
+        'createdAt': FieldValue.serverTimestamp(),
+        'isRead': false,
+        'data': {
+          'gameId': game.gameId,
+          'actionUrl': '/online-game/${game.gameId}',
+          'priority': 'normal',
+        },
+      });
+    } catch (e) {
+      _logger.w('Failed to send rematch notification: $e');
+    }
+
+    return game;
   }
 
   /// Get game by ID

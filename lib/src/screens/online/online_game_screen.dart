@@ -95,12 +95,72 @@ class _OnlineGameScreenState extends ConsumerState<OnlineGameScreen> {
         ),
 
         _buildDrawOfferBanner(game),
+        _buildAbandonmentForfeitBanner(game),
 
         // Move/Action buttons
         if (isBoardActive) _buildGameActions(context, game),
+        if (!isBoardActive) _buildGameOverActions(context, game),
       ],
     );
   }
+
+  /// Opponent-inactive forfeit claim, shown only to the waiting player
+  /// once the opponent has gone silent past the threshold.
+  Widget _buildAbandonmentForfeitBanner(OnlineGame game) {
+    final uid = _getCurrentPlayerId();
+    if (uid.isEmpty || !game.canClaimAbandonmentForfeit(uid)) {
+      return const SizedBox.shrink();
+    }
+
+    return Container(
+      margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: Colors.red.withOpacity(0.1),
+        border: Border.all(color: Colors.red),
+        borderRadius: BorderRadius.circular(8),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          const Text(
+            'Your opponent has not moved in a while and appears to be '
+            'inactive.',
+            style: TextStyle(fontWeight: FontWeight.w600),
+          ),
+          const SizedBox(height: 8),
+          OutlinedButton(
+            style: OutlinedButton.styleFrom(foregroundColor: Colors.red),
+            onPressed: () => _showClaimForfeitConfirmation(context),
+            child: const Text('Claim win by forfeit'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  /// Rematch / exit actions once the game has ended.
+  Widget _buildGameOverActions(BuildContext context, OnlineGame game) =>
+      Padding(
+        padding: const EdgeInsets.all(16),
+        child: Row(
+          children: [
+            Expanded(
+              child: OutlinedButton(
+                onPressed: () => Navigator.pop(context),
+                child: const Text('Exit Game'),
+              ),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: FilledButton(
+                onPressed: () => _handleRematch(context, game),
+                child: const Text('Rematch'),
+              ),
+            ),
+          ],
+        ),
+      );
 
   /// Build chess board widget from game state
   Widget _buildChessBoardWidget(
@@ -552,26 +612,22 @@ class _OnlineGameScreenState extends ConsumerState<OnlineGameScreen> {
     }
   }
 
-  /// Claim draw
+  /// Claim draw under the threefold-repetition or 50-move rule
   Future<void> _claimDraw(OnlineGame game) async {
     try {
-      // Validate draw claim eligibility (threefold repetition or 50-move rule)
-      // TODO: Implement draw claim validation logic
+      await ref.read(onlineGameServiceProvider).claimDraw(game.gameId);
 
       final soundService = ref.read(soundServiceProvider);
+      await soundService.play(SoundEffect.success);
 
-      // For now, just show a message
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
-            content: Text('Draw claim validation pending...'),
+            content: Text('Draw claimed'),
             duration: Duration(seconds: 2),
           ),
         );
       }
-
-      // Play success sound if claim would be valid
-      // await soundService.play(SoundEffect.success);
     } catch (e) {
       if (mounted) {
         final soundService = ref.read(soundServiceProvider);
@@ -592,6 +648,73 @@ class _OnlineGameScreenState extends ConsumerState<OnlineGameScreen> {
       if (mounted) {
         Navigator.pop(context);
       }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Error: $e')),
+        );
+      }
+    }
+  }
+
+  /// Show confirmation before claiming a win by forfeit
+  void _showClaimForfeitConfirmation(BuildContext context) {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Claim Win by Forfeit'),
+        content: const Text(
+          'Your opponent has been inactive for a long time. Claim this '
+          'game as a win?',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Cancel'),
+          ),
+          ElevatedButton(
+            onPressed: () {
+              Navigator.pop(context);
+              _claimAbandonmentForfeit();
+            },
+            child: const Text('Claim Win'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Future<void> _claimAbandonmentForfeit() async {
+    try {
+      await ref
+          .read(onlineGameServiceProvider)
+          .claimAbandonmentForfeit(_gameId, _getCurrentPlayerId());
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Error: $e')),
+        );
+      }
+    }
+  }
+
+  /// Start a same-opponent rematch, colors swapped, and jump into it.
+  Future<void> _handleRematch(BuildContext context, OnlineGame game) async {
+    final notifier = ref.read(onlineGameNotifierProvider.notifier);
+    try {
+      final newGameId = await notifier.rematch(game);
+      if (!mounted) return;
+      if (newGameId == null) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Failed to start rematch')),
+        );
+        return;
+      }
+      Navigator.of(context).pushReplacement(
+        MaterialPageRoute(
+          builder: (_) => OnlineGameScreen(gameId: newGameId),
+        ),
+      );
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(

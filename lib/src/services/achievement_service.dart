@@ -27,6 +27,45 @@ class AchievementService {
     }
   }
 
+  /// Baseline achievements shown when nothing has been curated into
+  /// `achievements/definitions/all` yet (that collection has no in-repo
+  /// seed script, same situation as this app's other curated/admin-only
+  /// content) - `_calculateCurrentProgress` already special-cases exactly
+  /// these 3 ids, so the feature has something real to unlock out of the
+  /// box rather than being an empty list until an admin populates one.
+  static final List<AchievementDefinition> _bootstrapDefinitions = [
+    AchievementDefinition(
+      achievementId: 'first_win',
+      name: 'First Victory',
+      description: 'Win your first game',
+      icon: '🏆',
+      tier: 'Bronze',
+      condition: const {'targetValue': 1},
+      points: 10,
+      isHidden: false,
+    ),
+    AchievementDefinition(
+      achievementId: 'five_wins',
+      name: 'Rising Star',
+      description: 'Win 5 games',
+      icon: '⭐',
+      tier: 'Silver',
+      condition: const {'targetValue': 5},
+      points: 25,
+      isHidden: false,
+    ),
+    AchievementDefinition(
+      achievementId: 'puzzle_master',
+      name: 'Puzzle Master',
+      description: 'Complete 20 tactics puzzles',
+      icon: '🧩',
+      tier: 'Gold',
+      condition: const {'targetValue': 20},
+      points: 50,
+      isHidden: false,
+    ),
+  ];
+
   Future<List<AchievementDefinition>> getAllAchievements() async {
     if (_achievementCache.containsKey('all')) {
       return _achievementCache['all']!;
@@ -39,9 +78,11 @@ class AchievementService {
           .collection('all')
           .get();
 
-      final achievements = snapshot.docs
-          .map((doc) => AchievementDefinition.fromJson(doc.data()))
-          .toList();
+      final achievements = snapshot.docs.isEmpty
+          ? _bootstrapDefinitions
+          : snapshot.docs
+              .map((doc) => AchievementDefinition.fromJson(doc.data()))
+              .toList();
 
       _achievementCache['all'] = achievements;
 
@@ -64,12 +105,25 @@ class AchievementService {
   Future<AchievementProgress> getAchievementProgress(
       String userId, String achievementId) async {
     try {
-      final achievementDef = await _firestore
-          .collection('achievements')
-          .doc('definitions')
-          .collection('all')
-          .doc(achievementId)
-          .get();
+      // Resolved through getAllAchievements() (bootstrap-fallback aware)
+      // rather than a raw doc read, since `achievements/definitions/all`
+      // may not have a real doc for this id at all when falling back to
+      // _bootstrapDefinitions.
+      final allAchievements = await getAllAchievements();
+      final def = allAchievements.firstWhere(
+        (a) => a.achievementId == achievementId,
+        orElse: () => AchievementDefinition(
+          achievementId: achievementId,
+          name: achievementId,
+          description: '',
+          icon: '',
+          tier: 'Bronze',
+          condition: const {},
+          points: 0,
+          isHidden: false,
+        ),
+      );
+      final targetValue = (def.condition['targetValue'] as num?)?.toInt() ?? 0;
 
       final userAchievement = await _firestore
           .collection('achievements')
@@ -85,13 +139,14 @@ class AchievementService {
         currentValue = await _calculateCurrentProgress(userId, achievementId);
       }
 
+      final unlockedData = userAchievement.data();
       return AchievementProgress(
         achievementId: achievementId,
         isUnlocked: isUnlocked,
         currentValue: currentValue,
-        targetValue: achievementDef['condition']['targetValue'] ?? 0,
-        unlockedAt: isUnlocked && userAchievement['unlockedAt'] != null
-            ? (userAchievement['unlockedAt'] as Timestamp).toDate()
+        targetValue: targetValue,
+        unlockedAt: isUnlocked && unlockedData?['unlockedAt'] != null
+            ? (unlockedData!['unlockedAt'] as Timestamp).toDate()
             : null,
       );
     } catch (e) {
@@ -156,19 +211,43 @@ class AchievementService {
     }
   }
 
+  /// Evaluates every achievement's current progress for [userId] and
+  /// unlocks any that have newly reached their target. Nothing called
+  /// `unlockAchievement` anywhere before this - best-effort by design
+  /// (swallows its own errors) since it's meant to run as a fire-and-forget
+  /// side effect of things like a game ending, never block them.
+  Future<void> checkAndUnlockAchievements(String userId) async {
+    try {
+      final definitions = await getAllAchievements();
+      for (final def in definitions) {
+        final progress =
+            await getAchievementProgress(userId, def.achievementId);
+        if (!progress.isUnlocked &&
+            progress.targetValue > 0 &&
+            progress.currentValue >= progress.targetValue) {
+          await unlockAchievement(userId, def.achievementId);
+        }
+      }
+    } catch (e) {
+      print('Error checking achievements for unlock: $e');
+    }
+  }
+
   Future<int> _calculateCurrentProgress(
       String userId, String achievementId) async {
     try {
       final userDoc = await _firestore.collection('users').doc(userId).get();
+      final data = userDoc.data() ?? const <String, dynamic>{};
+      final wins = (data['wins'] as num?)?.toInt() ?? 0;
+      final puzzlesCompleted = (data['puzzlesCompleted'] as num?)?.toInt() ?? 0;
 
-      // Placeholder: Calculate based on achievement type
       switch (achievementId) {
         case 'first_win':
-          return (userDoc['wins'] ?? 0) > 0 ? 1 : 0;
+          return wins > 0 ? 1 : 0;
         case 'five_wins':
-          return userDoc['wins'] ?? 0;
+          return wins;
         case 'puzzle_master':
-          return userDoc['puzzlesCompleted'] ?? 0;
+          return puzzlesCompleted;
         default:
           return 0;
       }

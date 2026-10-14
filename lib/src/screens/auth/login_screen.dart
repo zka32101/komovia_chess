@@ -144,6 +144,106 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
     return 'Sign in failed. Please try again';
   }
 
+  void _showForgotPasswordDialog() {
+    final controller =
+        TextEditingController(text: _emailController.text.trim());
+    bool isSending = false;
+    String? dialogError;
+
+    showDialog(
+      context: context,
+      builder: (dialogContext) => StatefulBuilder(
+        builder: (dialogContext, setDialogState) => AlertDialog(
+          title: const Text('Reset Password'),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const Text(
+                'Enter your account email and we\'ll send you a link to '
+                'reset your password.',
+              ),
+              const SizedBox(height: 16),
+              TextField(
+                controller: controller,
+                enabled: !isSending,
+                keyboardType: TextInputType.emailAddress,
+                decoration: InputDecoration(
+                  labelText: 'Email',
+                  hintText: 'your@email.com',
+                  prefixIcon: const Icon(Icons.email_outlined),
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                ),
+              ),
+              if (dialogError != null) ...[
+                const SizedBox(height: 12),
+                Text(
+                  dialogError!,
+                  style: const TextStyle(color: Colors.red),
+                ),
+              ],
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: isSending
+                  ? null
+                  : () => Navigator.of(dialogContext).pop(),
+              child: const Text('Cancel'),
+            ),
+            FilledButton(
+              onPressed: isSending
+                  ? null
+                  : () async {
+                      final email = controller.text.trim();
+                      if (email.isEmpty) {
+                        setDialogState(() {
+                          dialogError = 'Please enter your email';
+                        });
+                        return;
+                      }
+                      setDialogState(() {
+                        isSending = true;
+                        dialogError = null;
+                      });
+                      try {
+                        await ref
+                            .read(authStateNotifierProvider.notifier)
+                            .sendPasswordResetEmail(email);
+                        if (dialogContext.mounted) {
+                          Navigator.of(dialogContext).pop();
+                        }
+                        if (mounted) {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            SnackBar(
+                              content: Text(
+                                'Password reset email sent to $email',
+                              ),
+                            ),
+                          );
+                        }
+                      } catch (e) {
+                        setDialogState(() {
+                          isSending = false;
+                          dialogError = _extractErrorMessage(e.toString());
+                        });
+                      }
+                    },
+              child: isSending
+                  ? const SizedBox(
+                      width: 16,
+                      height: 16,
+                      child: CircularProgressIndicator(strokeWidth: 2),
+                    )
+                  : const Text('Send Link'),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) => Scaffold(
         appBar: AppBar(
@@ -232,11 +332,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                 Align(
                   alignment: Alignment.centerRight,
                   child: TextButton(
-                    onPressed: _isLoading
-                        ? null
-                        : () {
-                            // TODO: Navigate to password reset
-                          },
+                    onPressed: _isLoading ? null : _showForgotPasswordDialog,
                     child: const Text('Forgot password?'),
                   ),
                 ),

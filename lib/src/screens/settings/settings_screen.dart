@@ -80,6 +80,42 @@ class SettingsScreen extends ConsumerWidget {
                         preferencesService.setNotificationsEnabled(value);
                       },
                     ),
+                    const Divider(height: 1),
+                    _buildToggleOption(
+                      title: 'Friend Requests',
+                      subtitle: 'New requests and acceptances',
+                      value: preferences.notificationsEnabled &&
+                          preferences.notifyFriendRequests,
+                      onChanged: preferences.notificationsEnabled
+                          ? (value) {
+                              preferencesService.setNotifyFriendRequests(value);
+                            }
+                          : null,
+                    ),
+                    const Divider(height: 1),
+                    _buildToggleOption(
+                      title: 'Game Alerts',
+                      subtitle: 'Matches, rematches, and challenges',
+                      value: preferences.notificationsEnabled &&
+                          preferences.notifyGameAlerts,
+                      onChanged: preferences.notificationsEnabled
+                          ? (value) {
+                              preferencesService.setNotifyGameAlerts(value);
+                            }
+                          : null,
+                    ),
+                    const Divider(height: 1),
+                    _buildToggleOption(
+                      title: 'Achievements',
+                      subtitle: 'Unlocked achievements and milestones',
+                      value: preferences.notificationsEnabled &&
+                          preferences.notifyAchievements,
+                      onChanged: preferences.notificationsEnabled
+                          ? (value) {
+                              preferencesService.setNotifyAchievements(value);
+                            }
+                          : null,
+                    ),
                   ],
                 ),
 
@@ -476,7 +512,7 @@ class SettingsScreen extends ConsumerWidget {
     required String title,
     required String subtitle,
     required bool value,
-    required Function(bool) onChanged,
+    required Function(bool)? onChanged,
   }) =>
       ListTile(
         title: Text(title),

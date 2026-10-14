@@ -4,6 +4,7 @@ import 'package:komovia_core/komovia_core.dart';
 import '../../providers/auth_provider.dart';
 import '../../providers/friend_provider.dart';
 import '../../providers/challenge_provider.dart';
+import '../messages/chat_screen.dart';
 
 class FriendsScreen extends ConsumerStatefulWidget {
   const FriendsScreen({Key? key}) : super(key: key);
@@ -56,6 +57,7 @@ class _FriendsListTab extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final friends = ref.watch(userFriendsProvider);
+    final me = ref.watch(currentUserProvider).value;
 
     return friends.when(
       loading: () => const Center(child: CircularProgressIndicator()),
@@ -84,6 +86,24 @@ class _FriendsListTab extends ConsumerWidget {
                 trailing: Row(
                   mainAxisSize: MainAxisSize.min,
                   children: [
+                    IconButton(
+                      icon: const Icon(Icons.chat_bubble_outline),
+                      tooltip: 'Message',
+                      onPressed: me == null
+                          ? null
+                          : () => Navigator.push(
+                                context,
+                                MaterialPageRoute(
+                                  builder: (_) => ChatScreen(
+                                    currentUid: me.uid,
+                                    currentDisplayName:
+                                        me.displayName ?? 'Player',
+                                    friendUid: friend.friendUid,
+                                    friendDisplayName: friend.displayName,
+                                  ),
+                                ),
+                              ),
+                    ),
                     IconButton(
                       icon: const Icon(Icons.bolt_outlined),
                       tooltip: 'Challenge',

@@ -247,6 +247,28 @@ class OnlineGame {
 
   /// Is this game active?
   bool get isActive => status == 'active';
+
+  /// True only for the *waiting* participant — the one for whom it is NOT
+  /// currently their turn, since they are not the delinquent party — once
+  /// the player whose turn it is has gone silent for at least [threshold].
+  /// Distinct from the per-move clock: this is for a game abandoned in the
+  /// real world (days), not a slow move.
+  bool canClaimAbandonmentForfeit(
+    String uid, {
+    Duration threshold = const Duration(hours: 48),
+  }) {
+    if (status != 'active') return false;
+    if (uid != whitePlayerId && uid != blackPlayerId) return false;
+
+    final myColor = uid == whitePlayerId ? 'white' : 'black';
+    if (currentTurn == myColor) return false;
+
+    final delinquentLastActivity =
+        currentTurn == 'white' ? whiteLastActivityTimestamp : blackLastActivityTimestamp;
+    final reference =
+        delinquentLastActivity ?? lastMoveTimestamp ?? startedAt ?? createdAt;
+    return DateTime.now().difference(reference) >= threshold;
+  }
 }
 
 /// Represents a single move in an online game
