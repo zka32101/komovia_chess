@@ -1,3 +1,4 @@
+import 'dart:convert' show jsonEncode, jsonDecode;
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:logger/logger.dart';
 import '../models/game_history.dart';
@@ -417,14 +418,10 @@ class FirebaseGameHistoryService implements GameHistoryService {
   }
 }
 
-/// Helper functions for JSON serialization
-String jsonStringify(Map<String, dynamic> json) {
-  // Simple JSON stringification
-  return json.toString();
-}
+/// Helper functions for JSON serialization, used by exportGamesAsJson/
+/// importGamesFromJson. Previously `json.toString()` (Dart's Map.toString,
+/// not valid JSON - e.g. unquoted keys) and an unconditionally-throwing
+/// stub, so export produced garbage and import always crashed.
+String jsonStringify(Map<String, dynamic> json) => jsonEncode(json);
 
-dynamic jsonParse(String jsonString) {
-  // Simple JSON parsing - in production use dart:convert
-  // This is a placeholder
-  throw UnimplementedError('Use dart:convert.jsonDecode in production');
-}
+dynamic jsonParse(String jsonString) => jsonDecode(jsonString);
