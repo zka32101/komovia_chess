@@ -5,6 +5,7 @@ import '../../services/chess_engine_service.dart';
 import '../../services/stockfish_engine_service.dart';
 import '../../widgets/game_analysis_bar.dart';
 import '../../widgets/game_board.dart';
+import 'game_analysis_screen.dart';
 
 const _standardStartingFen =
     'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1';
@@ -91,6 +92,19 @@ class _GameReviewScreenState extends ConsumerState<GameReviewScreen> {
           title: const Text('Game Review'),
           centerTitle: true,
           actions: [
+            IconButton(
+              icon: const Icon(Icons.analytics_outlined),
+              tooltip: 'Analyze Game',
+              onPressed: () => Navigator.of(context).push(
+                MaterialPageRoute(
+                  builder: (_) => GameAnalysisScreen(
+                    moves: widget.game.moves,
+                    whitePlayerName: widget.game.whitePlayerName,
+                    blackPlayerName: widget.game.blackPlayerName,
+                  ),
+                ),
+              ),
+            ),
             IconButton(
               icon: const Icon(Icons.info_outline),
               onPressed: _showGameInfo,
