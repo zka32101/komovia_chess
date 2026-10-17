@@ -118,9 +118,7 @@ class _PuzzleScreenState extends ConsumerState<PuzzleScreen> {
                 const Text('No daily challenge available'),
                 const SizedBox(height: 24),
                 FilledButton(
-                  onPressed: () {
-                    // TODO: Refresh or load puzzles by rating
-                  },
+                  onPressed: () => setState(() => _selectedTab = 1),
                   child: const Text('Browse Puzzles'),
                 ),
               ],
