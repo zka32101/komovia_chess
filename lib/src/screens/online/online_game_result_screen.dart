@@ -2,8 +2,10 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../models/online_game.dart';
 import '../../providers/auth_provider.dart';
+import '../../providers/online_game_provider.dart';
 import '../../services/game_gif_service.dart';
 import '../../services/game_share_service.dart';
+import 'online_game_screen.dart';
 
 /// Displays the result of a completed online game
 class OnlineGameResultScreen extends ConsumerStatefulWidget {
@@ -25,6 +27,7 @@ class _OnlineGameResultScreenState
   final _gifService = GameGifService();
   final _shareService = GameShareService();
   bool _isSharing = false;
+  bool _isRematching = false;
 
   OnlineGame get game => widget.game;
 
@@ -88,6 +91,43 @@ class _OnlineGameResultScreenState
     } finally {
       if (mounted) {
         setState(() => _isSharing = false);
+      }
+    }
+  }
+
+  /// Start a same-opponent rematch (colors swapped) and jump straight
+  /// into it, clearing this result screen and the finished game screen
+  /// from the stack so "back" from the new game goes to wherever the
+  /// user was before this game started.
+  Future<void> _handleRematch() async {
+    if (_isRematching) return;
+    setState(() => _isRematching = true);
+
+    try {
+      final newGameId =
+          await ref.read(onlineGameNotifierProvider.notifier).rematch(game);
+      if (!mounted) return;
+      if (newGameId == null) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Failed to start rematch')),
+        );
+        return;
+      }
+      Navigator.of(context).pushAndRemoveUntil(
+        MaterialPageRoute(
+          builder: (_) => OnlineGameScreen(gameId: newGameId),
+        ),
+        (route) => route.isFirst,
+      );
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Error: $e')),
+        );
+      }
+    } finally {
+      if (mounted) {
+        setState(() => _isRematching = false);
       }
     }
   }
@@ -320,6 +360,24 @@ class _OnlineGameResultScreenState
             ),
             const SizedBox(height: 12),
           ],
+          OutlinedButton.icon(
+            onPressed: _isRematching ? null : _handleRematch,
+            icon: _isRematching
+                ? const SizedBox(
+                    width: 16,
+                    height: 16,
+                    child: CircularProgressIndicator(strokeWidth: 2),
+                  )
+                : const Icon(Icons.replay),
+            style: OutlinedButton.styleFrom(
+              padding: const EdgeInsets.symmetric(vertical: 16),
+            ),
+            label: Text(
+              _isRematching ? 'Starting rematch...' : 'Rematch',
+              style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
+            ),
+          ),
+          const SizedBox(height: 12),
           ElevatedButton(
             onPressed: () {
               Navigator.of(context).pushNamedAndRemoveUntil('/', (_) => false);
