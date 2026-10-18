@@ -433,15 +433,6 @@ final challengeRewardsProvider =
   },
 );
 
-/// Get event-specific challenges
-final eventChallengesProvider =
-    FutureProvider.family<List<Challenge>, String>((ref, seasonId) {
-  // TODO: Currently only supports seasonId parameter
-  // Future: update to support eventId as well
-  final service = ref.watch(seasonChallengeServiceProvider);
-  return service.getChallenges(seasonId: seasonId);
-});
-
 /// Get all player challenges for season
 final playerSeasonChallengesProvider = FutureProvider.family<
     List<PlayerChallengeProgress>, SeasonChallengesParams>((ref, params) {

@@ -233,6 +233,20 @@ class OnlineGameService {
         'blackNewRating': blackNewRating,
       });
 
+      // Persist the new rating to each player's own record - previously
+      // the computed whiteNewRating/blackNewRating only ever landed on
+      // the game document above, never on the user themselves, so an
+      // online game's rating change was silently lost: it showed nowhere
+      // (not on the profile, not on any leaderboard) after the game
+      // ended. `onlineRating` is this app's separate PvP rating track,
+      // distinct from the CPU-game `rating` field.
+      await _firestore.collection('users').doc(game.whitePlayerId).update({
+        'onlineRating': whiteNewRating,
+      });
+      await _firestore.collection('users').doc(game.blackPlayerId).update({
+        'onlineRating': blackNewRating,
+      });
+
       _logger.i('Game completed: $gameId - $result ($resultReason)');
 
       await _logGameEndActivity(

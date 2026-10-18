@@ -268,8 +268,20 @@ final onlineGameNotifierProvider =
 
 /// Notifier for matchmaking operations
 class MatchmakingNotifier extends StateNotifier<AsyncValue<void>> {
-  MatchmakingNotifier(this._service) : super(const AsyncValue.data(null));
+  MatchmakingNotifier(this._service, this._gameService)
+      : super(const AsyncValue.data(null));
   final MatchmakingService _service;
+  final OnlineGameService _gameService;
+
+  /// Drive one round of matching for [queueId] - see
+  /// [MatchmakingService.tryMatch] for why this has to be called
+  /// periodically by the waiting client rather than happening on its own.
+  /// Deliberately does not touch `state`/AsyncValue: this runs silently
+  /// on a polling timer, and surfacing every tick as loading/data would
+  /// just make the UI flicker for no benefit - errors are already logged
+  /// and swallowed inside the service call itself.
+  Future<void> tryMatch(String queueId) =>
+      _service.tryMatch(queueId: queueId, gameService: _gameService);
 
   /// Join matchmaking queue
   Future<MatchmakingQueueEntry> joinQueue({
@@ -447,5 +459,19 @@ final onlineGameStateProvider = StateNotifierProvider.family<
 final matchmakingNotifierProvider =
     StateNotifierProvider<MatchmakingNotifier, AsyncValue<void>>((ref) {
   final service = ref.watch(matchmakingServiceProvider);
-  return MatchmakingNotifier(service);
+  final gameService = ref.watch(onlineGameServiceProvider);
+  return MatchmakingNotifier(service, gameService);
+});
+
+/// Live stream of a player's own matchmaking queue entry - used instead
+/// of the one-shot [queueStatusProvider] so the waiting screen reacts the
+/// moment `tryMatch` (run by either side) flips status to 'matched',
+/// rather than only on the next unrelated rebuild.
+final queueEntryStreamProvider =
+    StreamProvider.family<MatchmakingQueueEntry?, String>((ref, queueId) {
+  return FirebaseFirestore.instance
+      .collection('matchmaking_queue')
+      .doc(queueId)
+      .snapshots()
+      .map((doc) => doc.exists ? MatchmakingQueueEntry.fromJson(doc.data()!) : null);
 });
