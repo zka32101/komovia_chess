@@ -102,7 +102,12 @@ void main() {
     });
 
     Widget buildTestWidget(OnlineGame game) {
-      return ProviderContainer(
+      // ProviderContainer is a plain Riverpod container object, not a
+      // Flutter widget, and has no `child` param - ProviderScope is the
+      // widget that actually wraps a widget tree with a provider scope
+      // (same bug/fix already documented elsewhere in this project's
+      // history for other test files).
+      return ProviderScope(
         child: MaterialApp(
           home: OnlineGameResultScreen(
             gameId: game.gameId,
@@ -169,6 +174,7 @@ void main() {
 
       expect(find.text('Back to Home'), findsOneWidget);
       expect(find.text('Play Again'), findsOneWidget);
+      expect(find.text('Rematch'), findsOneWidget);
     });
 
     testWidgets('back to home button navigates correctly',

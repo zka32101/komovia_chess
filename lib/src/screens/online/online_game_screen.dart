@@ -7,6 +7,7 @@ import '../../widgets/game_board.dart';
 import '../../widgets/time_clock.dart';
 import '../../widgets/game_info_panel.dart';
 import '../../services/sound_service.dart';
+import 'online_game_result_screen.dart';
 
 /// Screen for playing online multiplayer chess games
 class OnlineGameScreen extends ConsumerStatefulWidget {
@@ -22,6 +23,12 @@ class OnlineGameScreen extends ConsumerStatefulWidget {
 
 class _OnlineGameScreenState extends ConsumerState<OnlineGameScreen> {
   late String _gameId;
+
+  /// Guards against pushing OnlineGameResultScreen more than once - the
+  /// game stream keeps emitting (e.g. opponent's late activity-timestamp
+  /// writes) after the game has already ended, and each emission rebuilds
+  /// this screen.
+  bool _hasShownResult = false;
 
   @override
   void initState() {
@@ -57,6 +64,19 @@ class _OnlineGameScreenState extends ConsumerState<OnlineGameScreen> {
     final isBoardActive = game.status == 'active';
     final isPlayerTurn = _isCurrentPlayerTurn(game);
     final isWhitePlayer = game.whitePlayerId == _getCurrentPlayerId();
+
+    if (!isBoardActive && !_hasShownResult) {
+      _hasShownResult = true;
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!mounted) return;
+        Navigator.of(context).push(
+          MaterialPageRoute(
+            builder: (_) =>
+                OnlineGameResultScreen(gameId: _gameId, game: game),
+          ),
+        );
+      });
+    }
 
     return Column(
       children: [
@@ -97,9 +117,9 @@ class _OnlineGameScreenState extends ConsumerState<OnlineGameScreen> {
         _buildDrawOfferBanner(game),
         _buildAbandonmentForfeitBanner(game),
 
-        // Move/Action buttons
+        // Move/Action buttons - once the game ends, OnlineGameResultScreen
+        // (pushed above) shows the result/rematch/share actions instead.
         if (isBoardActive) _buildGameActions(context, game),
-        if (!isBoardActive) _buildGameOverActions(context, game),
       ],
     );
   }
@@ -138,29 +158,6 @@ class _OnlineGameScreenState extends ConsumerState<OnlineGameScreen> {
       ),
     );
   }
-
-  /// Rematch / exit actions once the game has ended.
-  Widget _buildGameOverActions(BuildContext context, OnlineGame game) =>
-      Padding(
-        padding: const EdgeInsets.all(16),
-        child: Row(
-          children: [
-            Expanded(
-              child: OutlinedButton(
-                onPressed: () => Navigator.pop(context),
-                child: const Text('Exit Game'),
-              ),
-            ),
-            const SizedBox(width: 12),
-            Expanded(
-              child: FilledButton(
-                onPressed: () => _handleRematch(context, game),
-                child: const Text('Rematch'),
-              ),
-            ),
-          ],
-        ),
-      );
 
   /// Build chess board widget from game state
   Widget _buildChessBoardWidget(
@@ -689,32 +686,6 @@ class _OnlineGameScreenState extends ConsumerState<OnlineGameScreen> {
       await ref
           .read(onlineGameServiceProvider)
           .claimAbandonmentForfeit(_gameId, _getCurrentPlayerId());
-    } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Error: $e')),
-        );
-      }
-    }
-  }
-
-  /// Start a same-opponent rematch, colors swapped, and jump into it.
-  Future<void> _handleRematch(BuildContext context, OnlineGame game) async {
-    final notifier = ref.read(onlineGameNotifierProvider.notifier);
-    try {
-      final newGameId = await notifier.rematch(game);
-      if (!mounted) return;
-      if (newGameId == null) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Failed to start rematch')),
-        );
-        return;
-      }
-      Navigator.of(context).pushReplacement(
-        MaterialPageRoute(
-          builder: (_) => OnlineGameScreen(gameId: newGameId),
-        ),
-      );
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
