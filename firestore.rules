@@ -45,6 +45,16 @@ service cloud.firestore {
       // ✅ 削除は本人またはadminのみ
       allow delete: if isOwner(userId) || isAdmin();
 
+      // Cross-user: OnlineGameService._endGameWithResult persists the
+      // new onlineRating to BOTH participants when a game ends, so the
+      // caller (whichever participant's resign/draw/timeout/forfeit
+      // action triggered completion) is often not `userId` itself -
+      // same client-trusted pattern this app already uses for other
+      // self-reported game outcomes, narrowed to just this one field so
+      // nothing else about another user's document can be touched this
+      // way.
+      allow update: if isSignedIn() && onlyChanged(['onlineRating']);
+
       // ----------------------------------------------
       // Friendships (users/{uid}/friends/{friendUid})
       // ----------------------------------------------
@@ -319,6 +329,37 @@ service cloud.firestore {
     match /exchange_rates/{document=**} {
       allow read: if true;
       allow write: if isAdmin();
+    }
+
+    // ============================================
+    // Matchmaking Queue (MatchmakingService)
+    // ============================================
+    // Previously uncovered entirely (fell through to the file's
+    // default-deny below), so joinQueue's own write would have been
+    // rejected in production - a second, independent reason online
+    // matchmaking never worked, on top of tryMatch's matching logic
+    // itself having been a no-op before this fix. Reads are open to any
+    // signed-in user since finding a compatible opponent means scanning
+    // every other player's waiting entry, same as this app's open-read
+    // pattern for `games`-adjacent discovery data. Updates are similarly
+    // open (not owner-restricted) because claiming a match and writing
+    // the final `matched` status both require the player who runs
+    // tryMatch to update the OPPONENT's entry, not just their own - the
+    // update rule still keeps every entry's identity/rating fields
+    // immutable and only allows the specific status progression
+    // tryMatch actually performs.
+    match /matchmaking_queue/{queueId} {
+      allow read: if isSignedIn();
+      allow create: if isSignedIn() &&
+        request.resource.data.playerId == request.auth.uid &&
+        request.resource.data.status == 'waiting';
+      allow update: if isSignedIn() &&
+        unchanged('playerId') &&
+        unchanged('currentRating') &&
+        unchanged('timeControlType') &&
+        onlyChanged(['status', 'matchedOpponentId', 'matchedGameId']) &&
+        request.resource.data.status in ['matching', 'matched'];
+      allow delete: if isOwner(resource.data.playerId);
     }
 
     // ============================================
