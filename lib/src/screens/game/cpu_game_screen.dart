@@ -3,6 +3,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../models/cpu_game_state.dart';
 import '../../models/online_game.dart';
 import '../../services/ai_opponent_engine.dart';
+import '../../services/game_gif_service.dart';
+import '../../services/game_share_service.dart';
 import '../../widgets/game_board.dart';
 import '../../widgets/game_result.dart';
 import '../../widgets/move_history.dart';
@@ -25,6 +27,10 @@ class CPUGameScreen extends ConsumerStatefulWidget {
 }
 
 class _CPUGameScreenState extends ConsumerState<CPUGameScreen> {
+  final _gifService = GameGifService();
+  final _shareService = GameShareService();
+  bool _isSharing = false;
+
   @override
   void initState() {
     super.initState();
@@ -314,8 +320,57 @@ class _CPUGameScreenState extends ConsumerState<CPUGameScreen> {
             Navigator.of(context).pop();
           },
           onAnalyze: () => _openAnalysis(gameState),
+          onShare: () => _shareGameGif(gameState),
+          isSharing: _isSharing,
         ),
       );
+
+  /// Replays the just-finished game as an animated GIF and opens the share
+  /// sheet (X/Twitter among its targets) with a result caption - the
+  /// "post the move flow to X with one tap" feature. See
+  /// [GameShareService] for why this is the OS share sheet rather than a
+  /// true one-tap-into-X post: there's no way to launch X with an attached
+  /// file without its own SDK/API credentials.
+  Future<void> _shareGameGif(CpuGameState gameState) async {
+    if (_isSharing) return;
+    setState(() => _isSharing = true);
+
+    try {
+      final moves = gameState.moves
+          .map((m) => (
+                from: m.fromAlgebraic,
+                to: m.toAlgebraic,
+                promotion: m.promotion?.name,
+              ))
+          .toList();
+
+      final gifBytes = await _gifService.generateGif(moves: moves);
+
+      final resultText = switch (gameState.result) {
+        'white_win' => widget.playerIsWhite ? 'I won! ♟️' : 'CPU won this one',
+        'black_win' => widget.playerIsWhite ? 'CPU won this one' : 'I won! ♟️',
+        'draw' => 'Drew this one',
+        _ => 'Finished a game',
+      };
+
+      if (!mounted) return;
+      await _shareService.shareGameGif(
+        gifBytes: gifBytes,
+        caption: '$resultText vs CPU (${widget.difficulty.displayName}) on '
+            'Komovia Chess #chess',
+      );
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Could not create share GIF: $e')),
+        );
+      }
+    } finally {
+      if (mounted) {
+        setState(() => _isSharing = false);
+      }
+    }
+  }
 
   /// Builds a synthetic OnlineGame wrapping this finished CPU game's moves
   /// and pushes the already-existing GameReviewScreen - reusing its

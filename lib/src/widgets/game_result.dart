@@ -11,6 +11,8 @@ class GameResult extends StatelessWidget {
     this.onAnalyze,
     this.onNewGame,
     this.onHome,
+    this.onShare,
+    this.isSharing = false,
   }) : super(key: key);
   final String result; // 'white_win', 'black_win', or 'draw'
   final String method; // 'checkmate', 'resignation', 'stalemate', 'timeout'
@@ -19,6 +21,16 @@ class GameResult extends StatelessWidget {
   final Function()? onAnalyze;
   final Function()? onNewGame;
   final Function()? onHome;
+
+  /// Generates a move-by-move GIF of the finished game and opens the share
+  /// sheet (X/Twitter among the targets). Omitted when the caller has no
+  /// move list to replay (e.g. an online game screen that hasn't been
+  /// wired up for this yet).
+  final Function()? onShare;
+
+  /// True while a share is being generated, so the button can show a
+  /// spinner instead of letting a slow GIF encode look like a dead tap.
+  final bool isSharing;
 
   String _getResultTitle() {
     switch (result) {
@@ -164,6 +176,24 @@ class GameResult extends StatelessWidget {
                 Column(
                   mainAxisSize: MainAxisSize.min,
                   children: [
+                    if (onShare != null)
+                      SizedBox(
+                        width: double.infinity,
+                        child: ElevatedButton.icon(
+                          onPressed: isSharing ? null : onShare,
+                          icon: isSharing
+                              ? const SizedBox(
+                                  width: 16,
+                                  height: 16,
+                                  child: CircularProgressIndicator(
+                                      strokeWidth: 2),
+                                )
+                              : const Icon(Icons.ios_share),
+                          label: Text(
+                              isSharing ? 'Creating GIF...' : 'Share on X'),
+                        ),
+                      ),
+                    if (onShare != null) const SizedBox(height: 8),
                     if (onAnalyze != null)
                       SizedBox(
                         width: double.infinity,
@@ -199,6 +229,19 @@ class GameResult extends StatelessWidget {
                 Row(
                   mainAxisAlignment: MainAxisAlignment.spaceEvenly,
                   children: [
+                    if (onShare != null)
+                      ElevatedButton.icon(
+                        onPressed: isSharing ? null : onShare,
+                        icon: isSharing
+                            ? const SizedBox(
+                                width: 16,
+                                height: 16,
+                                child:
+                                    CircularProgressIndicator(strokeWidth: 2),
+                              )
+                            : const Icon(Icons.ios_share),
+                        label: Text(isSharing ? 'Creating GIF...' : 'Share on X'),
+                      ),
                     if (onAnalyze != null)
                       ElevatedButton.icon(
                         onPressed: onAnalyze,

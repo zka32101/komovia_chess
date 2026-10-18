@@ -70,6 +70,10 @@ dependencies:
   dio: ^5.2.0
   flutter_dotenv: ^5.0.0
 
+  # Sharing (post-game GIF export)
+  image: ^4.2.0
+  share_plus: ^10.1.4
+
 dev_dependencies:
   flutter_test:
     sdk: flutter
