@@ -366,7 +366,7 @@ class _GameScreenState extends ConsumerState<GameScreen> {
               title: const Text('Game Info'),
               onTap: () {
                 Navigator.pop(context);
-                // TODO: Show game info dialog
+                _showGameInfoDialog(context, game);
               },
             ),
             const SizedBox(height: 8),
@@ -375,6 +375,48 @@ class _GameScreenState extends ConsumerState<GameScreen> {
       ),
     );
   }
+
+  void _showGameInfoDialog(BuildContext context, GameModel game) {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Game Info'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            _infoRow('Type', game.type),
+            _infoRow('Status', game.status),
+            _infoRow('Time Control', game.timeControl ?? '-'),
+            _infoRow('White', game.whitePlayerName ?? game.whitePlayerId),
+            _infoRow('Black', game.blackPlayerName ?? game.blackPlayerId),
+            _infoRow('Moves', '${game.moves.length}'),
+            if (game.result != null) _infoRow('Result', game.result!),
+            if (game.resultReason != null)
+              _infoRow('Reason', game.resultReason!),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Close'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _infoRow(String label, String value) => Padding(
+        padding: const EdgeInsets.symmetric(vertical: 4),
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            Text(label, style: const TextStyle(fontWeight: FontWeight.w500)),
+            const SizedBox(width: 12),
+            Flexible(child: Text(value, textAlign: TextAlign.end)),
+          ],
+        ),
+      );
 
   Future<void> _resignGame(String gameId) async {
     try {
