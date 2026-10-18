@@ -7,7 +7,7 @@ import '../../widgets/indicators/streak_indicator.dart';
 import '../../widgets/animations/chart_entrance_animation.dart';
 
 /// Screen for displaying performance analytics and trends
-class PerformanceAnalyticsScreen extends ConsumerWidget {
+class PerformanceAnalyticsScreen extends ConsumerStatefulWidget {
   const PerformanceAnalyticsScreen({
     required this.playerId,
     required this.playerName,
@@ -17,7 +17,18 @@ class PerformanceAnalyticsScreen extends ConsumerWidget {
   final String playerName;
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<PerformanceAnalyticsScreen> createState() =>
+      _PerformanceAnalyticsScreenState();
+}
+
+class _PerformanceAnalyticsScreenState
+    extends ConsumerState<PerformanceAnalyticsScreen> {
+  int _selectedDays = 30;
+
+  String get playerId => widget.playerId;
+
+  @override
+  Widget build(BuildContext context) {
     final performanceStats = ref.watch(performanceStatsProvider(playerId));
 
     return Scaffold(
@@ -142,21 +153,32 @@ class PerformanceAnalyticsScreen extends ConsumerWidget {
           ),
           const SizedBox(height: 12),
           ChartEntranceAnimation(
+            key: ValueKey(_selectedDays),
             child: RatingProgressionChart(
               playerId: playerId,
-              days: 30,
+              days: _selectedDays,
             ),
           ),
         ],
       );
 
-  Widget _buildTimeRangeButton(BuildContext context, String label, int days) =>
-      OutlinedButton(
-        onPressed: () {
-          // TODO: Implement time range switching with state management
-        },
-        child: Text(label),
-      );
+  Widget _buildTimeRangeButton(BuildContext context, String label, int days) {
+    final isSelected = _selectedDays == days;
+    return OutlinedButton(
+      style: isSelected
+          ? OutlinedButton.styleFrom(
+              backgroundColor:
+                  Theme.of(context).colorScheme.primary.withOpacity(0.1),
+              side: BorderSide(
+                color: Theme.of(context).colorScheme.primary,
+                width: 2,
+              ),
+            )
+          : null,
+      onPressed: isSelected ? null : () => setState(() => _selectedDays = days),
+      child: Text(label),
+    );
+  }
 
   Widget _buildPerformanceByTimeControl(BuildContext context, WidgetRef ref) {
     final performanceByTimeControl =

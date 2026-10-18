@@ -3,6 +3,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:komovia_core/komovia_core.dart';
 import '../providers/auth_provider.dart';
 import '../providers/notification_provider.dart';
+import 'friends/friends_screen.dart';
+import 'online/online_game_screen.dart';
 
 // `AppNotification.type` is a plain string (komovia_core doesn't define
 // a fixed enum of notification types - see its own doc comments), so the
@@ -323,11 +325,32 @@ class NotificationsScreen extends ConsumerWidget {
     }
   }
 
+  /// Routes a tapped notification's `actionUrl` to the real screen it
+  /// names. This app has no named-route table at all (every navigation
+  /// elsewhere is a direct `MaterialPageRoute`), so actionUrl values are
+  /// parsed here the same way - only the two shapes any service actually
+  /// writes today (`/friends`, `/online-game/{gameId}`) are handled;
+  /// anything else falls back to a snackbar rather than silently doing
+  /// nothing, so a future sender's typo is visible instead of invisible.
   void _navigateToAction(BuildContext context, String actionUrl) {
-    // This would typically navigate to a specific screen based on the action URL
-    // For now, just a placeholder
+    if (actionUrl == '/friends') {
+      Navigator.of(context).push(
+        MaterialPageRoute(builder: (_) => const FriendsScreen()),
+      );
+      return;
+    }
+
+    final gameMatch = RegExp(r'^/online-game/(.+)$').firstMatch(actionUrl);
+    if (gameMatch != null) {
+      final gameId = gameMatch.group(1)!;
+      Navigator.of(context).push(
+        MaterialPageRoute(builder: (_) => OnlineGameScreen(gameId: gameId)),
+      );
+      return;
+    }
+
     ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text('Navigate to: $actionUrl')),
+      SnackBar(content: Text('Unknown notification destination: $actionUrl')),
     );
   }
 

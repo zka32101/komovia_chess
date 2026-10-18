@@ -158,6 +158,20 @@ final puzzlesByRatingProvider =
   },
 );
 
+// Any user's puzzle rating by uid - unlike userPuzzleStatsProvider (which
+// only ever reads the signed-in user's own doc), for showing e.g. a
+// friend's or opponent's puzzle rating on their profile.
+final puzzleRatingProvider =
+    FutureProvider.family<int, String>((ref, uid) async {
+  final firestore = FirebaseFirestore.instance;
+  try {
+    final doc = await firestore.collection('users').doc(uid).get();
+    return (doc.data()?['averageRating'] as num?)?.toInt() ?? 1600;
+  } catch (e) {
+    return 1600;
+  }
+});
+
 // Track user's puzzle statistics
 final userPuzzleStatsProvider =
     StreamProvider<Map<String, dynamic>>((ref) async* {
