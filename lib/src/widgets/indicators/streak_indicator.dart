@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:share_plus/share_plus.dart';
 
 /// Displays current and longest streaks with animated circular progress
 class StreakIndicator extends StatefulWidget {
@@ -136,8 +137,26 @@ class _StreakIndicatorState extends State<StreakIndicator>
               ),
             ],
           ),
+
+          // Share button - only shown for an active win streak, since a
+          // loss streak or a zero/reset streak has nothing worth bragging
+          // about on SNS.
+          if (isWinStreak && streakValue > 0) ...[
+            const SizedBox(height: 16),
+            OutlinedButton.icon(
+              onPressed: () => _shareStreak(streakValue),
+              icon: const Icon(Icons.share, size: 18),
+              label: const Text('Share'),
+            ),
+          ],
         ],
       ),
+    );
+  }
+
+  Future<void> _shareStreak(int streakValue) async {
+    await Share.share(
+      '🔥 On a $streakValue-game win streak on Komovia Chess! #chess',
     );
   }
 
