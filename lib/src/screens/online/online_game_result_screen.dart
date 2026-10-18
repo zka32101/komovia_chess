@@ -77,10 +77,18 @@ class _OnlineGameResultScreenState
       // setup variants in this app), so GameGifService's default suffices.
       final gifBytes = await _gifService.generateGif(moves: moves);
 
+      final oldRating = isCurrentUserWhite ? game.whiteRating : game.blackRating;
+      final newRating = isCurrentUserWhite
+          ? (game.whiteNewRating ?? game.whiteRating)
+          : (game.blackNewRating ?? game.blackRating);
+      final milestone = _crossedRatingMilestone(oldRating, newRating);
+      final milestoneText =
+          milestone != null ? ' Just crossed $milestone rating! 🎉' : '';
+
       if (!mounted) return;
       await _shareService.shareGameGif(
         gifBytes: gifBytes,
-        caption: '$resultText on Komovia Chess #chess',
+        caption: '$resultText$milestoneText on Komovia Chess #chess',
       );
     } catch (e) {
       if (mounted) {
@@ -93,6 +101,18 @@ class _OnlineGameResultScreenState
         setState(() => _isSharing = false);
       }
     }
+  }
+
+  /// Returns the highest multiple of 100 the player's rating crossed
+  /// upward this game (e.g. 1480 -> 1512 returns 1500), or null if no
+  /// hundred-point milestone was crossed (including on a loss/draw where
+  /// rating didn't increase past one).
+  int? _crossedRatingMilestone(int oldRating, int newRating) {
+    if (newRating <= oldRating) return null;
+    final oldMilestone = oldRating ~/ 100;
+    final newMilestone = newRating ~/ 100;
+    if (newMilestone <= oldMilestone) return null;
+    return newMilestone * 100;
   }
 
   /// Start a same-opponent rematch (colors swapped) and jump straight

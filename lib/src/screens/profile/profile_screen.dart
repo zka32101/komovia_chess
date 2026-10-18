@@ -4,6 +4,8 @@ import 'package:share_plus/share_plus.dart';
 import '../../config/deployment_config.dart';
 import '../../providers/auth_provider.dart';
 import '../../providers/achievement_provider.dart';
+import '../../services/achievement_service.dart'
+    show AchievementDefinition, AchievementProgress;
 import '../../providers/puzzle_provider.dart' show puzzleRatingProvider;
 import '../../providers/online_game_provider.dart';
 import '../../models/user.dart';
@@ -790,14 +792,34 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                       ],
                     ),
                   ),
-                  if (progress.isUnlocked)
+                  if (progress.isUnlocked) ...[
+                    IconButton(
+                      icon: const Icon(Icons.share, size: 20),
+                      tooltip: 'Share',
+                      onPressed: () => _shareAchievement(def, progress),
+                    ),
                     const Icon(Icons.check_circle, color: Colors.amber),
+                  ],
                 ],
               ),
             );
           },
         );
       },
+    );
+  }
+
+  /// Achievement unlocks have no board state to render as a GIF (unlike
+  /// game/puzzle shares via GameGifService), so this is a plain text share
+  /// through the OS share sheet rather than reusing that service.
+  Future<void> _shareAchievement(
+    AchievementDefinition? def,
+    AchievementProgress progress,
+  ) async {
+    final icon = def?.icon.isNotEmpty == true ? def!.icon : '🏆';
+    final name = def?.name ?? progress.achievementId;
+    await Share.share(
+      '$icon Unlocked "$name" on Komovia Chess! #chess',
     );
   }
 }
