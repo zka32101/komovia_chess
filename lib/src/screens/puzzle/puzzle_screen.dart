@@ -3,6 +3,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../models/puzzle.dart';
 import '../../providers/puzzle_provider.dart';
 import '../../services/chess_engine_service.dart';
+import '../../services/game_gif_service.dart';
+import '../../services/game_share_service.dart';
 import '../../widgets/game_board.dart';
 
 class PuzzleScreen extends ConsumerStatefulWidget {
@@ -434,10 +436,13 @@ class PuzzleSolvingScreen extends ConsumerStatefulWidget {
 
 class _PuzzleSolvingScreenState extends ConsumerState<PuzzleSolvingScreen> {
   final _chess = ChessEngineService();
+  final _gifService = GameGifService();
+  final _shareService = GameShareService();
   int _puzzleIndex = 0;
   int _moveIndex = 0;
   String? _loadedPuzzleId;
   bool _isPlayerTurn = true;
+  bool _isSharing = false;
   _PuzzleFeedback _feedback = _PuzzleFeedback.none;
 
   String get _currentPuzzleId => widget.puzzleIds[_puzzleIndex];
@@ -508,6 +513,53 @@ class _PuzzleSolvingScreenState extends ConsumerState<PuzzleSolvingScreen> {
         .catchError((_) {});
   }
 
+  /// Replays the puzzle's solution (puzzle.fen -> puzzle.moves, same UCI
+  /// move-string format `GameGifService.generateGif`'s `ReplayMove` expects
+  /// a from/to/promotion record for) as an animated GIF and opens the OS
+  /// share sheet - same mechanism/caption convention as
+  /// CpuGameScreen._shareGameGif, just triggered on puzzle solve rather
+  /// than on game end.
+  Future<void> _sharePuzzle(PuzzleModel puzzle) async {
+    if (_isSharing) return;
+    setState(() => _isSharing = true);
+
+    try {
+      final moves = puzzle.moves.map(_parseUciMove).toList();
+      final gifBytes = await _gifService.generateGif(
+        moves: moves,
+        startingFen: puzzle.fen,
+      );
+
+      final themeText =
+          puzzle.themes.isNotEmpty ? ' (${puzzle.themes.join(', ')})' : '';
+
+      if (!mounted) return;
+      await _shareService.shareGameGif(
+        gifBytes: gifBytes,
+        caption: 'Solved a #${puzzle.rating} puzzle$themeText on '
+            'Komovia Chess #chess',
+      );
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Could not create share GIF: $e')),
+        );
+      }
+    } finally {
+      if (mounted) {
+        setState(() => _isSharing = false);
+      }
+    }
+  }
+
+  /// Parses a UCI move string ("e2e4" or, with promotion, "e7e8q") into the
+  /// (from, to, promotion) record `GameGifService` replays.
+  ReplayMove _parseUciMove(String uci) => (
+        from: uci.substring(0, 2),
+        to: uci.substring(2, 4),
+        promotion: uci.length > 4 ? uci.substring(4) : null,
+      );
+
   void _nextPuzzle() {
     if (_puzzleIndex + 1 >= widget.puzzleIds.length) {
       Navigator.of(context).pop();
@@ -569,13 +621,31 @@ class _PuzzleSolvingScreenState extends ConsumerState<PuzzleSolvingScreen> {
                 if (_feedback == _PuzzleFeedback.solved)
                   Padding(
                     padding: const EdgeInsets.only(top: 16),
-                    child: FilledButton(
-                      onPressed: _nextPuzzle,
-                      child: Text(
-                        _puzzleIndex + 1 >= widget.puzzleIds.length
-                            ? 'Finish'
-                            : 'Next Puzzle',
-                      ),
+                    child: Column(
+                      children: [
+                        OutlinedButton.icon(
+                          onPressed:
+                              _isSharing ? null : () => _sharePuzzle(puzzle),
+                          icon: _isSharing
+                              ? const SizedBox(
+                                  width: 16,
+                                  height: 16,
+                                  child: CircularProgressIndicator(
+                                      strokeWidth: 2),
+                                )
+                              : const Icon(Icons.share),
+                          label: const Text('Share'),
+                        ),
+                        const SizedBox(height: 8),
+                        FilledButton(
+                          onPressed: _nextPuzzle,
+                          child: Text(
+                            _puzzleIndex + 1 >= widget.puzzleIds.length
+                                ? 'Finish'
+                                : 'Next Puzzle',
+                          ),
+                        ),
+                      ],
                     ),
                   ),
               ],
