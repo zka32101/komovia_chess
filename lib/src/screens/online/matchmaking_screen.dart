@@ -1,5 +1,7 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../../models/online_game.dart';
 import '../../providers/auth_provider.dart';
 import '../../providers/online_game_provider.dart';
 import 'online_game_screen.dart';
@@ -17,6 +19,23 @@ class _MatchmakingScreenState extends ConsumerState<MatchmakingScreen> {
   String _selectedTimeControl = '5min';
   String _selectedColor = 'random';
   bool _isSearching = false;
+
+  /// Drives MatchmakingService.tryMatch periodically while waiting - see
+  /// that method's doc comment for why this has to be client-driven.
+  Timer? _matchingTimer;
+
+  @override
+  void dispose() {
+    _matchingTimer?.cancel();
+    super.dispose();
+  }
+
+  void _startMatchingTimer(String queueId) {
+    _matchingTimer?.cancel();
+    _matchingTimer = Timer.periodic(const Duration(seconds: 2), (_) {
+      ref.read(matchmakingNotifierProvider.notifier).tryMatch(queueId);
+    });
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -110,20 +129,28 @@ class _MatchmakingScreenState extends ConsumerState<MatchmakingScreen> {
     );
   }
 
-  /// Waiting for match state: Show queue entry status and wait time
+  /// Waiting for match state: Show queue entry status and wait time.
+  /// Uses the live [queueEntryStreamProvider] (rather than the old
+  /// one-shot [queueStatusProvider]) so it reacts the moment either
+  /// side's `tryMatch` poll flips this entry to 'matched'.
   Widget _buildQueueWaitingState(BuildContext context) {
-    final queueStatus = ref.watch(queueStatusProvider(_currentQueueId!));
+    final entryAsync = ref.watch(queueEntryStreamProvider(_currentQueueId!));
 
-    return queueStatus.when(
-      data: (status) {
-        if (status['status'] == 'matched') {
+    return entryAsync.when(
+      data: (entry) {
+        if (entry == null) {
+          // Queue entry no longer exists (expired/cancelled elsewhere).
+          return _buildErrorState('Matchmaking entry no longer exists');
+        }
+
+        if (entry.status == 'matched' && entry.matchedGameId != null) {
           // Game created, navigate to game screen
           WidgetsBinding.instance.addPostFrameCallback((_) {
+            if (!mounted) return;
+            _matchingTimer?.cancel();
             Navigator.of(context).pushReplacement(
               MaterialPageRoute(
-                builder: (_) => OnlineGameScreen(
-                  gameId: status['matchedGameId'] as String,
-                ),
+                builder: (_) => OnlineGameScreen(gameId: entry.matchedGameId!),
               ),
             );
           });
@@ -147,7 +174,7 @@ class _MatchmakingScreenState extends ConsumerState<MatchmakingScreen> {
                   style: TextStyle(fontSize: 18, fontWeight: FontWeight.w500),
                 ),
                 const SizedBox(height: 16),
-                _buildQueueWaitInfo(status),
+                _buildQueueWaitInfo(entry),
                 const SizedBox(height: 24),
                 OutlinedButton.icon(
                   onPressed: _cancelSearch,
@@ -165,8 +192,8 @@ class _MatchmakingScreenState extends ConsumerState<MatchmakingScreen> {
   }
 
   /// Build queue wait information widget
-  Widget _buildQueueWaitInfo(Map<String, dynamic> status) {
-    final waitSeconds = status['waitTimeSeconds'] as int? ?? 0;
+  Widget _buildQueueWaitInfo(MatchmakingQueueEntry entry) {
+    final waitSeconds = entry.waitTimeSeconds;
     final minutes = waitSeconds ~/ 60;
     final seconds = waitSeconds % 60;
 
@@ -327,12 +354,15 @@ class _MatchmakingScreenState extends ConsumerState<MatchmakingScreen> {
           final entry = await notifier.joinQueue(
             playerId: user.uid,
             playerName: user.displayName ?? 'Anonymous',
-            currentRating: userProfile?.rating ?? 1500,
+            // Online matchmaking is matched on the online rating track,
+            // not the separate CPU-game `rating` field.
+            currentRating: userProfile?.onlineRating ?? 1500,
             timeControlType: _selectedTimeControl,
             color: _selectedColor,
           );
 
           setState(() => _currentQueueId = entry.queueId);
+          _startMatchingTimer(entry.queueId);
         } catch (e) {
           if (mounted) {
             ScaffoldMessenger.of(context).showSnackBar(
@@ -347,6 +377,7 @@ class _MatchmakingScreenState extends ConsumerState<MatchmakingScreen> {
 
   /// Cancel matchmaking search
   Future<void> _cancelSearch() async {
+    _matchingTimer?.cancel();
     if (_currentQueueId != null) {
       final notifier = ref.read(matchmakingNotifierProvider.notifier);
       await notifier.leaveQueue(_currentQueueId!);

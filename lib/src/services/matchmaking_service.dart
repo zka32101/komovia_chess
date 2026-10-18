@@ -1,6 +1,7 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:logger/logger.dart';
 import '../models/online_game.dart';
+import 'online_game_service.dart';
 
 /// Manages matchmaking queue and player pairing
 class MatchmakingService {
@@ -57,9 +58,6 @@ class MatchmakingService {
           .set(entry.toJson());
 
       _logger.i('Player $playerId joined queue: $queueId');
-
-      // Start matching process
-      _startMatchingProcess(queueId);
 
       return entry;
     } catch (e, st) {
@@ -137,11 +135,181 @@ class MatchmakingService {
     }
   }
 
-  /// Start matching process for a queue entry
-  void _startMatchingProcess(String queueId) {
-    // This would typically run in a Cloud Function or scheduled task
-    // For now, log that matching has started
-    _logger.i('Matching process started for queue entry: $queueId');
+  /// Look for a compatible opponent and, if one is found, create the
+  /// game and mark both queue entries matched - or, if a compatible pair
+  /// was already claimed on an earlier call, finish creating the game for
+  /// it. This has to be driven by the client calling it repeatedly while
+  /// waiting (e.g. every couple of seconds): this app has no Cloud
+  /// Functions or scheduled backend (see CLAUDE.md), so nothing else will
+  /// ever actually perform matching - `joinQueue` alone used to leave a
+  /// player waiting forever, which is the bug this method fixes.
+  ///
+  /// Both waiting players are expected to call this periodically, so a
+  /// transaction claims both sides' entries atomically the moment a
+  /// compatible pair is found (status -> 'matching'), preventing a third
+  /// player's concurrent call from also grabbing either one. Only the
+  /// lexicographically-smaller playerId among the pair then actually
+  /// creates the [OnlineGame] and flips both entries to 'matched' -
+  /// otherwise both clients' simultaneous polling could create two
+  /// separate games for the same pair. The other player's own next call
+  /// (or a live listener on their own queue doc) picks up the finished
+  /// 'matched' status.
+  Future<void> tryMatch({
+    required String queueId,
+    required OnlineGameService gameService,
+  }) async {
+    try {
+      final myRef = _firestore.collection('matchmaking_queue').doc(queueId);
+      final myDoc = await myRef.get();
+      if (!myDoc.exists) return;
+
+      var mine = MatchmakingQueueEntry.fromJson(myDoc.data()!);
+
+      if (mine.status == 'waiting') {
+        final opponent = await _findCompatibleOpponent(mine);
+        if (opponent == null) return;
+
+        final claimed = await _claimPair(myRef, opponent.queueId);
+        if (!claimed) return;
+
+        mine = MatchmakingQueueEntry(
+          queueId: mine.queueId,
+          playerId: mine.playerId,
+          playerName: mine.playerName,
+          currentRating: mine.currentRating,
+          ratingRange: mine.ratingRange,
+          timeControlType: mine.timeControlType,
+          queuedAt: mine.queuedAt,
+          timeoutAt: mine.timeoutAt,
+          priority: mine.priority,
+          status: 'matching',
+          color: mine.color,
+          matchedOpponentId: opponent.playerId,
+        );
+      }
+
+      if (mine.status != 'matching' || mine.matchedOpponentId == null) return;
+
+      // Only the side responsible for creating the game proceeds past
+      // this point; the other side just waits for 'matched' to appear.
+      if (mine.playerId.compareTo(mine.matchedOpponentId!) > 0) return;
+
+      final opponentQuery = await _firestore
+          .collection('matchmaking_queue')
+          .where('playerId', isEqualTo: mine.matchedOpponentId)
+          .where('status', isEqualTo: 'matching')
+          .limit(1)
+          .get();
+      if (opponentQuery.docs.isEmpty) return; // not visible yet - retry later
+
+      final opponent =
+          MatchmakingQueueEntry.fromJson(opponentQuery.docs.first.data());
+
+      final mineIsWhite = _resolveWhitePlayer(mine, opponent);
+
+      final game = await gameService.createGame(
+        whitePlayerId: mineIsWhite ? mine.playerId : opponent.playerId,
+        whitePlayerName: mineIsWhite ? mine.playerName : opponent.playerName,
+        whiteRating: mineIsWhite ? mine.currentRating : opponent.currentRating,
+        blackPlayerId: mineIsWhite ? opponent.playerId : mine.playerId,
+        blackPlayerName: mineIsWhite ? opponent.playerName : mine.playerName,
+        blackRating: mineIsWhite ? opponent.currentRating : mine.currentRating,
+        gameType: 'online_pvp',
+        timeControl: mine.timeControlType,
+      );
+      await gameService.startGame(game.gameId);
+
+      final batch = _firestore.batch();
+      batch.update(myRef, {'status': 'matched', 'matchedGameId': game.gameId});
+      batch.update(
+        _firestore.collection('matchmaking_queue').doc(opponent.queueId),
+        {'status': 'matched', 'matchedGameId': game.gameId},
+      );
+      await batch.commit();
+
+      _logger.i(
+          'Matched ${mine.playerId} vs ${opponent.playerId}: ${game.gameId}');
+    } catch (e, st) {
+      _logger.e('Failed to try match', error: e, stackTrace: st);
+      // Swallow rather than rethrow - this runs on a polling timer, and a
+      // transient error on one tick shouldn't surface to the user when
+      // the next tick will simply retry.
+    }
+  }
+
+  /// Search currently-waiting entries (same time control, not myself) for
+  /// one whose mutual rating ranges overlap mine.
+  Future<MatchmakingQueueEntry?> _findCompatibleOpponent(
+    MatchmakingQueueEntry mine,
+  ) async {
+    final myRange = _getRatingRange(mine.queuedAt, mine.currentRating);
+
+    final snapshot = await _firestore
+        .collection('matchmaking_queue')
+        .where('status', isEqualTo: 'waiting')
+        .where('timeControlType', isEqualTo: mine.timeControlType)
+        .get();
+
+    for (final doc in snapshot.docs) {
+      if (doc.id == mine.queueId) continue;
+      final candidate = MatchmakingQueueEntry.fromJson(doc.data());
+      if (candidate.playerId == mine.playerId) continue;
+      if (!myRange.contains(candidate.currentRating)) continue;
+
+      final theirRange =
+          _getRatingRange(candidate.queuedAt, candidate.currentRating);
+      if (!theirRange.contains(mine.currentRating)) continue;
+
+      return candidate;
+    }
+
+    return null;
+  }
+
+  /// Atomically flip both entries from 'waiting' to 'matching' with each
+  /// recording the other as their matched opponent - false if either
+  /// entry was no longer 'waiting' by the time the transaction ran (e.g.
+  /// a third client's concurrent tryMatch already claimed one of them).
+  Future<bool> _claimPair(
+    DocumentReference<Map<String, dynamic>> myRef,
+    String opponentQueueId,
+  ) async {
+    final opponentRef =
+        _firestore.collection('matchmaking_queue').doc(opponentQueueId);
+
+    return _firestore.runTransaction<bool>((transaction) async {
+      final myFresh = await transaction.get(myRef);
+      final opponentFresh = await transaction.get(opponentRef);
+
+      if (!myFresh.exists || !opponentFresh.exists) return false;
+      if (myFresh.data()?['status'] != 'waiting') return false;
+      if (opponentFresh.data()?['status'] != 'waiting') return false;
+
+      final myPlayerId = myFresh.data()!['playerId'] as String;
+      final opponentPlayerId = opponentFresh.data()!['playerId'] as String;
+
+      transaction
+          .update(myRef, {'status': 'matching', 'matchedOpponentId': opponentPlayerId});
+      transaction.update(
+          opponentRef, {'status': 'matching', 'matchedOpponentId': myPlayerId});
+      return true;
+    });
+  }
+
+  /// Resolves color preferences into who plays white. A clear preference
+  /// (one side wants white/black, the other doesn't equally want that
+  /// same color) wins; if both are 'random' or both want the same color
+  /// (a genuine conflict), falls back to a deterministic tie-break both
+  /// clients can compute identically without further communication.
+  bool _resolveWhitePlayer(
+    MatchmakingQueueEntry a,
+    MatchmakingQueueEntry b,
+  ) {
+    if (a.color == 'white' && b.color != 'white') return true;
+    if (b.color == 'white' && a.color != 'white') return false;
+    if (a.color == 'black' && b.color != 'black') return false;
+    if (b.color == 'black' && a.color != 'black') return true;
+    return a.playerId.compareTo(b.playerId) < 0;
   }
 
   /// Calculate priority score (higher = more important to match)
