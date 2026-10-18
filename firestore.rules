@@ -139,6 +139,50 @@ service cloud.firestore {
     }
 
     // ============================================
+    // Online Games Collection (OnlineGameService)
+    // ============================================
+    // Every real-time PvP game lives at games/{gameId} with a fixed
+    // whitePlayerId/blackPlayerId pair; there's no Cloud Function to own
+    // match creation or result reporting, so (like this app's tournament
+    // rules) it's client-trusted to the two actual participants - neither
+    // can touch a game they aren't in, and neither can rewrite who the
+    // two players are once the game exists. Without this block every
+    // online-game read/write fell through to the file's default-deny
+    // rule, since `games` previously had no rule at all.
+    match /games/{gameId} {
+      function isGameParticipant() {
+        return isParticipant([resource.data.whitePlayerId, resource.data.blackPlayerId]);
+      }
+
+      allow read: if isGameParticipant();
+      allow create: if isSignedIn() &&
+        request.auth.uid in [request.resource.data.whitePlayerId, request.resource.data.blackPlayerId];
+      // startGame/recordMove/updateTimeRemaining/recordActivity/
+      // _endGameWithResult (resign/draw/claimDraw/abandon/forfeit) all
+      // update a mix of status/result/timing/FEN-and-moves fields on this
+      // doc from whichever participant's action triggered them - never
+      // the identity of the two players themselves.
+      allow update: if isGameParticipant() &&
+        unchanged('whitePlayerId') && unchanged('blackPlayerId');
+      allow delete: if false;
+
+      match /moves/{moveId} {
+        function gameParticipants() {
+          return [
+            get(/databases/$(database)/documents/games/$(gameId)).data.whitePlayerId,
+            get(/databases/$(database)/documents/games/$(gameId)).data.blackPlayerId
+          ];
+        }
+
+        allow read: if isParticipant(gameParticipants());
+        allow create: if isSignedIn() &&
+          request.auth.uid == request.resource.data.playerId &&
+          isParticipant(gameParticipants());
+        allow update, delete: if false;
+      }
+    }
+
+    // ============================================
     // Security Audit Collection (監査ログ)
     // ============================================
 
@@ -222,6 +266,44 @@ service cloud.firestore {
           request.auth.uid == request.resource.data.fromUid &&
           isParticipant(threadParticipants());
         allow update, delete: if false;
+      }
+    }
+
+    // ============================================
+    // Seasons / Seasonal Events (SeasonalHubScreen)
+    // ============================================
+    // SeasonalHubScreen (reachable from ProfileScreen's "Seasonal Hub"
+    // link) only ever reads these through phase_u_providers.dart's
+    // getCurrentSeason/getAllSeasons/getUpcomingSeasons/activeEventsProvider
+    // - SeasonManagementService's createSeason/activateSeason/
+    // completeSeason/addSeasonalExperience and
+    // SeasonalEventService's participateInEvent/withdrawFromEvent/
+    // updateEventScore all exist but have no provider wiring anywhere, so
+    // there's no reachable write path to allow yet (same "exists but
+    // unreachable" situation as several services already documented
+    // elsewhere in this app) - write stays false rather than opening it
+    // for code nothing calls.
+    match /seasons/{seasonId} {
+      allow read: if isSignedIn();
+      allow write: if false;
+    }
+
+    match /player_seasons/{playerId} {
+      match /seasons/{seasonId} {
+        allow read: if isOwner(playerId);
+        allow write: if false;
+      }
+    }
+
+    match /seasonal_events/{eventId} {
+      allow read: if isSignedIn();
+      allow write: if false;
+    }
+
+    match /player_event_progress/{playerId} {
+      match /events/{eventId} {
+        allow read: if isOwner(playerId);
+        allow write: if false;
       }
     }
 

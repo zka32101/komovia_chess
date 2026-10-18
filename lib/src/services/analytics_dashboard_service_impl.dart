@@ -42,6 +42,12 @@ class AnalyticsDashboardService {
     return dashboard;
   }
 
+  /// The difficulty values actually stored on each game doc - the enum's
+  /// `displayName` ('Easy'/'Medium'/'Hard'), not the enum name itself. A
+  /// Firestore `isEqualTo` query against the lowercase enum name would
+  /// silently match zero documents.
+  static const _storedDifficultyLabels = ['Easy', 'Medium', 'Hard'];
+
   /// Get game statistics for a player
   Future<GameStats> _getGameStats(String userId) async {
     final gamesRef =
@@ -51,9 +57,8 @@ class AnalyticsDashboardService {
     final games = snapshot.docs;
 
     int wins = 0, losses = 0, draws = 0;
-    double totalAccuracy = 0;
     int totalMoves = 0;
-    DateTime lastGameDate = DateTime.now();
+    DateTime? lastGameDate;
 
     for (final game in games) {
       final data = game.data();
@@ -65,18 +70,20 @@ class AnalyticsDashboardService {
         losses++;
       else if (result == 'draw') draws++;
 
-      totalAccuracy += (data['accuracy'] as num?)?.toDouble() ?? 0;
-      totalMoves += (data['moves'] as int?) ?? 0;
+      // FirebaseGameHistoryService.saveGame writes GameRecord.toJson()
+      // directly, whose field is `totalMoves` (not `moves`) and
+      // `playedAt` (not `date`) - see GameRecord in models/game_history.dart.
+      totalMoves += (data['totalMoves'] as int?) ?? 0;
 
-      final gameDate = (data['date'] as Timestamp?)?.toDate();
-      if (gameDate != null && gameDate.isAfter(lastGameDate)) {
+      final gameDate = (data['playedAt'] as Timestamp?)?.toDate();
+      if (gameDate != null &&
+          (lastGameDate == null || gameDate.isAfter(lastGameDate))) {
         lastGameDate = gameDate;
       }
     }
 
     final totalGames = games.length;
     final winRate = totalGames > 0 ? (wins / totalGames) * 100 : 0.0;
-    final avgAccuracy = totalGames > 0 ? totalAccuracy / totalGames : 0.0;
 
     return GameStats(
       totalGames: totalGames,
@@ -84,24 +91,90 @@ class AnalyticsDashboardService {
       losses: losses,
       draws: draws,
       winRate: winRate,
-      averageAccuracy: avgAccuracy,
+      // GameRecord has no per-game move-quality accuracy field (its
+      // `statistics` is engine-performance data: nodes/sec, cache hit
+      // rate, search depth - not move correctness), and nothing persists
+      // the Stockfish-based accuracy ChessAnalysisService can compute for
+      // a game back to this collection. Honestly 0 rather than reading a
+      // field that was never written.
+      averageAccuracy: 0,
       totalMoves: totalMoves,
-      lastGameDate: lastGameDate,
+      lastGameDate: lastGameDate ?? DateTime.now(),
     );
   }
 
-  /// Get streak information
+  /// Get streak information, derived from the actual game history rather
+  /// than a `currentWinStreak`/`longestWinStreak`/... set of fields on the
+  /// user doc that nothing in this app ever writes (confirmed: no other
+  /// file sets any of those field names) - reading them always returned
+  /// all-zero/default streak info regardless of real game history.
   Future<StreakInfo> _getStreakInfo(String userId) async {
-    final userDoc = await _firestore.collection('users').doc(userId).get();
-    final data = userDoc.data() ?? {};
+    final gamesRef = _firestore
+        .collection('users')
+        .doc(userId)
+        .collection('games')
+        .orderBy('playedAt', descending: true);
+
+    final snapshot = await gamesRef.get();
+    final games = snapshot.docs;
+
+    int currentWinStreak = 0;
+    int currentLossStreak = 0;
+    int longestWinStreak = 0;
+    int longestLossStreak = 0;
+    DateTime longestStreakDate = DateTime.now();
+
+    int runningWinStreak = 0;
+    int runningLossStreak = 0;
+    var stillCountingCurrent = true;
+
+    for (final game in games) {
+      final data = game.data();
+      final result = data['result'] as String?;
+      final playedAt = (data['playedAt'] as Timestamp?)?.toDate();
+
+      if (result == 'win') {
+        runningWinStreak++;
+        runningLossStreak = 0;
+      } else if (result == 'loss') {
+        runningLossStreak++;
+        runningWinStreak = 0;
+      } else {
+        runningWinStreak = 0;
+        runningLossStreak = 0;
+      }
+
+      // The "current" streak is only meaningful as the run of
+      // consecutive results starting from the most recent game, so stop
+      // updating it the moment the run breaks (a draw, or a switch from
+      // win to loss or vice versa).
+      if (stillCountingCurrent) {
+        if (result == 'win' || result == 'loss') {
+          currentWinStreak = runningWinStreak;
+          currentLossStreak = runningLossStreak;
+        } else {
+          stillCountingCurrent = false;
+        }
+        if (runningWinStreak == 0 && runningLossStreak == 0) {
+          stillCountingCurrent = false;
+        }
+      }
+
+      if (runningWinStreak > longestWinStreak) {
+        longestWinStreak = runningWinStreak;
+        if (playedAt != null) longestStreakDate = playedAt;
+      }
+      if (runningLossStreak > longestLossStreak) {
+        longestLossStreak = runningLossStreak;
+      }
+    }
 
     return StreakInfo(
-      currentWinStreak: (data['currentWinStreak'] as int?) ?? 0,
-      longestWinStreak: (data['longestWinStreak'] as int?) ?? 0,
-      longestStreakDate:
-          (data['longestStreakDate'] as Timestamp?)?.toDate() ?? DateTime.now(),
-      currentLossStreak: (data['currentLossStreak'] as int?) ?? 0,
-      longestLossStreak: (data['longestLossStreak'] as int?) ?? 0,
+      currentWinStreak: currentWinStreak,
+      longestWinStreak: longestWinStreak,
+      longestStreakDate: longestStreakDate,
+      currentLossStreak: currentLossStreak,
+      longestLossStreak: longestLossStreak,
     );
   }
 
@@ -113,77 +186,67 @@ class AnalyticsDashboardService {
         .collection('users')
         .doc(userId)
         .collection('games')
-        .where('date', isGreaterThan: thirtyDaysAgo)
-        .orderBy('date', descending: false);
+        .where('playedAt', isGreaterThan: thirtyDaysAgo)
+        .orderBy('playedAt', descending: false);
 
     final snapshot = await gamesRef.get();
     final metrics = <PerformanceMetric>[];
 
-    double totalAccuracy = 0;
-    double totalRating = 0;
-    int validMetrics = 0;
-
     for (final doc in snapshot.docs) {
       final data = doc.data();
-      final metric = PerformanceMetric(
-        timestamp: (data['date'] as Timestamp?)?.toDate() ?? DateTime.now(),
-        accuracy: (data['accuracy'] as num?)?.toDouble() ?? 0,
-        rating: (data['rating'] as num?)?.toDouble() ?? 0,
+      // accuracy/rating are not persisted per-game anywhere (see
+      // _getGameStats's comment) - left at 0 rather than reading fields
+      // that were never written, so the chart's line is honestly flat
+      // rather than silently wrong.
+      metrics.add(PerformanceMetric(
+        timestamp: (data['playedAt'] as Timestamp?)?.toDate() ??
+            DateTime.now(),
+        accuracy: 0,
+        rating: 0,
         gameCount: 1,
         difficulty: data['difficulty'] as String? ?? 'unknown',
-      );
-      metrics.add(metric);
-      totalAccuracy += metric.accuracy;
-      totalRating += metric.rating;
-      validMetrics++;
+      ));
     }
-
-    final trendDirection =
-        validMetrics > 1 ? metrics.last.accuracy - metrics.first.accuracy : 0.0;
 
     return PerformanceTrend(
       metrics: metrics,
-      trendDirection: trendDirection,
-      averageAccuracy: validMetrics > 0 ? totalAccuracy / validMetrics : 0.0,
-      averageRating: validMetrics > 0 ? totalRating / validMetrics : 0.0,
-      totalDataPoints: validMetrics,
+      trendDirection: 0,
+      averageAccuracy: 0,
+      averageRating: 0,
+      totalDataPoints: metrics.length,
     );
   }
 
   /// Get performance breakdown by difficulty
   Future<List<DifficultyBreakdown>> _getDifficultyStats(String userId) async {
-    final difficulties = ['easy', 'medium', 'hard'];
     final stats = <DifficultyBreakdown>[];
 
-    for (final difficulty in difficulties) {
+    for (final storedLabel in _storedDifficultyLabels) {
       final gamesRef = _firestore
           .collection('users')
           .doc(userId)
           .collection('games')
-          .where('difficulty', isEqualTo: difficulty);
+          .where('difficulty', isEqualTo: storedLabel);
 
       final snapshot = await gamesRef.get();
       final games = snapshot.docs;
 
       int wins = 0;
-      double totalAccuracy = 0;
-
       for (final game in games) {
-        final data = game.data();
-        if (data['result'] == 'win') wins++;
-        totalAccuracy += (data['accuracy'] as num?)?.toDouble() ?? 0;
+        if (game.data()['result'] == 'win') wins++;
       }
 
       final totalGames = games.length;
       final winRate = totalGames > 0 ? (wins / totalGames) * 100 : 0.0;
-      final avgAccuracy = totalGames > 0 ? totalAccuracy / totalGames : 0.0;
 
       stats.add(DifficultyBreakdown(
-        difficulty: difficulty,
+        difficulty: storedLabel.toLowerCase(),
         gamesPlayed: totalGames,
         wins: wins,
         winRate: winRate,
-        averageAccuracy: avgAccuracy,
+        // No per-game accuracy field exists to average - see
+        // _getGameStats's comment.
+        averageAccuracy: 0,
       ));
     }
 
