@@ -366,6 +366,34 @@ service cloud.firestore {
     }
 
     // ============================================
+    // Battle Pass (BattlePassService)
+    // ============================================
+    // Previously uncovered entirely (fell through to the file's
+    // default-deny below), so SeasonalHubScreen's reachable
+    // BattlePassProgressCard would have failed to load or update in
+    // production. `battle_passes` is curated/admin content (no
+    // createBattlePass caller anywhere in the app), same read-only
+    // pattern as `seasons`/`seasonal_events` above. `player_battle_passes`
+    // is the player's own progress, written only by BattlePassService
+    // methods reachable exclusively from the signed-in user's own
+    // SeasonalHubScreen (playerId is always `currentUserProvider`'s own
+    // uid, never another player's) - note `hasPremiumPass` is therefore
+    // client-settable like this app's other self-reported purchase
+    // fields (see users/{userId}'s subscriptionActive comment above),
+    // since there's no Cloud Function to verify it against a real
+    // purchase receipt yet.
+    match /battle_passes/{battlePassId} {
+      allow read: if isSignedIn();
+      allow write: if false;
+    }
+
+    match /player_battle_passes/{playerId} {
+      match /seasons/{seasonId} {
+        allow read, write: if isOwner(playerId);
+      }
+    }
+
+    // ============================================
     // Security Audit & Public Collections
     // ============================================
 
