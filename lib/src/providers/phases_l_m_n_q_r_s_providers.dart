@@ -1,7 +1,6 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../services/streaming_service.dart';
 import '../services/offline_service.dart';
-import '../services/analytics_advanced_service.dart';
 import '../services/monetization_service.dart';
 import '../services/security_service.dart';
 import '../services/internationalization_service.dart';
@@ -24,17 +23,6 @@ final cachedPuzzlesProvider = FutureProvider((ref) async {
   final service = await ref.watch(offlineServiceProvider.future);
   return service.getCachedPuzzles();
 });
-
-// Phase N: 高度な分析
-final analyticsAdvancedServiceProvider =
-    Provider((ref) => AnalyticsAdvancedService());
-final openingBookAnalysisProvider =
-    FutureProvider.family<Map<String, dynamic>, String>((ref, ecoCode) => ref
-        .watch(analyticsAdvancedServiceProvider)
-        .getOpeningBookAnalysis(ecoCode));
-final playerAnalyticsProvider =
-    FutureProvider.family<Map<String, dynamic>, String>((ref, userId) =>
-        ref.watch(analyticsAdvancedServiceProvider).getPlayerAnalytics(userId));
 
 // Phase Q: マネタイゼーション
 final monetizationServiceProvider = Provider((ref) => MonetizationService());
