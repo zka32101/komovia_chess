@@ -2,9 +2,11 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../models/online_game.dart';
 import '../../providers/auth_provider.dart';
+import '../../services/game_gif_service.dart';
+import '../../services/game_share_service.dart';
 
 /// Displays the result of a completed online game
-class OnlineGameResultScreen extends ConsumerWidget {
+class OnlineGameResultScreen extends ConsumerStatefulWidget {
   const OnlineGameResultScreen({
     required this.gameId,
     required this.game,
@@ -14,7 +16,20 @@ class OnlineGameResultScreen extends ConsumerWidget {
   final OnlineGame game;
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) => Scaffold(
+  ConsumerState<OnlineGameResultScreen> createState() =>
+      _OnlineGameResultScreenState();
+}
+
+class _OnlineGameResultScreenState
+    extends ConsumerState<OnlineGameResultScreen> {
+  final _gifService = GameGifService();
+  final _shareService = GameShareService();
+  bool _isSharing = false;
+
+  OnlineGame get game => widget.game;
+
+  @override
+  Widget build(BuildContext context) => Scaffold(
         appBar: AppBar(
           title: const Text('Game Result'),
           centerTitle: true,
@@ -35,6 +50,47 @@ class OnlineGameResultScreen extends ConsumerWidget {
           ),
         ),
       );
+
+  /// Replays the game's recorded moves as a GIF and opens the share sheet
+  /// (X/Twitter among its targets) - see [GameShareService] for why this
+  /// is the system share sheet rather than a true one-tap post into X.
+  Future<void> _shareGameGif() async {
+    if (_isSharing) return;
+    setState(() => _isSharing = true);
+
+    try {
+      final user = ref.read(currentUserProvider).value;
+      final isCurrentUserWhite = game.whitePlayerId == user?.uid;
+      final won = (isCurrentUserWhite && game.result == 'white_win') ||
+          (!isCurrentUserWhite && game.result == 'black_win');
+      final isDraw = game.result == 'draw';
+      final resultText =
+          won ? 'I won! ♟️' : (isDraw ? 'Drew this one' : 'Tough game');
+
+      final moves = game.moves
+          .map((m) => (from: m.from, to: m.to, promotion: m.promotion))
+          .toList();
+      // Online games always start from the standard position (no handicap/
+      // setup variants in this app), so GameGifService's default suffices.
+      final gifBytes = await _gifService.generateGif(moves: moves);
+
+      if (!mounted) return;
+      await _shareService.shareGameGif(
+        gifBytes: gifBytes,
+        caption: '$resultText on Komovia Chess #chess',
+      );
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Could not create share GIF: $e')),
+        );
+      }
+    } finally {
+      if (mounted) {
+        setState(() => _isSharing = false);
+      }
+    }
+  }
 
   /// Display the game result (win/loss/draw)
   Widget _buildResultHeader(BuildContext context, WidgetRef ref) {
@@ -244,6 +300,26 @@ class OnlineGameResultScreen extends ConsumerWidget {
   /// Action buttons for next steps
   Widget _buildActionButtons(BuildContext context, WidgetRef ref) => Column(
         children: [
+          if (game.moves.isNotEmpty) ...[
+            ElevatedButton.icon(
+              onPressed: _isSharing ? null : _shareGameGif,
+              icon: _isSharing
+                  ? const SizedBox(
+                      width: 16,
+                      height: 16,
+                      child: CircularProgressIndicator(strokeWidth: 2),
+                    )
+                  : const Icon(Icons.ios_share),
+              style: ElevatedButton.styleFrom(
+                padding: const EdgeInsets.symmetric(vertical: 16),
+              ),
+              label: Text(
+                _isSharing ? 'Creating GIF...' : 'Share on X',
+                style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
+              ),
+            ),
+            const SizedBox(height: 12),
+          ],
           ElevatedButton(
             onPressed: () {
               Navigator.of(context).pushNamedAndRemoveUntil('/', (_) => false);
