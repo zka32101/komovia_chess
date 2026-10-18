@@ -11,6 +11,11 @@ import 'edit_profile_screen.dart';
 import '../friends/friends_screen.dart';
 import '../tournaments/tournaments_screen.dart';
 import '../challenges/challenges_screen.dart';
+import '../comparison/player_comparison_screen.dart';
+import '../ranking/my_ranking_screen.dart';
+import '../analytics/performance_analytics_screen.dart';
+import '../analytics/match_history_screen.dart';
+import '../seasonal_hub_screen.dart';
 
 class ProfileScreen extends ConsumerStatefulWidget {
   const ProfileScreen({
@@ -248,7 +253,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                     _buildStatisticsTab(user)
                   else if (_selectedTab == 1)
                     (_isOwnProfile
-                        ? _buildGamesTab(gameHistory)
+                        ? _buildGamesTab(gameHistory, user)
                         : _buildNotAvailableForOtherUsers())
                   else
                     (_isOwnProfile
@@ -388,12 +393,83 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
             description:
                 'Joined on ${user.createdAt?.toString().split(' ')[0] ?? 'N/A'}',
           ),
+          if (_isOwnProfile) ..._buildAnalyticsLinks(user),
         ],
       ),
     );
   }
 
-  Widget _buildGamesTab(AsyncValue<List<OnlineGame>> gameHistory) =>
+  /// MyRankingScreen/PerformanceAnalyticsScreen/MatchHistoryScreen/
+  /// SeasonalHubScreen were all fully built but had zero navigation entry
+  /// points anywhere in the app - gated to the viewer's own profile since
+  /// MyRankingScreen in particular always reads the *signed-in* user
+  /// internally regardless of whose profile this is.
+  List<Widget> _buildAnalyticsLinks(UserModel user) => [
+        const SizedBox(height: 24),
+        Text(
+          'Rankings & Analytics',
+          style: Theme.of(context).textTheme.titleMedium,
+        ),
+        const SizedBox(height: 8),
+        _buildLinkTile(
+          icon: Icons.leaderboard,
+          title: 'My Ranking',
+          onTap: () => Navigator.of(context).push(
+            MaterialPageRoute(builder: (_) => const MyRankingScreen()),
+          ),
+        ),
+        _buildLinkTile(
+          icon: Icons.insights,
+          title: 'Performance Analytics',
+          onTap: () => Navigator.of(context).push(
+            MaterialPageRoute(
+              builder: (_) => PerformanceAnalyticsScreen(
+                playerId: user.uid,
+                playerName: user.displayName ?? 'You',
+              ),
+            ),
+          ),
+        ),
+        _buildLinkTile(
+          icon: Icons.history,
+          title: 'Match History',
+          onTap: () => Navigator.of(context).push(
+            MaterialPageRoute(
+              builder: (_) => MatchHistoryScreen(
+                playerId: user.uid,
+                playerName: user.displayName ?? 'You',
+              ),
+            ),
+          ),
+        ),
+        _buildLinkTile(
+          icon: Icons.event,
+          title: 'Seasonal Hub',
+          onTap: () => Navigator.of(context).push(
+            MaterialPageRoute(
+              builder: (_) => SeasonalHubScreen(playerId: user.uid),
+            ),
+          ),
+        ),
+      ];
+
+  Widget _buildLinkTile({
+    required IconData icon,
+    required String title,
+    required VoidCallback onTap,
+  }) =>
+      Card(
+        margin: const EdgeInsets.only(bottom: 8),
+        child: ListTile(
+          leading: Icon(icon),
+          title: Text(title),
+          trailing: const Icon(Icons.chevron_right),
+          onTap: onTap,
+        ),
+      );
+
+  Widget _buildGamesTab(
+          AsyncValue<List<OnlineGame>> gameHistory, UserModel user) =>
       gameHistory.when(
         loading: () => const Padding(
           padding: EdgeInsets.all(24),
@@ -425,17 +501,23 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
               itemCount: games.length,
               itemBuilder: (context, index) {
                 final game = games[index];
-                return _buildGameCard(game);
+                return _buildGameCard(game, user);
               },
             ),
           );
         },
       );
 
-  Widget _buildGameCard(OnlineGame game) {
+  Widget _buildGameCard(OnlineGame game, UserModel user) {
     final isWhiteWin = game.result == 'white_win';
     final isBlackWin = game.result == 'black_win';
     final isDraw = game.result == 'draw';
+    final isUserWhite = game.whitePlayerId == user.uid;
+    final opponentId = isUserWhite ? game.blackPlayerId : game.whitePlayerId;
+    final opponentName =
+        (isUserWhite ? game.blackPlayerName : game.whitePlayerName) ??
+            'Opponent';
+    final opponentRating = isUserWhite ? game.blackRating : game.whiteRating;
 
     return GestureDetector(
       onTap: () => Navigator.of(context).push(
@@ -500,6 +582,22 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                       : isWhiteWin
                           ? Colors.green.shade700
                           : Colors.red.shade700,
+                ),
+              ),
+            ),
+            IconButton(
+              icon: const Icon(Icons.compare_arrows, size: 20),
+              tooltip: 'Compare with $opponentName',
+              onPressed: () => Navigator.of(context).push(
+                MaterialPageRoute(
+                  builder: (_) => PlayerComparisonScreen(
+                    player1Id: user.uid,
+                    player1Name: user.displayName ?? 'You',
+                    player1Rating: user.onlineRating ?? 1600,
+                    player2Id: opponentId,
+                    player2Name: opponentName,
+                    player2Rating: opponentRating,
+                  ),
                 ),
               ),
             ),
