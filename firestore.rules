@@ -193,6 +193,54 @@ service cloud.firestore {
     }
 
     // ============================================
+    // Friend Challenges (FriendChallengeService)
+    // ============================================
+    // Previously uncovered entirely (fell through to the file's
+    // default-deny), so every send/accept/reject/cancel/complete call
+    // from FriendsScreen/ChallengesScreen would have been rejected in
+    // production. All three collections are client-trusted the same
+    // way `games`/`matchmaking_queue` already are, since there's no
+    // Cloud Function to arbitrate a challenge's outcome.
+    match /friend_challenges/active/list/{challengeId} {
+      allow read: if isSignedIn();
+      allow create: if isSignedIn() &&
+        request.resource.data.challengerUserId == request.auth.uid &&
+        request.resource.data.status == 'pending';
+      // Covers accept/reject/cancel (status + respondedAt/gameId) and
+      // completeChallengeWithWinner (status + winnerId/completedAt) -
+      // either participant may trigger any of these, never a bystander,
+      // and the two participants themselves can never change.
+      allow update: if isSignedIn() &&
+        (resource.data.challengerUserId == request.auth.uid ||
+         resource.data.challengeeUserId == request.auth.uid) &&
+        unchanged('challengerUserId') &&
+        unchanged('challengeeUserId') &&
+        onlyChanged(['status', 'respondedAt', 'gameId', 'winnerId', 'completedAt']);
+      allow delete: if false;
+    }
+
+    match /challenge_streaks/{userId} {
+      // Open read: getTopStreaks is a public leaderboard, same pattern
+      // as `rankings` below.
+      allow read: if isSignedIn();
+      // completeChallengeWithWinner writes BOTH the winner's and the
+      // loser's streak doc in one transaction, so this can't be
+      // owner-restricted - whichever participant's client runs the
+      // transaction must be able to write the other player's doc too.
+      // Still can't spoof whose streak it claims to be.
+      allow write: if isSignedIn() && request.resource.data.userId == userId;
+    }
+
+    match /challenge_results/{resultId} {
+      // Open read: getHeadToHeadStats queries by arbitrary winner/loser
+      // pairs, not just the caller's own matches.
+      allow read: if isSignedIn();
+      allow create: if isSignedIn() &&
+        request.auth.uid in [request.resource.data.winnerId, request.resource.data.loserId];
+      allow update, delete: if false;
+    }
+
+    // ============================================
     // Security Audit Collection (監査ログ)
     // ============================================
 
