@@ -180,10 +180,17 @@ class MoveOrderingManager {
     int score = 0;
     final moveUci = _moveToUci(move);
 
-    // MVV/LVA for captures (highest priority)
+    // MVV/LVA for captures (highest priority): order captures by the value
+    // of the piece being taken minus the value of the piece taking it, so
+    // e.g. pawn-takes-queen is tried well before queen-takes-pawn - both are
+    // "a capture" but only one is obviously good, and search efficiency
+    // depends on trying the obviously-good ones first.
     if ((move.flags & chess_lib.Chess.BITS_CAPTURE) != 0) {
-      score += 10000; // Captures have highest priority
-      // TODO: Add piece value difference (MVV/LVA refinement)
+      final victim = move.captured;
+      final attacker = move.piece;
+      final victimValue = victim == null ? 0 : _pieceValue(victim);
+      final attackerValue = _pieceValue(attacker);
+      score += 10000 + victimValue * 10 - attackerValue;
     }
 
     // Checks (high priority, can discover tactics). Move.flags has no
@@ -211,6 +218,19 @@ class MoveOrderingManager {
 
     return score;
   }
+
+  /// Standard relative piece values for MVV/LVA ordering (king excluded -
+  /// it can never legally be captured).
+  static const Map<String, int> _pieceValues = {
+    'p': 1,
+    'n': 3,
+    'b': 3,
+    'r': 5,
+    'q': 9,
+    'k': 0,
+  };
+
+  int _pieceValue(chess_lib.PieceType type) => _pieceValues[type.name] ?? 0;
 
   /// Record a move as part of search history
   /// Used for history heuristic
