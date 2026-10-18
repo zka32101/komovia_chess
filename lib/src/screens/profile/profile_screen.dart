@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:share_plus/share_plus.dart';
+import '../../config/deployment_config.dart';
 import '../../providers/auth_provider.dart';
 import '../../providers/achievement_provider.dart';
 import '../../providers/puzzle_provider.dart' show puzzleRatingProvider;
@@ -395,6 +397,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                 'Joined on ${user.createdAt?.toString().split(' ')[0] ?? 'N/A'}',
           ),
           if (_isOwnProfile) ..._buildAnalyticsLinks(user),
+          if (_isOwnProfile) ..._buildInviteSection(user),
         ],
       ),
     );
@@ -462,6 +465,40 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
           ),
         ),
       ];
+
+  /// No referral/invite mechanism existed anywhere in the app. This is a
+  /// plain share-the-app-link action rather than a tracked referral system
+  /// (no InviteService/Firestore attribution) - deliberately scoped small;
+  /// the user's uid is included as a referral code string for a future
+  /// attribution pass to parse out of shared text, but nothing reads it yet.
+  List<Widget> _buildInviteSection(UserModel user) => [
+        const SizedBox(height: 24),
+        Text(
+          'Invite Friends',
+          style: Theme.of(context).textTheme.titleMedium,
+        ),
+        const SizedBox(height: 8),
+        Card(
+          margin: const EdgeInsets.only(bottom: 8),
+          child: ListTile(
+            leading: const Icon(Icons.person_add),
+            title: const Text('友達を招待'),
+            subtitle: const Text('Share Komovia Chess with a friend'),
+            trailing: const Icon(Icons.share),
+            onTap: () => _inviteFriend(user),
+          ),
+        ),
+      ];
+
+  Future<void> _inviteFriend(UserModel user) async {
+    final referralCode = user.uid.substring(0, 8);
+    await Share.share(
+      'Play chess with me on Komovia Chess! ♟️ '
+      '(referral: $referralCode)\n'
+      'iOS: ${DeploymentConfig.iosAppStoreUrl}\n'
+      'Android: ${DeploymentConfig.androidPlayStoreUrl}',
+    );
+  }
 
   Widget _buildLinkTile({
     required IconData icon,
