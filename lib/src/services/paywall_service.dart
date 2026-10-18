@@ -146,7 +146,23 @@ class PaywallService {
     }
 
     final response = await _inAppPurchase.queryProductDetails({productId});
+    if (response.error != null) {
+      // A real store/network error querying the product - distinct from
+      // the product simply not existing yet, so this doesn't get
+      // reported as "not yet available" (which would hide a genuine
+      // configuration/connectivity problem behind an expected message).
+      throw PurchaseUnavailableException(
+        'Could not reach the store: ${response.error}',
+      );
+    }
     if (response.productDetails.isEmpty) {
+      // The query succeeded but returned no matching product - either
+      // this plan is genuinely unreleased, or productId doesn't match
+      // what's registered in App Store Connect / Play Console. Logging
+      // the id here is what makes that second case diagnosable instead
+      // of silently indistinguishable from the first.
+      print('Product not found in store: $productId '
+          '(notFoundIDs: ${response.notFoundIDs})');
       throw PurchaseUnavailableException(
         'This plan is not yet available for purchase',
       );
