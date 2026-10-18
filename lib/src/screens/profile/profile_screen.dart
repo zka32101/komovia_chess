@@ -15,6 +15,7 @@ import '../comparison/player_comparison_screen.dart';
 import '../ranking/my_ranking_screen.dart';
 import '../analytics/performance_analytics_screen.dart';
 import '../analytics/match_history_screen.dart';
+import '../analytics_dashboard_screen.dart';
 import '../seasonal_hub_screen.dart';
 
 class ProfileScreen extends ConsumerStatefulWidget {
@@ -427,6 +428,15 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                 playerId: user.uid,
                 playerName: user.displayName ?? 'You',
               ),
+            ),
+          ),
+        ),
+        _buildLinkTile(
+          icon: Icons.bar_chart,
+          title: 'Analytics Dashboard',
+          onTap: () => Navigator.of(context).push(
+            MaterialPageRoute(
+              builder: (_) => AnalyticsDashboardScreen(userId: user.uid),
             ),
           ),
         ),
