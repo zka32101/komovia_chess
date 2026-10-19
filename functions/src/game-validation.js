@@ -1,113 +1,90 @@
 /**
  * Game state validation and update logic
- * 
- * Handles:
- * - Move legality validation
- * - Game state transitions
- * - Draw agreement logic
- * - Game conclusion detection
+ *
+ * Previously this module's validateMove only checked that `from`/`to`
+ * were well-formed square strings (never real chess legality - the
+ * module's own old comments said "In production, integrate chess.js"),
+ * and detectGameConclusion always returned `concluded: false` - the
+ * server never actually validated a move or detected checkmate/
+ * stalemate/draws. Nothing in lib/ ever called the Cloud Function that
+ * used this module anyway (recordMove, in index.js), so chess moves
+ * were written straight to Firestore by the client with no server-side
+ * check at all: any participant could set their game's `currentFen` to
+ * an arbitrary (even illegal) position.
+ *
+ * Now backed by the real chess.js engine. applyMove is the single
+ * source of truth for "is this move legal, and what does the position
+ * look like afterward" - the server recomputes FEN/PGN/conclusion
+ * itself rather than trusting whatever the client sends.
  */
 
-/**
- * Validate if a move is legal
- * In production, integrate chess.js or similar
- */
-function validateMove(currentFen, from, to) {
-  // Basic validation
-  if (!from || !to || typeof from !== "string" || typeof to !== "string") {
-    return false;
-  }
-  
-  // Format validation: e2, e4, etc.
-  const moveRegex = /^[a-h][1-8]$/;
-  if (!moveRegex.test(from) || !moveRegex.test(to)) {
-    return false;
-  }
-  
-  // Prevent moving to same square
-  if (from === to) {
-    return false;
-  }
-  
-  // In production:
-  // const chess = new Chess(currentFen);
-  // const moves = chess.moves({ square: from, verbose: true });
-  // return moves.some(m => m.to === to);
-  
-  return true;
-}
+const { Chess } = require("chess.js");
 
 /**
- * Handle game conclusion detection
- * Detects checkmate, stalemate, threefold repetition, etc.
+ * Attempts to play [from]->[to] (optionally promoting to [promotion])
+ * against [currentFen]. If the move is only illegal because it's an
+ * unspecified pawn promotion, retries once promoting to queen - this
+ * app's online board never actually lets a player pick a promotion
+ * piece (see online_game_screen.dart's `_submitMove`, which always
+ * passes `promotion: null`), so without this fallback no pawn could
+ * ever legally reach the back rank in a real game.
+ *
+ * @returns {{legal: boolean, chess: Chess|null, moveResult: object|null}}
  */
-function detectGameConclusion(fen, moves) {
-  // Would use chess.js to detect:
-  // - Checkmate
-  // - Stalemate
-  // - Threefold repetition
-  // - Fifty-move rule
-  // - Insufficient material
-  
-  return {
-    concluded: false,
-    result: null, // 'white_win', 'black_win', 'draw'
-    reason: null, // 'checkmate', 'stalemate', 'threefold', etc.
+function applyMove(currentFen, from, to, promotion) {
+  let chess;
+  try {
+    chess = new Chess(currentFen);
+  } catch (e) {
+    return { legal: false, chess: null, moveResult: null };
+  }
+
+  const tryMove = (opts) => {
+    try {
+      return chess.move(opts);
+    } catch (e) {
+      return null;
+    }
   };
+
+  let moveResult = tryMove(promotion ? { from, to, promotion } : { from, to });
+  if (!moveResult && !promotion) {
+    moveResult = tryMove({ from, to, promotion: "q" });
+  }
+
+  return { legal: !!moveResult, chess, moveResult };
 }
 
 /**
- * Handle draw agreement
+ * Inspects [chess] (already reflecting the move just applied) for a
+ * game-ending condition.
+ * @returns {{concluded: boolean, result: string|null, reason: string|null}}
  */
-async function processDrawAgreement(db, gameRef, game) {
-  // In production: track draw proposals and agreements
-  // Only end game when both players agree
-  
-  await gameRef.update({
-    status: "completed",
-    endedAt: admin.firestore.FieldValue.serverTimestamp(),
-    result: "draw",
-    resultReason: "draw_agreement",
-  });
-}
+function detectGameConclusion(chess) {
+  if (!chess.isGameOver()) {
+    return { concluded: false, result: null, reason: null };
+  }
 
-/**
- * Update game state after valid move
- */
-async function updateGameState(db, gameRef, game, moveData) {
-  const updates = {
-    currentFen: moveData.fen,
-    pgn: moveData.pgn,
-    moves: admin.firestore.FieldValue.arrayUnion([moveData.move]),
-    lastMoveTimestamp: admin.firestore.FieldValue.serverTimestamp(),
-  };
-  
-  // Update activity timestamp
-  if (moveData.playerId === game.whitePlayerId) {
-    updates.whiteLastActivityTimestamp =
-      admin.firestore.FieldValue.serverTimestamp();
-  } else {
-    updates.blackLastActivityTimestamp =
-      admin.firestore.FieldValue.serverTimestamp();
+  if (chess.isCheckmate()) {
+    // chess.turn() is the side TO MOVE, who is the side in checkmate -
+    // the other color just delivered it and won.
+    const result = chess.turn() === "w" ? "black_win" : "white_win";
+    return { concluded: true, result, reason: "checkmate" };
   }
-  
-  // Check for game conclusion
-  const conclusion = detectGameConclusion(moveData.fen, game.moves || []);
-  if (conclusion.concluded) {
-    updates.status = "completed";
-    updates.endedAt = admin.firestore.FieldValue.serverTimestamp();
-    updates.result = conclusion.result;
-    updates.resultReason = conclusion.reason;
+  if (chess.isStalemate()) {
+    return { concluded: true, result: "draw", reason: "stalemate" };
   }
-  
-  await gameRef.update(updates);
-  
-  return conclusion;
+  if (chess.isThreefoldRepetition()) {
+    return { concluded: true, result: "draw", reason: "threefold_repetition" };
+  }
+  if (chess.isInsufficientMaterial()) {
+    return { concluded: true, result: "draw", reason: "insufficient_material" };
+  }
+  // Any other isGameOver() case left standing is the 50-move rule.
+  return { concluded: true, result: "draw", reason: "fifty_move_rule" };
 }
 
 module.exports = {
-  validateMove,
+  applyMove,
   detectGameConclusion,
-  processDrawAgreement,
-  updateGameState,
 };
