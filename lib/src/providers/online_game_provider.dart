@@ -84,6 +84,24 @@ final onlineGameStreamProvider = StreamProvider.family<OnlineGame?, String>(
         .map((snapshot) =>
             snapshot.exists ? OnlineGame.fromJson(snapshot.data()!) : null));
 
+/// Streams currently-active online PvP games (for spectator mode's live
+/// games list) - excludes CPU games (whitePlayerId/blackPlayerId are the
+/// literal strings 'player'/'cpu' for those, not real uids, and there is
+/// nothing to watch on someone else's device anyway) and anything not yet
+/// "active" (matchmaking/completed). firestore.rules allows any signed-in
+/// user to read a game matching this same type+status filter.
+final liveGamesProvider = StreamProvider<List<OnlineGame>>((ref) {
+  return FirebaseFirestore.instance
+      .collection('games')
+      .where('type', isEqualTo: 'online_pvp')
+      .where('status', isEqualTo: 'active')
+      .orderBy('createdAt', descending: true)
+      .limit(50)
+      .snapshots()
+      .map((snapshot) =>
+          snapshot.docs.map((doc) => OnlineGame.fromJson(doc.data())).toList());
+});
+
 /// Whether the opponent currently has an outstanding draw offer pending
 /// for the local player to respond to.
 final drawOfferStreamProvider =
