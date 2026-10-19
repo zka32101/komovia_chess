@@ -5,6 +5,7 @@ import '../../services/chess_engine_service.dart';
 import '../../services/stockfish_engine_service.dart';
 import '../../widgets/game_analysis_bar.dart';
 import '../../widgets/game_board.dart';
+import '../../providers/user_preferences_provider.dart';
 import 'game_analysis_screen.dart';
 
 const _standardStartingFen =
@@ -249,6 +250,9 @@ class _GameReviewScreenState extends ConsumerState<GameReviewScreen> {
               gameState: _chess.rawChess,
               isPlayerTurn: false,
               showMaterial: false,
+              showCoordinates:
+                  ref.watch(userPreferencesProvider).value?.showCoordinates ??
+                      true,
             ),
             const SizedBox(height: 8),
             Text(

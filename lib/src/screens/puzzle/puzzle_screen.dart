@@ -6,6 +6,7 @@ import '../../services/chess_engine_service.dart';
 import '../../services/game_gif_service.dart';
 import '../../services/game_share_service.dart';
 import '../../widgets/game_board.dart';
+import '../../providers/user_preferences_provider.dart';
 
 class PuzzleScreen extends ConsumerStatefulWidget {
   const PuzzleScreen({Key? key}) : super(key: key);
@@ -617,6 +618,11 @@ class _PuzzleSolvingScreenState extends ConsumerState<PuzzleSolvingScreen> {
                   onMove: _handleMove,
                   isPlayerTurn: _isPlayerTurn,
                   showMaterial: false,
+                  showCoordinates: ref
+                          .watch(userPreferencesProvider)
+                          .value
+                          ?.showCoordinates ??
+                      true,
                 ),
                 if (_feedback == _PuzzleFeedback.solved)
                   Padding(

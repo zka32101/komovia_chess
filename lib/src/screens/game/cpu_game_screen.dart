@@ -10,6 +10,7 @@ import '../../widgets/game_result.dart';
 import '../../widgets/move_history.dart';
 import '../../providers/cpu_game_provider.dart';
 import '../../providers/board_theme_provider.dart';
+import '../../providers/user_preferences_provider.dart';
 import '../../providers/auth_provider.dart';
 import '../online/game_review_screen.dart';
 
@@ -80,6 +81,8 @@ class _CPUGameScreenState extends ConsumerState<CPUGameScreen> {
 
   Widget _buildMobileLayout(CpuGameState gameState) {
     final boardTheme = ref.watch(selectedBoardThemeProvider);
+    final showCoordinates =
+        ref.watch(userPreferencesProvider).value?.showCoordinates ?? true;
 
     return SingleChildScrollView(
       child: Padding(
@@ -94,6 +97,7 @@ class _CPUGameScreenState extends ConsumerState<CPUGameScreen> {
             GameBoard(
               gameState: gameState.gameState,
               theme: boardTheme,
+              showCoordinates: showCoordinates,
               onMove: (from, to, {promotion}) {
                 ref.read(cpuGameProvider.notifier).makePlayerMove(
                       from,
@@ -132,6 +136,8 @@ class _CPUGameScreenState extends ConsumerState<CPUGameScreen> {
 
   Widget _buildDesktopLayout(CpuGameState gameState) {
     final boardTheme = ref.watch(selectedBoardThemeProvider);
+    final showCoordinates =
+        ref.watch(userPreferencesProvider).value?.showCoordinates ?? true;
 
     return Row(
       children: [
@@ -148,6 +154,7 @@ class _CPUGameScreenState extends ConsumerState<CPUGameScreen> {
                   child: GameBoard(
                     gameState: gameState.gameState,
                     theme: boardTheme,
+                    showCoordinates: showCoordinates,
                     onMove: (from, to, {promotion}) {
                       ref.read(cpuGameProvider.notifier).makePlayerMove(
                             from,
