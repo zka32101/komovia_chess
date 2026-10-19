@@ -465,7 +465,12 @@ class _PuzzleSolvingScreenState extends ConsumerState<PuzzleSolvingScreen> {
 
     if (attempted != expected) {
       setState(() => _feedback = _PuzzleFeedback.wrong);
-      _recordAttempt(puzzle.id, solved: false, userMoves: [attempted]);
+      _recordAttempt(
+        puzzle.id,
+        solved: false,
+        userMoves: [attempted],
+        puzzleRating: puzzle.rating,
+      );
       return;
     }
 
@@ -477,7 +482,12 @@ class _PuzzleSolvingScreenState extends ConsumerState<PuzzleSolvingScreen> {
 
     if (_moveIndex >= puzzle.moves.length) {
       setState(() => _feedback = _PuzzleFeedback.solved);
-      _recordAttempt(puzzle.id, solved: true, userMoves: puzzle.moves);
+      _recordAttempt(
+        puzzle.id,
+        solved: true,
+        userMoves: puzzle.moves,
+        puzzleRating: puzzle.rating,
+      );
       return;
     }
 
@@ -495,7 +505,12 @@ class _PuzzleSolvingScreenState extends ConsumerState<PuzzleSolvingScreen> {
 
     if (_moveIndex >= puzzle.moves.length) {
       setState(() => _feedback = _PuzzleFeedback.solved);
-      _recordAttempt(puzzle.id, solved: true, userMoves: puzzle.moves);
+      _recordAttempt(
+        puzzle.id,
+        solved: true,
+        userMoves: puzzle.moves,
+        puzzleRating: puzzle.rating,
+      );
     }
   }
 
@@ -503,6 +518,7 @@ class _PuzzleSolvingScreenState extends ConsumerState<PuzzleSolvingScreen> {
     String puzzleId, {
     required bool solved,
     required List<String> userMoves,
+    required int puzzleRating,
   }) {
     ref
         .read(puzzleServiceProvider)
@@ -510,6 +526,7 @@ class _PuzzleSolvingScreenState extends ConsumerState<PuzzleSolvingScreen> {
           puzzleId: puzzleId,
           solved: solved,
           userMoves: userMoves,
+          puzzleRating: puzzleRating,
         )
         .catchError((_) {});
   }

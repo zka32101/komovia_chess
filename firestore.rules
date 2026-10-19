@@ -104,6 +104,22 @@ service cloud.firestore {
     }
 
     // ============================================
+    // Puzzle Attempt History (PuzzleService.recordPuzzleAttempt)
+    // ============================================
+    // Not nested under users/{uid} - keyed by its own composite id
+    // ('${uid}_${puzzleId}_${timestamp}'), one immutable doc per attempt.
+    // Previously had no rule at all, so every real attempt write was
+    // silently rejected by the default-deny catch-all below (the caller
+    // swallows the error - see puzzle_screen.dart's _recordAttempt).
+    match /user_puzzle_results/{resultId} {
+      allow read: if isSignedIn() &&
+        (resource.data.userId == request.auth.uid || isAdmin());
+      allow create: if isSignedIn() &&
+        request.resource.data.userId == request.auth.uid;
+      allow update, delete: if false;
+    }
+
+    // ============================================
     // Tournaments Collection
     // ============================================
     // `Tournament`/`TournamentParticipant`/`TournamentMatch` are
