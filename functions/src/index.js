@@ -416,59 +416,78 @@ exports.handleTimeout = functions
         .where("status", "==", "active")
         .get();
 
-      let timeoutCount = 0;
-      const batch = db.batch();
       const winnerIds = [];
 
-      for (const doc of snapshot.docs) {
-        const game = doc.data();
+      // Each flagged game is ended in its OWN transaction, re-reading the
+      // doc inside it and bailing out if the game is no longer "active" -
+      // this scan's initial `.get()` above can be stale by the time a
+      // write actually lands (this function has up to 540s to run over
+      // potentially many games), and recordMove's own transaction can
+      // conclude the same game (checkmate, or its own immediate timeout
+      // branch) in that window. A shared `batch.commit()` at the end, as
+      // this used to be, would have unconditionally re-applied the
+      // timeout result and double-incremented both players' wins/losses
+      // on top of whatever recordMove had already written.
+      const results = await Promise.all(
+        snapshot.docs.map(async (doc) => {
+          const game = doc.data();
 
-        // CPU games (cpu_game_provider.dart) share this same `games`
-        // collection and also start with status "active", but they're
-        // played entirely on the user's own device with no server-side
-        // clock concept at all - whitePlayerId/blackPlayerId are the
-        // literal strings 'player'/'cpu', not real uids, so ending one
-        // here would try to credit wins/losses to nonexistent
-        // `users/player` and `users/cpu` documents.
-        if (game.type === "cpu") continue;
+          // CPU games (cpu_game_provider.dart) share this same `games`
+          // collection and also start with status "active", but they're
+          // played entirely on the user's own device with no server-side
+          // clock concept at all - whitePlayerId/blackPlayerId are the
+          // literal strings 'player'/'cpu', not real uids, so ending one
+          // here would try to credit wins/losses to nonexistent
+          // `users/player` and `users/cpu` documents.
+          if (game.type === "cpu") return null;
 
-        const now = Date.now();
+          const now = Date.now();
 
-        // Calculate actual time remaining
-        const lastMoveTime = game.lastMoveTimestamp
-          ? game.lastMoveTimestamp.toMillis()
-          : game.startedAt.toMillis();
-        const elapsedMs = now - lastMoveTime;
+          // Calculate actual time remaining
+          const lastMoveTime = game.lastMoveTimestamp
+            ? game.lastMoveTimestamp.toMillis()
+            : game.startedAt.toMillis();
+          const elapsedMs = now - lastMoveTime;
 
-        // Only the player currently on move has a clock running - a real
-        // chess clock never ticks for the side waiting on their
-        // opponent. Previously this checked BOTH players' remaining time
-        // against the same elapsed-since-last-move value unconditionally,
-        // so once a game's time-control duration had passed since any
-        // move at all, White was always flagged first (and `continue`d
-        // past), regardless of whose turn it actually was - and since
-        // neither field was ever decremented in the first place (see
-        // recordMove), this was the only timeout signal that existed.
-        const moveCount = game.moves ? game.moves.length : 0;
-        const isWhiteTurn = moveCount % 2 === 0;
-        const onMoveRemainingMs = isWhiteTurn
-          ? game.whiteTimeRemainingMs
-          : game.blackTimeRemainingMs;
+          // Only the player currently on move has a clock running - a real
+          // chess clock never ticks for the side waiting on their
+          // opponent. Previously this checked BOTH players' remaining time
+          // against the same elapsed-since-last-move value unconditionally,
+          // so once a game's time-control duration had passed since any
+          // move at all, White was always flagged first (and `continue`d
+          // past), regardless of whose turn it actually was - and since
+          // neither field was ever decremented in the first place (see
+          // recordMove), this was the only timeout signal that existed.
+          const moveCount = game.moves ? game.moves.length : 0;
+          const isWhiteTurn = moveCount % 2 === 0;
+          const onMoveRemainingMs = isWhiteTurn
+            ? game.whiteTimeRemainingMs
+            : game.blackTimeRemainingMs;
 
-        if (onMoveRemainingMs - elapsedMs <= 0) {
-          const { winnerId } = handleGameTimeout(
-            batch,
-            doc.ref,
-            game,
-            isWhiteTurn ? "white" : "black"
-          );
-          if (winnerId) winnerIds.push(winnerId);
-          timeoutCount++;
-        }
+          if (onMoveRemainingMs - elapsedMs > 0) return null;
+
+          return db.runTransaction(async (tx) => {
+            const freshSnap = await tx.get(doc.ref);
+            const freshGame = freshSnap.data();
+            if (!freshGame || freshGame.status !== "active") return null;
+
+            const { winnerId } = handleGameTimeout(
+              tx,
+              doc.ref,
+              freshGame,
+              isWhiteTurn ? "white" : "black"
+            );
+            return winnerId;
+          });
+        })
+      );
+
+      for (const winnerId of results) {
+        if (winnerId) winnerIds.push(winnerId);
       }
+      const timeoutCount = results.filter((r) => r !== null).length;
 
       if (timeoutCount > 0) {
-        await batch.commit();
         console.log(`Handled ${timeoutCount} timeouts`);
         await maybeUnlockAchievementsAfterTimeouts(winnerIds);
       }

@@ -84,6 +84,24 @@ function makeFakeFirestore(seedGames, seedUsers) {
         },
       };
     },
+    // No real isolation/retry semantics (this fake is single-threaded and
+    // synchronous between awaits) - just enough of the real Transaction
+    // API (get/update, writes applied once the callback resolves) for
+    // handleTimeout's per-game transaction to run against.
+    async runTransaction(updateFunction) {
+      const ops = [];
+      const tx = {
+        async get(ref) {
+          return ref.get();
+        },
+        update(ref, patch) {
+          ops.push({ ref, patch });
+        },
+      };
+      const result = await updateFunction(tx);
+      for (const op of ops) await op.ref.update(op.patch);
+      return result;
+    },
   };
 
   return { db, games, users };
@@ -209,5 +227,52 @@ describe('handleTimeout', () => {
     // No garbage stat docs created for the literal 'player'/'cpu' ids.
     expect(fake.users.get('player')).toBeUndefined();
     expect(fake.users.get('cpu')).toBeUndefined();
+  });
+
+  it('does not double-credit a game that recordMove already concluded before the transaction commits', async () => {
+    // Simulates the real race this fixes: the initial `.get()` scan (done
+    // by makeFakeFirestore's collection().get() above) sees the game as
+    // still "active" with White's clock expired, but by the time this
+    // game's own transaction actually runs, recordMove's transaction has
+    // already ended it some other way (checkmate). A shared batch would
+    // have blindly re-applied the timeout result and incremented both
+    // players' stats a second time on top of that.
+    fake.games.set('game_1', baseGame({
+      whiteTimeRemainingMs: 100,
+      startedAt: fakeTimestamp(Date.now() - 10_000),
+    }));
+    const realGet = fake.db.collection('games').doc('game_1').get;
+    fake.db.runTransaction = async (updateFunction) => {
+      // Conclude the game via a different path right before this game's
+      // transaction does its own fresh read.
+      fake.games.set('game_1', {
+        ...fake.games.get('game_1'),
+        status: 'completed',
+        result: 'white_win',
+        resultReason: 'checkmate',
+      });
+      fake.users.set('white_uid', { ...fake.users.get('white_uid'), wins: 1 });
+      const ops = [];
+      const tx = {
+        async get(ref) { return ref.get(); },
+        update(ref, patch) { ops.push({ ref, patch }); },
+      };
+      const result = await updateFunction(tx);
+      for (const op of ops) await op.ref.update(op.patch);
+      return result;
+    };
+    void realGet;
+
+    await wrappedHandleTimeout();
+
+    const game = fake.games.get('game_1');
+    expect(game.status).toBe('completed');
+    expect(game.result).toBe('white_win');
+    expect(game.resultReason).toBe('checkmate');
+    // Not re-incremented by handleGameTimeout's own (would-be) black_win
+    // write - White still has exactly the one win from checkmate, Black
+    // never got a bogus loss credited on top of it.
+    expect(fake.users.get('white_uid').wins).toBe(1);
+    expect(fake.users.get('black_uid').losses).toBe(0);
   });
 });

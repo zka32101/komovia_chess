@@ -61,7 +61,13 @@ function handleGameTimeout(batch, gameRef, game, timedOutPlayer) {
   const whiteNewRating = game.whiteRating + changes.whiteChange;
   const blackNewRating = game.blackRating + changes.blackChange;
 
-  // Update game with timeout result
+  // Update game with timeout result. Clears drawOfferedBy/
+  // takebackRequestedBy too, mirroring every other game-ending path
+  // (OnlineGameService._endGameWithResult on the Dart side, and
+  // computeGameEndUpdates for recordMove's own in-transaction endings) -
+  // previously only this one path left either field stale on a completed
+  // game if a draw offer or takeback request happened to be pending the
+  // moment the clock ran out.
   batch.update(gameRef, {
     status: "completed",
     endedAt: admin.firestore.FieldValue.serverTimestamp(),
@@ -71,6 +77,8 @@ function handleGameTimeout(batch, gameRef, game, timedOutPlayer) {
     blackRatingDelta: changes.blackChange,
     whiteNewRating: whiteNewRating,
     blackNewRating: blackNewRating,
+    drawOfferedBy: null,
+    takebackRequestedBy: null,
   });
 
   const winnerId = isWhiteTimeout ? game.blackPlayerId : game.whitePlayerId;
