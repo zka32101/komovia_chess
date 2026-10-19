@@ -2,7 +2,11 @@ const functions = require("firebase-functions");
 const admin = require("firebase-admin");
 const { matchPlayers } = require("./matchmaking");
 const { validateMove, updateGameState } = require("./game-validation");
-const { handleGameTimeout, cleanupExpiredQueues } = require("./timeout-handler");
+const {
+  handleGameTimeout,
+  maybeUnlockAchievementsAfterTimeouts,
+  cleanupExpiredQueues,
+} = require("./timeout-handler");
 const { calculateRatingChanges } = require("./rating-system");
 
 admin.initializeApp();
@@ -250,6 +254,7 @@ exports.handleTimeout = functions
 
       let timeoutCount = 0;
       const batch = db.batch();
+      const winnerIds = [];
 
       for (const doc of snapshot.docs) {
         const game = doc.data();
@@ -263,14 +268,16 @@ exports.handleTimeout = functions
 
         // Check white timeout
         if (game.whiteTimeRemainingMs - elapsedMs <= 0) {
-          handleGameTimeout(batch, doc.ref, game, "white");
+          const { winnerId } = handleGameTimeout(batch, doc.ref, game, "white");
+          if (winnerId) winnerIds.push(winnerId);
           timeoutCount++;
           continue;
         }
 
         // Check black timeout
         if (game.blackTimeRemainingMs - elapsedMs <= 0) {
-          handleGameTimeout(batch, doc.ref, game, "black");
+          const { winnerId } = handleGameTimeout(batch, doc.ref, game, "black");
+          if (winnerId) winnerIds.push(winnerId);
           timeoutCount++;
         }
       }
@@ -278,6 +285,7 @@ exports.handleTimeout = functions
       if (timeoutCount > 0) {
         await batch.commit();
         console.log(`Handled ${timeoutCount} timeouts`);
+        await maybeUnlockAchievementsAfterTimeouts(winnerIds);
       }
 
       return { timeoutCount };
