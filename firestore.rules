@@ -104,6 +104,24 @@ service cloud.firestore {
     }
 
     // ============================================
+    // User Preferences (user_preferences_provider.dart / sound_preferences_provider.dart)
+    // ============================================
+    // Keyed by uid directly (not nested under users/{uid}), so it needs
+    // its own top-level block. Had no rule at all before this, so every
+    // write (theme/language/board style/sound toggles, etc.) from
+    // SettingsScreen/BoardThemesScreen/SoundPreferencesScreen fell
+    // through to the file's default-deny catch-all and was silently (or
+    // visibly, depending on the call site) rejected - none of these
+    // settings could ever actually persist.
+    match /user_preferences/{userId} {
+      allow read, write: if isOwner(userId);
+
+      match /sound/{docId} {
+        allow read, write: if isOwner(userId);
+      }
+    }
+
+    // ============================================
     // Puzzle Attempt History (PuzzleService.recordPuzzleAttempt)
     // ============================================
     // Not nested under users/{uid} - keyed by its own composite id
