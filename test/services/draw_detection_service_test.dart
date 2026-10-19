@@ -1,6 +1,20 @@
+import 'package:chess/chess.dart' as chess_lib;
 import 'package:flutter_test/flutter_test.dart';
 import 'package:komovia_chess/src/services/draw_detection_service.dart';
 import 'package:komovia_chess/src/services/chess_engine_service.dart';
+
+/// Replays [moves] from the standard starting position and returns the
+/// resulting FEN - what `currentFen` would actually be in production
+/// after playing this exact sequence (distinct from `chess.getCurrentFen()`
+/// in the surrounding test group, which stays at the fresh-game FEN
+/// from `setUp` regardless of these moves).
+String _fenAfter(List<Map<String, String>> moves) {
+  final board = chess_lib.Chess();
+  for (final move in moves) {
+    board.move(move);
+  }
+  return board.fen;
+}
 
 void main() {
   group('DrawDetectionService', () {
@@ -135,6 +149,13 @@ void main() {
 
     group('Threefold repetition detection', () {
       test('detects threefold repetition', () {
+        // Knights shuffle back and forth: the starting position recurs
+        // after move pairs 2, 4, and 6 (4 occurrences total, including
+        // the initial position itself) - genuinely a threefold
+        // repetition, unlike the old full-FEN comparison (which
+        // compared halfmove-clock/fullmove-number fields that strictly
+        // increase and can never repeat, so this could never return
+        // true at all before the fix).
         const moves = [
           {'from': 'g1', 'to': 'f3'},
           {'from': 'g8', 'to': 'f6'},
@@ -150,13 +171,11 @@ void main() {
           {'from': 'f6', 'to': 'g8'},
         ];
 
-        // Note: This test assumes the move sequence can be validated
-        // In a real test, we'd execute these moves and check
         final isThreefold = DrawDetectionService.isThreefoldRepetition(
           moves,
-          chess.getCurrentFen(),
+          _fenAfter(moves),
         );
-        expect(isThreefold, isNotNull);
+        expect(isThreefold, isTrue);
       });
 
       test('does not detect threefold with different moves', () {
@@ -169,9 +188,9 @@ void main() {
 
         final isThreefold = DrawDetectionService.isThreefoldRepetition(
           moves,
-          chess.getCurrentFen(),
+          _fenAfter(moves),
         );
-        expect(isThreefold, isNotNull);
+        expect(isThreefold, isFalse);
       });
     });
 

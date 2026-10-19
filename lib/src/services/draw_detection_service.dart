@@ -68,16 +68,28 @@ class DrawDetectionService {
     }
   }
 
+  /// The first 4 space-separated FEN fields (piece placement, side to
+  /// move, castling rights, en passant target) - the actual "position"
+  /// for repetition purposes. The 5th/6th fields (halfmove clock,
+  /// fullmove number) strictly increase every move and can never repeat
+  /// even when the same position genuinely recurs, so comparing full
+  /// FEN strings (as this function used to) meant currentFenCount could
+  /// essentially never reach 3 - the feature was dead in practice.
+  static String _positionKey(String fen) {
+    final parts = fen.split(' ');
+    return parts.length >= 4 ? parts.sublist(0, 4).join(' ') : fen;
+  }
+
   /// Check if threefold repetition draw is applicable
   static bool isThreefoldRepetition(
       List<Map<String, dynamic>> moves, String currentFen) {
     try {
       if (moves.isEmpty) return false;
 
-      // Count FEN occurrences by replaying game
-      final fenHistory = <String>[];
+      // Count position occurrences by replaying game
+      final positionHistory = <String>[];
       final chess = chess_lib.Chess();
-      fenHistory.add(chess.fen);
+      positionHistory.add(_positionKey(chess.fen));
 
       for (final moveData in moves) {
         final from = moveData['from'] as String;
@@ -93,12 +105,14 @@ class DrawDetectionService {
         if (!chess.move(moveMap)) {
           break;
         }
-        fenHistory.add(chess.fen);
+        positionHistory.add(_positionKey(chess.fen));
       }
 
-      // Count occurrences of current FEN
-      final currentFenCount = fenHistory.where((f) => f == currentFen).length;
-      return currentFenCount >= 3;
+      // Count occurrences of the current position
+      final currentPositionCount = positionHistory
+          .where((p) => p == _positionKey(currentFen))
+          .length;
+      return currentPositionCount >= 3;
     } catch (e) {
       return false;
     }
