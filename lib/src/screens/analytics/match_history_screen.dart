@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../providers/match_history_provider.dart';
 import '../../widgets/animations/chart_entrance_animation.dart';
+import 'pgn_import_screen.dart';
 
 /// Screen for displaying match history with filtering and pagination
 class MatchHistoryScreen extends ConsumerWidget {
@@ -21,6 +22,17 @@ class MatchHistoryScreen extends ConsumerWidget {
       appBar: AppBar(
         title: const Text('対戦履歴'),
         elevation: 0,
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.upload_file_outlined),
+            tooltip: 'PGNをインポート',
+            onPressed: () {
+              Navigator.of(context).push(
+                MaterialPageRoute(builder: (_) => const PgnImportScreen()),
+              );
+            },
+          ),
+        ],
       ),
       body: matchHistoryState.when(
         data: (state) => _buildContent(context, ref, state),
