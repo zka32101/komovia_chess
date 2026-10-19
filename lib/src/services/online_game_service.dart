@@ -2,6 +2,7 @@ import 'dart:async' show unawaited;
 import 'dart:math' show pow;
 
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:cloud_functions/cloud_functions.dart';
 import 'package:chess/chess.dart' as chess_lib;
 import 'package:logger/logger.dart';
 import '../models/online_game.dart';
@@ -14,14 +15,17 @@ import 'season_management_service.dart';
 class OnlineGameService {
   OnlineGameService({
     FirebaseFirestore? firestore,
+    FirebaseFunctions? functions,
     SeasonChallengeService? seasonChallengeService,
     SeasonManagementService? seasonManagementService,
   })  : _firestore = firestore ?? FirebaseFirestore.instance,
+        _functions = functions ?? FirebaseFunctions.instance,
         _seasonChallengeService =
             seasonChallengeService ?? SeasonChallengeService(),
         _seasonManagementService =
             seasonManagementService ?? SeasonManagementService();
   final FirebaseFirestore _firestore;
+  final FirebaseFunctions _functions;
   final Logger _logger = Logger();
   final SeasonChallengeService _seasonChallengeService;
   final SeasonManagementService _seasonManagementService;
@@ -106,6 +110,22 @@ class OnlineGameService {
   }
 
   /// Record a move in the game
+  ///
+  /// Previously this wrote `currentFen`/`pgn`/`moves` straight to
+  /// Firestore from whatever the client computed locally, and
+  /// firestore.rules never validated move legality at all - any
+  /// participant could set their own game's board to an arbitrary (even
+  /// illegal) position. The actual move application, legality check, and
+  /// FEN/PGN recomputation now all happen server-side in the `recordMove`
+  /// Cloud Function (functions/src/index.js, via chess.js in
+  /// functions/src/game-validation.js) - firestore.rules no longer allows
+  /// a client to change these fields directly (see `games/{gameId}`'s
+  /// update rule).
+  ///
+  /// [updatedFen]/[updatedPgn] are accepted here only to keep this
+  /// method's signature stable for existing callers (both compute them
+  /// for their own optimistic local legality pre-check); the server
+  /// ignores them and recomputes its own authoritative values.
   Future<void> recordMove({
     required String gameId,
     required int moveNumber,
@@ -117,39 +137,20 @@ class OnlineGameService {
     String? promotion,
   }) async {
     try {
-      final moveId = _firestore
-          .collection(_gamesCollection)
-          .doc(gameId)
-          .collection(_gameMovesSubcollection)
-          .doc()
-          .id;
-
-      final move = GameMove(
-        moveNumber: moveNumber,
-        from: from,
-        to: to,
-        promotion: promotion,
-        timestamp: DateTime.now(),
-        playerId: playerId,
-      );
-
-      // Save move to subcollection
-      await _firestore
-          .collection(_gamesCollection)
-          .doc(gameId)
-          .collection(_gameMovesSubcollection)
-          .doc(moveId)
-          .set(move.toJson());
-
-      // Update game document with new FEN and PGN
-      await _firestore.collection(_gamesCollection).doc(gameId).update({
-        'currentFen': updatedFen,
-        'pgn': updatedPgn,
-        'moves': FieldValue.arrayUnion([move.toJson()]),
-        'lastMoveTimestamp': FieldValue.serverTimestamp(),
+      final callable = _functions.httpsCallable('recordMove');
+      await callable.call<Map<String, dynamic>>({
+        'gameId': gameId,
+        'from': from,
+        'to': to,
+        'promotion': promotion,
+        'playerId': playerId,
       });
 
       _logger.i('Move recorded in game $gameId: $from$to');
+    } on FirebaseFunctionsException catch (e, st) {
+      _logger.e('Failed to record move: ${e.code} ${e.message}',
+          error: e, stackTrace: st);
+      rethrow;
     } catch (e, st) {
       _logger.e('Failed to record move', error: e, stackTrace: st);
       rethrow;

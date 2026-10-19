@@ -1,7 +1,8 @@
 const functions = require("firebase-functions");
 const admin = require("firebase-admin");
 const { matchPlayers } = require("./matchmaking");
-const { validateMove, updateGameState } = require("./game-validation");
+const { applyMove, detectGameConclusion } = require("./game-validation");
+const { computeGameEndUpdates } = require("./game-ending");
 const {
   handleGameTimeout,
   maybeUnlockAchievementsAfterTimeouts,
@@ -137,7 +138,7 @@ exports.matchmakingWorker = functions
 exports.recordMove = functions
   .runWith({ timeoutSeconds: 30, memory: "256MB" })
   .https.onCall(async (data, context) => {
-    const { gameId, from, to, promotion, playerId, fen, pgn } = data;
+    const { gameId, from, to, promotion, playerId } = data;
 
     // Verify authentication
     if (!context.auth) {
@@ -185,40 +186,80 @@ exports.recordMove = functions
         );
       }
 
-      // Validate move (chess logic validation would go here)
-      // In production, use chess.js or similar library
-      if (!validateMove(game.currentFen, from, to)) {
+      // Validate AND apply the move server-side via chess.js - the
+      // resulting FEN/PGN are computed here, never trusted from the
+      // client (previously the client's own `fen`/`pgn` were written
+      // straight through, so any participant could set their game's
+      // board to an arbitrary, even illegal, position).
+      const { legal, chess, moveResult } = applyMove(
+        game.currentFen,
+        from,
+        to,
+        promotion
+      );
+      if (!legal) {
         throw new functions.https.HttpsError(
           "invalid-argument",
           "Illegal move"
         );
       }
 
-      // Record move
+      const nowTs = admin.firestore.Timestamp.now();
       const moveRecord = {
         moveNumber: moveCount + 1,
         from,
         to,
-        promotion: promotion || null,
-        timestamp: admin.firestore.Timestamp.now(),
+        promotion: moveResult.promotion || null,
+        timestamp: nowTs,
         playerId,
       };
 
-      // Update game
-      await gameRef.update({
-        currentFen: fen,
-        pgn: pgn,
+      const updates = {
+        currentFen: chess.fen(),
+        pgn: chess.pgn(),
         moves: admin.firestore.FieldValue.arrayUnion([moveRecord]),
-        lastMoveTimestamp: admin.firestore.Timestamp.now(),
-        [isWhitePlayer ? "whiteLastActivityTimestamp" : "blackLastActivityTimestamp"]:
-          admin.firestore.Timestamp.now(),
-      });
+        lastMoveTimestamp: nowTs,
+        [isWhitePlayer
+          ? "whiteLastActivityTimestamp"
+          : "blackLastActivityTimestamp"]: nowTs,
+      };
+
+      // Record the move in the `moves` subcollection too, matching what
+      // OnlineGameService.recordMove (Dart) used to write directly -
+      // gameMoveProvider/getGameMoves still reads this subcollection for
+      // the move-history list.
+      const moveSubDocRef = gameRef.collection("moves").doc();
+
+      // Detect checkmate/stalemate/draw now that the move has been
+      // applied. Previously nothing server-side (and nothing
+      // client-side either - online_game_screen.dart's `in_checkmate`
+      // check only ever played a sound) ever actually ended a PvP game
+      // on checkmate: the game doc just sat at status "active" forever
+      // until someone manually resigned or timed out.
+      const conclusion = detectGameConclusion(chess);
+      if (conclusion.concluded) {
+        const { gameUpdate, whiteUserUpdate, blackUserUpdate } =
+          computeGameEndUpdates(game, conclusion.result, conclusion.reason);
+        Object.assign(updates, gameUpdate);
+
+        const batch = db.batch();
+        batch.update(gameRef, updates);
+        batch.set(moveSubDocRef, moveRecord);
+        batch.update(db.collection("users").doc(game.whitePlayerId), whiteUserUpdate);
+        batch.update(db.collection("users").doc(game.blackPlayerId), blackUserUpdate);
+        await batch.commit();
+      } else {
+        const batch = db.batch();
+        batch.update(gameRef, updates);
+        batch.set(moveSubDocRef, moveRecord);
+        await batch.commit();
+      }
 
       // Sync to Realtime DB
       await realtimeDb.ref(`games/${gameId}/lastMove`).set({
         from,
         to,
-        fen,
+        fen: chess.fen(),
         playerId,
         timestamp: Date.now(),
       });
@@ -228,6 +269,8 @@ exports.recordMove = functions
       return {
         success: true,
         message: "Move recorded successfully",
+        concluded: conclusion.concluded,
+        result: conclusion.result,
       };
     } catch (error) {
       console.error("Move recording error:", error);
@@ -402,6 +445,12 @@ function timeControlMs(timeControl) {
   }
 }
 
-module.exports = {
-  timeControlMs,
-};
+// NOT `module.exports = {...}` - that would silently replace every
+// `exports.XXX = ...` Cloud Function assignment above (matchmakingWorker,
+// recordMove, handleTimeout, updateGameRatings, cleanupExpiredQueue) with
+// just this one helper, meaning `firebase deploy --only functions` would
+// never actually deploy any of them. Confirmed via this file's own
+// `exports.recordMove` becoming `undefined` once required - this was a
+// pre-existing bug that made every Cloud Function in this file dead on
+// deploy, discovered while testing the fixed `recordMove`.
+exports.timeControlMs = timeControlMs;

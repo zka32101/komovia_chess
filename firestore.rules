@@ -204,16 +204,37 @@ service cloud.firestore {
       allow read: if isGameParticipant();
       allow create: if isSignedIn() &&
         request.auth.uid in [request.resource.data.whitePlayerId, request.resource.data.blackPlayerId];
-      // startGame/recordMove/updateTimeRemaining/recordActivity/
-      // _endGameWithResult (resign/draw/claimDraw/abandon/forfeit) all
-      // update a mix of status/result/timing/FEN-and-moves fields on this
-      // doc from whichever participant's action triggered them - never
-      // the identity of the two players themselves.
+      // startGame/updateTimeRemaining/recordActivity/_endGameWithResult
+      // (resign/draw/claimDraw/abandon/forfeit) all update a mix of
+      // status/result/timing fields on this doc from whichever
+      // participant's action triggered them - never the identity of the
+      // two players themselves.
+      //
+      // currentFen/pgn/moves/lastMoveTimestamp are deliberately locked
+      // from direct client writes for online PvP games specifically
+      // (type != 'cpu'): a move's legality can no longer be trusted from
+      // the client at all there - chess.js now validates it server-side
+      // in the `recordMove` Cloud Function
+      // (functions/src/game-validation.js), and only the Admin SDK
+      // (which bypasses these rules entirely) may change these fields
+      // for such a game now. Before this, any PvP participant could set
+      // their own game's `currentFen` to an arbitrary, even illegal,
+      // position. CPU games (`cpu_game_provider.dart`, which shares this
+      // same `games` collection) have no server-side validation at all -
+      // only the human player's own device ever plays either side - so
+      // they're explicitly exempted rather than broken by this rule.
       allow update: if isGameParticipant() &&
-        unchanged('whitePlayerId') && unchanged('blackPlayerId');
+        unchanged('whitePlayerId') && unchanged('blackPlayerId') &&
+        (resource.data.type == 'cpu' ||
+          (unchanged('currentFen') && unchanged('pgn') &&
+           unchanged('moves') && unchanged('lastMoveTimestamp')));
       allow delete: if false;
 
       match /moves/{moveId} {
+        // Written only by the recordMove Cloud Function now (Admin SDK,
+        // bypasses these rules) - a client can still read its own game's
+        // move history (gameMoveProvider/getGameMoves), but can no longer
+        // forge a move record directly.
         function gameParticipants() {
           return [
             get(/databases/$(database)/documents/games/$(gameId)).data.whitePlayerId,
@@ -222,10 +243,7 @@ service cloud.firestore {
         }
 
         allow read: if isParticipant(gameParticipants());
-        allow create: if isSignedIn() &&
-          request.auth.uid == request.resource.data.playerId &&
-          isParticipant(gameParticipants());
-        allow update, delete: if false;
+        allow create, update, delete: if false;
       }
     }
 
