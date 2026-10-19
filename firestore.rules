@@ -149,6 +149,24 @@ service cloud.firestore {
     }
 
     // ============================================
+    // Prize Winnings (TournamentService.distributePrizes)
+    // ============================================
+    // Not nested under tournaments/{tournamentId} - keyed by userId alone,
+    // since it aggregates prize winnings across every tournament a player
+    // has placed in. distributePrizes (organizer-only in practice, but
+    // not enforceable here without knowing which tournament a given call
+    // belongs to) merge-sets another user's totals from the organizer's
+    // own client - client-trusted like this app's other self-reported
+    // cross-user writes, narrowed to just these two fields.
+    match /user_rewards/{userId} {
+      allow read: if isOwner(userId) || isAdmin();
+      allow create: if isSignedIn() &&
+        request.resource.data.keys().hasOnly(['totalPrizeWinnings', 'tournaments']);
+      allow update: if isSignedIn() &&
+        onlyChanged(['totalPrizeWinnings', 'tournaments']);
+    }
+
+    // ============================================
     // Online Games Collection (OnlineGameService)
     // ============================================
     // Every real-time PvP game lives at games/{gameId} with a fixed

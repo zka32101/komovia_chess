@@ -174,11 +174,17 @@ class TournamentService {
     }
   }
 
-  /// Generate the round-1 bracket, seeded by rating (highest first). An odd
-  /// number of participants leaves the lowest seed with a bye — a match
-  /// with a null `player2Uid`, auto-completed with that player as the
-  /// winner (komovia_core's `TournamentMatch.isBye`), matching how byes are
+  /// Generate the round-1 bracket, seeded by rating (highest first), and
+  /// move the tournament from 'upcoming' to 'active'. An odd number of
+  /// participants leaves the lowest seed with a bye — a match with a null
+  /// `player2Uid`, auto-completed with that player as the winner
+  /// (komovia_core's `TournamentMatch.isBye`), matching how byes are
   /// handled for AI-adjacent sibling apps.
+  ///
+  /// Only generates round 1 - this app has no automatic next-round
+  /// generation yet. Fine for a round_robin/swiss tournament (one round
+  /// covers the whole schedule); a multi-round single_elimination bracket
+  /// is a known, documented limitation until that's built.
   Future<List<TournamentMatch>> generateBracket(String tournamentId) async {
     try {
       final tournamentRef = _firestore.collection(tournamentsCollection).doc(tournamentId);
@@ -220,6 +226,8 @@ class TournamentService {
         matches.add(match);
       }
 
+      batch.update(tournamentRef, {'status': 'active'});
+
       await batch.commit();
       return matches;
     } catch (e) {
@@ -230,13 +238,16 @@ class TournamentService {
 
   /// Record a match result and update both players' win/loss/points
   /// bookkeeping (kept as extra fields on each participant doc — see
-  /// `registerParticipant`).
+  /// `registerParticipant`). [gameId] is optional - this app has no
+  /// per-match PvP-game-backed result flow yet (unlike sibling apps'
+  /// PvpGame-backed tournaments), so the organizer records who won
+  /// directly with no linked game to cite.
   Future<void> recordMatchResult({
     required String tournamentId,
     required String matchId,
     required String winnerId,
     required String loserId,
-    required String gameId,
+    String? gameId,
   }) async {
     try {
       final tournamentRef = _firestore.collection(tournamentsCollection).doc(tournamentId);

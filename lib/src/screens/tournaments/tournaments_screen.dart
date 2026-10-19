@@ -118,6 +118,7 @@ class TournamentDetailScreen extends ConsumerWidget {
     final extras = ref.watch(tournamentExtrasProvider(tournamentId));
     final standings = ref.watch(tournamentStandingsProvider(tournamentId));
     final matches = ref.watch(tournamentMatchesProvider(tournamentId));
+    final me = ref.watch(currentUserProvider).value;
 
     return Scaffold(
       appBar: AppBar(
@@ -127,11 +128,17 @@ class TournamentDetailScreen extends ConsumerWidget {
         loading: () => const Center(child: CircularProgressIndicator()),
         error: (error, stack) => Center(child: Text('Error: $error')),
         data: (data) {
+          final isOrganizer = me != null && data.createdBy == me.uid;
+
           return ListView(
             padding: const EdgeInsets.all(16),
             children: [
               _buildHeader(data, extras.value),
               const SizedBox(height: 24),
+              if (isOrganizer) ...[
+                _buildOrganizerActions(context, ref, data),
+                const SizedBox(height: 24),
+              ],
               Text('Standings', style: Theme.of(context).textTheme.titleMedium),
               const SizedBox(height: 8),
               standings.when(
@@ -145,13 +152,60 @@ class TournamentDetailScreen extends ConsumerWidget {
               matches.when(
                 loading: () => const Center(child: CircularProgressIndicator()),
                 error: (error, stack) => Text('Error: $error'),
-                data: (data) => _buildMatches(data),
+                data: (matchList) => _buildMatches(
+                  context,
+                  ref,
+                  matchList,
+                  isOrganizer: isOrganizer,
+                ),
               ),
             ],
           );
         },
       ),
     );
+  }
+
+  Widget _buildOrganizerActions(
+    BuildContext context,
+    WidgetRef ref,
+    Tournament tournament,
+  ) {
+    if (tournament.isUpcoming) {
+      return FilledButton.icon(
+        icon: const Icon(Icons.play_arrow),
+        label: const Text('Start Tournament'),
+        onPressed: () async {
+          await ref
+              .read(tournamentActionsProvider.notifier)
+              .startTournament(tournament.id);
+          if (context.mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(content: Text('Bracket generated')),
+            );
+          }
+        },
+      );
+    }
+
+    if (tournament.isActive) {
+      return OutlinedButton.icon(
+        icon: const Icon(Icons.emoji_events),
+        label: const Text('Finish & Distribute Prizes'),
+        onPressed: () async {
+          await ref
+              .read(tournamentActionsProvider.notifier)
+              .finishTournament(tournament.id);
+          if (context.mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(content: Text('Tournament finished')),
+            );
+          }
+        },
+      );
+    }
+
+    return const SizedBox.shrink();
   }
 
   Widget _buildHeader(Tournament tournament, Map<String, dynamic>? extras) {
@@ -200,7 +254,12 @@ class TournamentDetailScreen extends ConsumerWidget {
     );
   }
 
-  Widget _buildMatches(List<TournamentMatch> matches) {
+  Widget _buildMatches(
+    BuildContext context,
+    WidgetRef ref,
+    List<TournamentMatch> matches, {
+    required bool isOrganizer,
+  }) {
     if (matches.isEmpty) {
       return const Text('No matches scheduled yet.');
     }
@@ -237,14 +296,30 @@ class TournamentDetailScreen extends ConsumerWidget {
                       )
                     : null;
 
+                final canRecordResult = isOrganizer &&
+                    match.status == 'pending' &&
+                    !match.isBye &&
+                    match.player2Uid != null;
+
                 return ListTile(
                   dense: true,
                   title: Text('$p1 vs $p2'),
-                  trailing: Text(
-                    match.isCompleted && winnerName != null
-                        ? '$winnerName won'
-                        : match.status,
-                  ),
+                  trailing: canRecordResult
+                      ? TextButton(
+                          onPressed: () => _showRecordResultDialog(
+                            context,
+                            ref,
+                            match,
+                            p1Name: p1,
+                            p2Name: p2,
+                          ),
+                          child: const Text('Record result'),
+                        )
+                      : Text(
+                          match.isCompleted && winnerName != null
+                              ? '$winnerName won'
+                              : match.status,
+                        ),
                 );
               }),
             ],
@@ -252,5 +327,49 @@ class TournamentDetailScreen extends ConsumerWidget {
         );
       }).toList(),
     );
+  }
+
+  Future<void> _showRecordResultDialog(
+    BuildContext context,
+    WidgetRef ref,
+    TournamentMatch match, {
+    required String p1Name,
+    required String p2Name,
+  }) async {
+    final winnerUid = await showDialog<String>(
+      context: context,
+      builder: (dialogContext) => SimpleDialog(
+        title: const Text('Who won?'),
+        children: [
+          SimpleDialogOption(
+            onPressed: () => Navigator.pop(dialogContext, match.player1Uid),
+            child: Text(p1Name),
+          ),
+          SimpleDialogOption(
+            onPressed: () => Navigator.pop(dialogContext, match.player2Uid),
+            child: Text(p2Name),
+          ),
+        ],
+      ),
+    );
+
+    if (winnerUid == null || !context.mounted) return;
+
+    final loserUid =
+        winnerUid == match.player1Uid ? match.player2Uid : match.player1Uid;
+    if (loserUid == null) return;
+
+    await ref.read(tournamentActionsProvider.notifier).recordMatchResult(
+          tournamentId: match.tournamentId,
+          matchId: match.id,
+          winnerId: winnerUid,
+          loserId: loserUid,
+        );
+
+    if (context.mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Result recorded')),
+      );
+    }
   }
 }
