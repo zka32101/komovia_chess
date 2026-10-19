@@ -258,56 +258,101 @@ class FriendChallengeService {
     }
   }
 
-  /// Get active challenges
+  /// Get active challenges.
+  ///
+  /// Runs two separately-filtered queries (one per side of the
+  /// challenge) rather than an unfiltered `where('status', ...)` query
+  /// post-filtered client-side - firestore.rules' read rule for this
+  /// collection only allows a `list` whose own query already
+  /// constrains it to the caller's challenges, since the rule itself
+  /// can't evaluate an OR across the two uid fields against an
+  /// unconstrained query. The old unfiltered version would have let
+  /// any signed-in user query every pair's challenges directly (status/
+  /// wagerPoints/both display names), bypassing this method's own
+  /// client-side `.where()` filter entirely.
   Future<List<Challenge>> getActiveChallenges(String userId) async {
     try {
-      final snapshot = await _firestore
-          .collection('friend_challenges')
-          .doc('active')
-          .collection('list')
-          .where('status', isEqualTo: 'accepted')
-          .orderBy('createdAt', descending: true)
-          .get();
-
-      final userChallenges = snapshot.docs
-          .map((doc) => Challenge.fromJson(doc.data()))
-          .where((c) =>
-              c.challengerUserId == userId || c.challengeeUserId == userId)
-          .toList();
-
-      return userChallenges;
+      final challenges = await _queryBothSides(
+        userId,
+        status: 'accepted',
+        orderByField: 'createdAt',
+      );
+      return challenges;
     } catch (e) {
       debugPrint('Error fetching active challenges: $e');
       return [];
     }
   }
 
-  /// Get challenge history
+  /// Get challenge history. See [getActiveChallenges]'s doc comment for
+  /// why this queries both sides separately instead of filtering a
+  /// broader query client-side.
   Future<List<Challenge>> getChallengeHistory(
     String userId, {
     int limit = 50,
   }) async {
     try {
-      final snapshot = await _firestore
-          .collection('friend_challenges')
-          .doc('active')
-          .collection('list')
-          .where('status', isEqualTo: 'completed')
-          .orderBy('completedAt', descending: true)
-          .limit(limit)
-          .get();
-
-      final userChallenges = snapshot.docs
-          .map((doc) => Challenge.fromJson(doc.data()))
-          .where((c) =>
-              c.challengerUserId == userId || c.challengeeUserId == userId)
-          .toList();
-
-      return userChallenges;
+      final challenges = await _queryBothSides(
+        userId,
+        status: 'completed',
+        orderByField: 'completedAt',
+      );
+      return challenges.take(limit).toList();
     } catch (e) {
       debugPrint('Error fetching challenge history: $e');
       return [];
     }
+  }
+
+  /// Queries `friend_challenges/active/list` for [userId]'s challenges
+  /// with the given [status], as challenger and as challengee
+  /// separately (each query individually satisfies firestore.rules'
+  /// read rule, which requires the query to already constrain one of
+  /// the two participant fields to the caller's own uid), merges the
+  /// two result sets, de-duplicates (a challenge can never match both
+  /// queries at once since challengerUserId != challengeeUserId, but
+  /// de-duping by id is cheap insurance), and sorts by [orderByField]
+  /// descending to match the single-query behavior this replaces.
+  Future<List<Challenge>> _queryBothSides(
+    String userId, {
+    required String status,
+    required String orderByField,
+  }) async {
+    final collection = _firestore
+        .collection('friend_challenges')
+        .doc('active')
+        .collection('list');
+
+    final results = await Future.wait([
+      collection
+          .where('challengerUserId', isEqualTo: userId)
+          .where('status', isEqualTo: status)
+          .get(),
+      collection
+          .where('challengeeUserId', isEqualTo: userId)
+          .where('status', isEqualTo: status)
+          .get(),
+    ]);
+
+    final byId = <String, Challenge>{};
+    for (final snapshot in results) {
+      for (final doc in snapshot.docs) {
+        byId[doc.id] = Challenge.fromJson(doc.data());
+      }
+    }
+
+    final challenges = byId.values.toList()
+      ..sort((a, b) {
+        final aTime = orderByField == 'completedAt'
+            ? a.completedAt
+            : a.createdAt;
+        final bTime = orderByField == 'completedAt'
+            ? b.completedAt
+            : b.createdAt;
+        if (aTime == null || bTime == null) return 0;
+        return bTime.compareTo(aTime);
+      });
+    return challenges;
   }
 
   /// Get user's challenge streak

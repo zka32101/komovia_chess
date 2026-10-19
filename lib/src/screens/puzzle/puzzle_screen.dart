@@ -458,6 +458,13 @@ class _PuzzleSolvingScreenState extends ConsumerState<PuzzleSolvingScreen> {
 
   Future<void> _handleMove(String from, String to, {String? promotion}) async {
     final puzzle = await ref.read(puzzleByIdProvider(_currentPuzzleId).future);
+    // The screen can be popped (e.g. the user taps back right after
+    // making a move) while this await is still resolving - every
+    // setState below this point would otherwise throw "setState()
+    // called after dispose()". The sibling mounted-check later in this
+    // method (after the auto-play delay) already guards that second
+    // await; this one was missing for the first.
+    if (!mounted) return;
     if (puzzle == null || !_isPlayerTurn) return;
 
     final attempted = '$from$to${promotion ?? ''}'.toLowerCase();
