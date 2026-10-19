@@ -69,7 +69,9 @@ class _GameReviewScreenState extends ConsumerState<GameReviewScreen> {
 
     final fen = _chess.getCurrentFen();
     final whiteToMove = _chess.isWhiteTurn();
-    final score = await StockfishEngineService.instance.evaluatePosition(fen);
+    final depth = ref.read(analysisDepthProvider);
+    final score = await StockfishEngineService.instance
+        .evaluatePosition(fen, depth: depth);
 
     if (!mounted || requestId != _evalRequestId) return;
     setState(() {

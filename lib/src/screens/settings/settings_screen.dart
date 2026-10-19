@@ -146,6 +146,21 @@ class SettingsScreen extends ConsumerWidget {
                   ],
                 ),
 
+                // Analysis settings - previously no user-facing control
+                // over post-game computer analysis quality at all
+                // (GameReviewScreen's Stockfish evaluation was hardcoded
+                // to a fixed 500ms time budget).
+                _buildSettingSection(
+                  title: 'Analysis',
+                  children: [
+                    _buildAnalysisDepthOption(
+                      context,
+                      preferences.analysisDepth,
+                      preferencesService,
+                    ),
+                  ],
+                ),
+
                 // Account settings
                 _buildSettingSection(
                   title: 'Account',
@@ -481,6 +496,58 @@ class SettingsScreen extends ConsumerWidget {
                   ),
                   const SizedBox(height: 8),
                 ],
+              ),
+            ),
+          );
+        },
+      );
+
+  Widget _buildAnalysisDepthOption(
+    BuildContext context,
+    int currentDepth,
+    UserPreferencesService service,
+  ) =>
+      ListTile(
+        title: const Text('Analysis Depth'),
+        subtitle: Text(
+          'Depth $currentDepth - higher is stronger but slower',
+        ),
+        trailing: const Icon(Icons.arrow_forward_ios, size: 16),
+        onTap: () {
+          showModalBottomSheet(
+            context: context,
+            builder: (context) => SafeArea(
+              child: Padding(
+                padding: const EdgeInsets.all(16),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Text(
+                      'Computer Analysis Depth',
+                      style: TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                    const SizedBox(height: 16),
+                    Slider(
+                      value: currentDepth.toDouble(),
+                      min: 8,
+                      max: 20,
+                      divisions: 12,
+                      label: 'Depth $currentDepth',
+                      onChanged: (value) {
+                        service.setAnalysisDepth(value.toInt());
+                      },
+                    ),
+                    Text(
+                      'Used when reviewing a finished game. Higher depths '
+                      'take longer per position.',
+                      style: TextStyle(color: Colors.grey.shade600),
+                    ),
+                  ],
+                ),
               ),
             ),
           );

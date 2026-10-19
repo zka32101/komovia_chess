@@ -18,6 +18,7 @@ class UserPreferences {
     this.showCoordinates = true,
     this.pieceStyle = 'default',
     this.boardStyle = 'default',
+    this.analysisDepth = 12,
     this.lastUpdated,
   });
 
@@ -43,6 +44,7 @@ class UserPreferences {
       showCoordinates: map['showCoordinates'] ?? true,
       pieceStyle: map['pieceStyle'] ?? 'default',
       boardStyle: map['boardStyle'] ?? 'default',
+      analysisDepth: map['analysisDepth'] ?? 12,
       lastUpdated: map['lastUpdated'] != null
           ? (map['lastUpdated'] as Timestamp).toDate()
           : null,
@@ -65,6 +67,12 @@ class UserPreferences {
   final bool showCoordinates;
   final String pieceStyle; // 'default', 'wooden', 'classic'
   final String boardStyle; // 'default', 'wooden', 'marble'
+
+  /// Fixed Stockfish search depth used for post-game computer analysis
+  /// (GameReviewScreen) - previously hardcoded to a 500ms time budget
+  /// with no user-facing control at all. 8-20; default 12 is a modest
+  /// depth that still returns quickly on typical mobile hardware.
+  final int analysisDepth;
   final DateTime? lastUpdated;
 
   Map<String, dynamic> toMap() => {
@@ -80,6 +88,7 @@ class UserPreferences {
         'showCoordinates': showCoordinates,
         'pieceStyle': pieceStyle,
         'boardStyle': boardStyle,
+        'analysisDepth': analysisDepth,
         'lastUpdated': FieldValue.serverTimestamp(),
       };
 
@@ -96,6 +105,7 @@ class UserPreferences {
     bool? showCoordinates,
     String? pieceStyle,
     String? boardStyle,
+    int? analysisDepth,
     DateTime? lastUpdated,
   }) =>
       UserPreferences(
@@ -111,6 +121,7 @@ class UserPreferences {
         showCoordinates: showCoordinates ?? this.showCoordinates,
         pieceStyle: pieceStyle ?? this.pieceStyle,
         boardStyle: boardStyle ?? this.boardStyle,
+        analysisDepth: analysisDepth ?? this.analysisDepth,
         lastUpdated: lastUpdated ?? this.lastUpdated,
       );
 }
@@ -339,6 +350,25 @@ class UserPreferencesService {
     }
   }
 
+  // Update post-game computer analysis depth
+  Future<void> setAnalysisDepth(int depth) async {
+    final user = _auth.currentUser;
+    if (user == null) throw Exception('No user logged in');
+
+    try {
+      await _firestore.collection('user_preferences').doc(user.uid).set(
+        {
+          'analysisDepth': depth.clamp(8, 20),
+          'lastUpdated': FieldValue.serverTimestamp(),
+        },
+        SetOptions(merge: true),
+      );
+    } catch (e) {
+      print('Error updating analysis depth: $e');
+      rethrow;
+    }
+  }
+
   // Reset to default preferences
   Future<void> resetToDefaults() async {
     final user = _auth.currentUser;
@@ -446,5 +476,15 @@ final boardSizeProvider = StateProvider<int>((ref) {
     data: (prefs) => prefs.boardSize,
     loading: () => 350,
     error: (_, __) => 350,
+  );
+});
+
+// Post-game computer analysis depth provider (state)
+final analysisDepthProvider = StateProvider<int>((ref) {
+  final preferences = ref.watch(userPreferencesProvider);
+  return preferences.when(
+    data: (prefs) => prefs.analysisDepth,
+    loading: () => 12,
+    error: (_, __) => 12,
   );
 });

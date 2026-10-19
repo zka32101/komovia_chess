@@ -31,6 +31,13 @@ class _OnlineGameScreenState extends ConsumerState<OnlineGameScreen> {
   /// this screen.
   bool _hasShownResult = false;
 
+  /// A move queued via GameBoard's premove support while it was the
+  /// opponent's turn, auto-submitted the moment it becomes the local
+  /// player's turn (see `_buildGameBoard`'s post-frame callback).
+  String? _premoveFrom;
+  String? _premoveTo;
+  String? _premovePromotion;
+
   @override
   void initState() {
     super.initState();
@@ -79,6 +86,25 @@ class _OnlineGameScreenState extends ConsumerState<OnlineGameScreen> {
       });
     }
 
+    // A queued premove is submitted the moment it becomes the local
+    // player's turn - scheduled as a post-frame callback (not inline)
+    // since this method runs from build() and _submitMove eventually
+    // calls setState. If the premove turns out illegal in the real
+    // resulting position, _submitMove's own "Invalid move" snackbar
+    // fires and the slot is simply cleared below rather than retried.
+    if (isBoardActive && isPlayerTurn && _premoveFrom != null) {
+      final from = _premoveFrom!;
+      final to = _premoveTo!;
+      final promotion = _premovePromotion;
+      _premoveFrom = null;
+      _premoveTo = null;
+      _premovePromotion = null;
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!mounted) return;
+        _submitMove(game, from, to, promotion: promotion);
+      });
+    }
+
     return Column(
       children: [
         // Top player info (opponent) with animated time clock
@@ -118,6 +144,7 @@ class _OnlineGameScreenState extends ConsumerState<OnlineGameScreen> {
         _buildDrawOfferBanner(game),
         _buildTakebackRequestBanner(game),
         _buildAbandonmentForfeitBanner(game),
+        _buildPremoveBanner(),
 
         // Move/Action buttons - once the game ends, OnlineGameResultScreen
         // (pushed above) shows the result/rematch/share actions instead.
@@ -161,6 +188,45 @@ class _OnlineGameScreenState extends ConsumerState<OnlineGameScreen> {
     );
   }
 
+  /// Shown while a premove is queued (selected during the opponent's
+  /// turn via GameBoard's premoveColor/onPremove), so the player has
+  /// some visible confirmation + a way to cancel it before it auto-fires.
+  Widget _buildPremoveBanner() {
+    if (_premoveFrom == null || _premoveTo == null) {
+      return const SizedBox.shrink();
+    }
+
+    return Container(
+      margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+      decoration: BoxDecoration(
+        color: Colors.amber.withOpacity(0.15),
+        border: Border.all(color: Colors.amber),
+        borderRadius: BorderRadius.circular(8),
+      ),
+      child: Row(
+        children: [
+          Expanded(
+            child: Text(
+              'Premove queued: $_premoveFrom → $_premoveTo'
+              '${_premovePromotion != null ? ' (=${_premovePromotion!.toUpperCase()})' : ''}',
+            ),
+          ),
+          TextButton(
+            onPressed: () {
+              setState(() {
+                _premoveFrom = null;
+                _premoveTo = null;
+                _premovePromotion = null;
+              });
+            },
+            child: const Text('Cancel'),
+          ),
+        ],
+      ),
+    );
+  }
+
   /// Build chess board widget from game state
   Widget _buildChessBoardWidget(
     BuildContext context,
@@ -184,11 +250,24 @@ class _OnlineGameScreenState extends ConsumerState<OnlineGameScreen> {
             // real chess_lib.Move objects (piece, color, flags, capture).
             moveHistory: const [],
             onMove: isPlayerTurn && game.status == 'active'
-                ? (from, to, {promotion}) => _submitMove(game, from, to)
+                ? (from, to, {promotion}) =>
+                    _submitMove(game, from, to, promotion: promotion)
                 : null,
             onResign: game.status == 'active' ? () => _resign(game) : null,
             showMaterial: true,
             isPlayerTurn: isPlayerTurn && game.status == 'active',
+            premoveColor: !isPlayerTurn && game.status == 'active'
+                ? (game.whitePlayerId == _getCurrentPlayerId()
+                    ? chess_lib.Color.WHITE
+                    : chess_lib.Color.BLACK)
+                : null,
+            onPremove: (from, to, {promotion}) {
+              setState(() {
+                _premoveFrom = from;
+                _premoveTo = to;
+                _premovePromotion = promotion;
+              });
+            },
           ),
         ),
       );
@@ -883,11 +962,20 @@ class _OnlineGameScreenState extends ConsumerState<OnlineGameScreen> {
   }
 
   /// Submit a move to the game
-  Future<void> _submitMove(OnlineGame game, String from, String to) async {
+  Future<void> _submitMove(
+    OnlineGame game,
+    String from,
+    String to, {
+    String? promotion,
+  }) async {
     try {
       // Validate move is legal
       final gameState = chess_lib.Chess.fromFEN(game.currentFen);
-      final moveSucceeded = gameState.move({'from': from, 'to': to});
+      final moveSucceeded = gameState.move({
+        'from': from,
+        'to': to,
+        if (promotion != null) 'promotion': promotion,
+      });
 
       if (!moveSucceeded) {
         if (mounted) {
@@ -909,6 +997,7 @@ class _OnlineGameScreenState extends ConsumerState<OnlineGameScreen> {
         moveNumber: game.moves.length + 1,
         from: from,
         to: to,
+        promotion: promotion,
         playerId: currentPlayerId,
         updatedFen: gameState.fen,
         updatedPgn: gameState.pgn(),
