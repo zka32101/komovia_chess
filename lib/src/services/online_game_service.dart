@@ -516,11 +516,19 @@ class OnlineGameService {
 
       final result = playerId == game.whitePlayerId ? 'black_win' : 'white_win';
 
+      // Previously this wrote 'abandoned'/'abandonment' directly to the
+      // game doc and returned, bypassing _endGameWithResult entirely -
+      // unlike resignGame/acceptDraw/claimDraw/claimAbandonmentForfeit,
+      // which all route through it. That meant neither player's wins/
+      // losses/onlineRating/gamesPlayed ever updated, no achievement
+      // check ran, and no seasonal challenge progressed when a game
+      // ended by abandonment.
+      await _endGameWithResult(
+        gameId: gameId,
+        result: result,
+        resultReason: 'abandonment',
+      );
       await _firestore.collection(_gamesCollection).doc(gameId).update({
-        'status': 'abandoned',
-        'endedAt': FieldValue.serverTimestamp(),
-        'result': result,
-        'resultReason': 'abandonment',
         'abandonedBy': playerId,
       });
 
