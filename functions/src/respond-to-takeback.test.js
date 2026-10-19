@@ -102,7 +102,9 @@ jest.mock('firebase-admin', () => {
   return {
     __setFakeDb: (db) => { fakeDb = db; },
     initializeApp: jest.fn(),
-    firestore: () => fakeDb,
+    firestore: Object.assign(() => fakeDb, {
+      Timestamp: { now: () => 'NOW_TIMESTAMP' },
+    }),
     database: () => ({ ref: () => ({ set: async () => {} }) }),
   };
 });
@@ -156,6 +158,10 @@ describe('respondToTakeback', () => {
     );
     expect(game.moves).toEqual([]);
     expect(game.takebackRequestedBy).toBeNull();
+    // recordMove computes the next mover's elapsed time from
+    // lastMoveTimestamp - leaving it stale would double-charge the next
+    // mover for the entire takeback-negotiation window too.
+    expect(game.lastMoveTimestamp).toBe('NOW_TIMESTAMP');
   });
 
   it('deletes the undone move from the moves subcollection', async () => {

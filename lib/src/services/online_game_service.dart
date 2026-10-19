@@ -233,7 +233,17 @@ class OnlineGameService {
       whiteNewRating = game.whiteRating + whiteRatingDelta;
       blackNewRating = game.blackRating + blackRatingDelta;
 
-      // Update game with results
+      // Update game with results. Also clears drawOfferedBy/
+      // takebackRequestedBy as part of this same write - acceptDraw used
+      // to do this as a separate, later .update() call, which could
+      // leave a completed game with a stale drawOfferedBy if the app
+      // died or the network dropped between the two writes (the
+      // draw-offer banner in online_game_screen.dart isn't gated on
+      // status == 'active', only on drawOfferedBy != null). Every path
+      // through here (resign/claimDraw/abandon/forfeit/acceptDraw/
+      // timeout) can equally leave either flag stale, so clearing both
+      // unconditionally here is simpler and safer than fixing each
+      // caller individually.
       await _firestore.collection(_gamesCollection).doc(gameId).update({
         'status': 'completed',
         'endedAt': FieldValue.serverTimestamp(),
@@ -243,6 +253,8 @@ class OnlineGameService {
         'blackRatingDelta': blackRatingDelta,
         'whiteNewRating': whiteNewRating,
         'blackNewRating': blackNewRating,
+        'drawOfferedBy': null,
+        'takebackRequestedBy': null,
       });
 
       // Persist the new rating to each player's own record - previously
@@ -450,77 +462,17 @@ class OnlineGameService {
   /// Accept the outstanding draw offer, ending the game as a draw
   Future<void> acceptDraw(String gameId) async {
     try {
+      // _endGameWithResult now clears drawOfferedBy atomically as part
+      // of its own single write - no separate update needed here.
       await _endGameWithResult(
         gameId: gameId,
         result: 'draw',
         resultReason: 'draw_agreement',
       );
 
-      await _firestore.collection(_gamesCollection).doc(gameId).update({
-        'drawOfferedBy': null,
-      });
-
       _logger.i('Draw accepted in game $gameId');
     } catch (e, st) {
       _logger.e('Failed to accept draw', error: e, stackTrace: st);
-      rethrow;
-    }
-  }
-
-  /// Request to undo the move just made (while it's the opponent's turn -
-  /// [OnlineGame.canRequestTakeback] enforces this). Only sets the flag;
-  /// the opponent must still accept it via [acceptTakeback].
-  Future<void> requestTakeback(String gameId, String playerId) async {
-    try {
-      await _firestore.collection(_gamesCollection).doc(gameId).update({
-        'takebackRequestedBy': playerId,
-      });
-
-      _logger.i('Player $playerId requested a takeback in game $gameId');
-    } catch (e, st) {
-      _logger.e('Failed to request takeback', error: e, stackTrace: st);
-      rethrow;
-    }
-  }
-
-  /// Decline the outstanding takeback request
-  Future<void> declineTakeback(String gameId) async {
-    try {
-      await _firestore.collection(_gamesCollection).doc(gameId).update({
-        'takebackRequestedBy': null,
-      });
-
-      _logger.i('Takeback request declined in game $gameId');
-    } catch (e, st) {
-      _logger.e('Failed to decline takeback', error: e, stackTrace: st);
-      rethrow;
-    }
-  }
-
-  /// Accept the outstanding takeback request, actually undoing the last
-  /// move. Unlike offerDraw/declineDraw (which only ever touch
-  /// `drawOfferedBy`), undoing a move means recomputing `currentFen`/
-  /// `pgn`/`moves` - fields firestore.rules locks to the `recordMove`
-  /// Cloud Function's Admin SDK for exactly the same reason recordMove
-  /// itself had to move server-side (see game-validation.js's own doc
-  /// comment): a client can no longer be trusted to report its own
-  /// resulting position. So this calls a dedicated `respondToTakeback`
-  /// Cloud Function rather than writing directly to Firestore.
-  Future<void> acceptTakeback(String gameId, String playerId) async {
-    try {
-      final callable = _functions.httpsCallable('respondToTakeback');
-      await callable.call<Map<String, dynamic>>({
-        'gameId': gameId,
-        'playerId': playerId,
-      });
-
-      _logger.i('Takeback accepted in game $gameId');
-    } on FirebaseFunctionsException catch (e, st) {
-      _logger.e('Failed to accept takeback: ${e.code} ${e.message}',
-          error: e, stackTrace: st);
-      rethrow;
-    } catch (e, st) {
-      _logger.e('Failed to accept takeback', error: e, stackTrace: st);
       rethrow;
     }
   }

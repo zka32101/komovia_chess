@@ -421,6 +421,14 @@ exports.respondToTakeback = functions
         pgn: chess.pgn(),
         moves: remainingMoves,
         takebackRequestedBy: null,
+        // recordMove computes the next mover's elapsed thinking time as
+        // `now - lastMoveTimestamp`, so leaving this stale here would
+        // double-charge whoever moves next for the entire negotiation
+        // window (however long the takeback request sat pending) on top
+        // of the time already deducted for the now-undone move.
+        // Resetting it to now gives the next mover a fresh clock read,
+        // the same as any ordinary move would.
+        lastMoveTimestamp: admin.firestore.Timestamp.now(),
       });
 
       // Remove the now-undone move's own subcollection doc too
