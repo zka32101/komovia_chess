@@ -1,3 +1,4 @@
+import 'dart:async' show unawaited;
 import 'dart:math' show pow;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
@@ -10,6 +11,7 @@ import '../services/ai_opponent_engine.dart';
 import '../services/stockfish_engine_service.dart';
 import '../services/season_challenge_service.dart';
 import '../services/season_management_service.dart';
+import '../services/achievement_service.dart';
 
 /// CPU game state
 class CPUGameState {
@@ -696,6 +698,15 @@ class CpuGameNotifier extends StateNotifier<CpuGameState> {
             metric: GameplayMetric.drawGames,
           );
         }
+      }
+
+      // Best-effort: a win may have just satisfied an achievement
+      // (first_win/five_wins) - this was previously only wired up for
+      // online PvP wins (see OnlineGameService._endGameWithResult), so a
+      // player who only ever played CPU games could never unlock either
+      // one despite their `wins` field incrementing correctly above.
+      if (playerResult == 'win') {
+        unawaited(AchievementService().checkAndUnlockAchievements(user.uid));
       }
     } catch (_) {
       // Best-effort; don't block the UI on a stats-persistence failure.
