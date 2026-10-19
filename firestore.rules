@@ -122,6 +122,27 @@ service cloud.firestore {
     }
 
     // ============================================
+    // Puzzle Content (PuzzleService.getDailyChallenge/getPuzzleById/getPuzzlesByRating)
+    // ============================================
+    // Curated/admin-authored content, same pattern as season_challenges/
+    // tsumeGoProblems - no client ever writes here. Had no rule at all
+    // before this, so the read side of the whole puzzle feature (one of
+    // this app's two headline features) was rejected by the file's
+    // default-deny catch-all in production - PuzzleScreen could never
+    // actually load a puzzle or the daily challenge, even though
+    // user_puzzle_results (the attempt-recording side) already had its
+    // own rule.
+    match /puzzles/{puzzleId} {
+      allow read: if isSignedIn();
+      allow write: if false;
+    }
+
+    match /daily_challenges/{challengeId} {
+      allow read: if isSignedIn();
+      allow write: if false;
+    }
+
+    // ============================================
     // Puzzle Attempt History (PuzzleService.recordPuzzleAttempt)
     // ============================================
     // Not nested under users/{uid} - keyed by its own composite id
