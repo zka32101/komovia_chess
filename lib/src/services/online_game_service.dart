@@ -7,13 +7,24 @@ import 'package:logger/logger.dart';
 import '../models/online_game.dart';
 import 'achievement_service.dart';
 import 'friend_service.dart';
+import 'season_challenge_service.dart';
+import 'season_management_service.dart';
 
 /// Manages online multiplayer games in real-time
 class OnlineGameService {
-  OnlineGameService({FirebaseFirestore? firestore})
-      : _firestore = firestore ?? FirebaseFirestore.instance;
+  OnlineGameService({
+    FirebaseFirestore? firestore,
+    SeasonChallengeService? seasonChallengeService,
+    SeasonManagementService? seasonManagementService,
+  })  : _firestore = firestore ?? FirebaseFirestore.instance,
+        _seasonChallengeService =
+            seasonChallengeService ?? SeasonChallengeService(),
+        _seasonManagementService =
+            seasonManagementService ?? SeasonManagementService();
   final FirebaseFirestore _firestore;
   final Logger _logger = Logger();
+  final SeasonChallengeService _seasonChallengeService;
+  final SeasonManagementService _seasonManagementService;
 
   // Game collection paths
   static const String _gamesCollection = 'games';
@@ -287,9 +298,54 @@ class OnlineGameService {
       if (winnerId != null) {
         unawaited(AchievementService().checkAndUnlockAchievements(winnerId));
       }
+
+      // Best-effort: advance any active seasonal challenge tracking wins/
+      // draws/games-played for both players. Previously nothing in the
+      // app ever called into SeasonChallengeService from a real game
+      // ending, so no seasonal challenge could progress through actual
+      // play.
+      unawaited(_recordSeasonChallengeProgress(
+        playerId: game.whitePlayerId,
+        playerResult: whiteResult,
+      ));
+      unawaited(_recordSeasonChallengeProgress(
+        playerId: game.blackPlayerId,
+        playerResult: blackResult,
+      ));
     } catch (e, st) {
       _logger.e('Failed to end game', error: e, stackTrace: st);
       rethrow;
+    }
+  }
+
+  Future<void> _recordSeasonChallengeProgress({
+    required String playerId,
+    required String playerResult, // win, loss, draw
+  }) async {
+    try {
+      final season = await _seasonManagementService.getCurrentSeason();
+      if (season == null) return;
+
+      await _seasonChallengeService.recordMetricProgress(
+        playerId: playerId,
+        seasonId: season.seasonId,
+        metric: GameplayMetric.playGames,
+      );
+      if (playerResult == 'win') {
+        await _seasonChallengeService.recordMetricProgress(
+          playerId: playerId,
+          seasonId: season.seasonId,
+          metric: GameplayMetric.winGames,
+        );
+      } else if (playerResult == 'draw') {
+        await _seasonChallengeService.recordMetricProgress(
+          playerId: playerId,
+          seasonId: season.seasonId,
+          metric: GameplayMetric.drawGames,
+        );
+      }
+    } catch (_) {
+      // Best-effort; never block the game from ending.
     }
   }
 

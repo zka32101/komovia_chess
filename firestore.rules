@@ -463,7 +463,19 @@ service cloud.firestore {
 
     match /player_challenge_progress/{playerId} {
       match /challenges/{challengeId} {
-        allow read, write: if isOwner(playerId);
+        allow read: if isSignedIn();
+        // Cross-user: SeasonChallengeService.updateChallengeProgress/
+        // completeChallenge are now also called from OnlineGameService's
+        // game-end flow for BOTH participants - same client-trusted
+        // pattern as this app's other self-reported cross-user writes
+        // (see users/{userId} above), narrowed to just the progress
+        // fields those two methods ever touch.
+        allow create: if isSignedIn() &&
+          request.resource.data.playerId == playerId;
+        allow update: if isOwner(playerId) ||
+          (isSignedIn() &&
+           onlyChanged(['currentProgress', 'isCompleted', 'completedAt', 'updatedAt']));
+        allow delete: if isOwner(playerId);
       }
     }
 

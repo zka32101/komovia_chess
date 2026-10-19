@@ -11,6 +11,40 @@ class SeasonChallengeService {
   static const String _challengesCollection = 'season_challenges';
   static const String _playerChallengeCollection = 'player_challenge_progress';
 
+  /// Advance every currently-active challenge in [seasonId] whose
+  /// [Challenge.resolvedMetricType] matches [metric] by [amount] - the
+  /// entry point every reachable gameplay-completion flow calls (online
+  /// PvP win/loss/draw, CPU-game win/loss/draw, puzzle solve). Previously
+  /// nothing in the app ever called `updateChallengeProgress`/
+  /// `completeChallenge` at all, so no seasonal challenge could progress
+  /// through actual play, only be looked at. Best-effort: a failure here
+  /// (e.g. no active season) never blocks or surfaces to the game/puzzle
+  /// flow that triggered it.
+  Future<void> recordMetricProgress({
+    required String playerId,
+    required String seasonId,
+    required String metric,
+    int amount = 1,
+  }) async {
+    try {
+      final now = DateTime.now();
+      final challenges = await getChallenges(seasonId: seasonId);
+      for (final challenge in challenges) {
+        if (challenge.resolvedMetricType != metric) continue;
+        if (now.isBefore(challenge.startDate) || now.isAfter(challenge.endDate)) {
+          continue;
+        }
+        await updateChallengeProgress(
+          playerId: playerId,
+          challengeId: challenge.challengeId,
+          progressAmount: amount,
+        );
+      }
+    } catch (e, st) {
+      _logger.e('Failed to record metric progress', error: e, stackTrace: st);
+    }
+  }
+
   /// Get all active challenges for a season
   Future<List<Challenge>> getChallenges({
     required String seasonId,
@@ -281,6 +315,7 @@ class Challenge {
     required this.startDate,
     required this.endDate,
     this.eventId,
+    this.metricType,
   });
 
   factory Challenge.fromJson(Map<String, dynamic> json) => Challenge(
@@ -291,6 +326,7 @@ class Challenge {
         type: json['type'] as String,
         eventId: json['eventId'] as String?,
         objective: json['objective'] as String,
+        metricType: json['metricType'] as String?,
         target: json['target'] as int,
         difficulty: json['difficulty'] as String,
         rewards: (json['rewards'] as List<dynamic>?)
@@ -314,6 +350,30 @@ class Challenge {
   final DateTime startDate;
   final DateTime endDate;
 
+  /// Machine-readable gameplay metric this challenge tracks - one of
+  /// [GameplayMetric]'s keys. No curated `season_challenges` document in
+  /// this app currently sets this (there's no in-app content-authoring
+  /// tool for this collection, which is `allow write: if false` in
+  /// firestore.rules), so it's nullable and [resolvedMetricType] falls
+  /// back to guessing from the free-text [objective] for any existing/
+  /// future document that never sets it explicitly.
+  final String? metricType;
+
+  /// Best-effort inference from [objective]'s free text when [metricType]
+  /// isn't set - a real curated challenge document should set
+  /// [metricType] directly instead of relying on this.
+  String? get resolvedMetricType {
+    if (metricType != null) return metricType;
+    final text = objective.toLowerCase();
+    if (text.contains('puzzle')) return GameplayMetric.solvePuzzles;
+    if (text.contains('draw')) return GameplayMetric.drawGames;
+    if (text.contains('win')) return GameplayMetric.winGames;
+    if (text.contains('game') || text.contains('play')) {
+      return GameplayMetric.playGames;
+    }
+    return null;
+  }
+
   Map<String, dynamic> toJson() => {
         'challengeId': challengeId,
         'seasonId': seasonId,
@@ -322,12 +382,23 @@ class Challenge {
         'type': type,
         'eventId': eventId,
         'objective': objective,
+        'metricType': metricType,
         'target': target,
         'difficulty': difficulty,
         'rewards': rewards.map((r) => r.toJson()).toList(),
         'startDate': Timestamp.fromDate(startDate),
         'endDate': Timestamp.fromDate(endDate),
       };
+}
+
+/// The gameplay events a challenge's progress can be driven by - see
+/// [SeasonChallengeService.recordMetricProgress], called from every
+/// reachable game/puzzle-completion flow (online PvP, CPU games, puzzles).
+abstract class GameplayMetric {
+  static const String winGames = 'win_games';
+  static const String playGames = 'play_games';
+  static const String drawGames = 'draw_games';
+  static const String solvePuzzles = 'solve_puzzles';
 }
 
 /// Challenge reward
