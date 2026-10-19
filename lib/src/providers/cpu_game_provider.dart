@@ -682,19 +682,28 @@ class CpuGameNotifier extends StateNotifier<CpuGameState> {
       // just incremented above rather than a second increment (which
       // recordMatch used to also do internally - see its own doc
       // comment on why that would have double-counted every game).
-      unawaited(MatchHistoryService().recordMatch(MatchRecord(
-        matchId: '${user.uid}_${DateTime.now().millisecondsSinceEpoch}',
-        playerId: user.uid,
-        opponentId: 'cpu_${state.difficulty.name}',
-        opponentName: state.difficulty.displayName,
-        playerRatingBefore: currentRating,
-        playerRatingAfter: currentRating + ratingDelta,
-        opponentRatingBefore: opponentElo,
-        opponentRatingAfter: opponentElo,
-        result: playerResult,
-        timeControl: 'unrated',
-        playedAt: DateTime.now(),
-      )));
+      unawaited(MatchHistoryService().recordMatch(
+        MatchRecord(
+          matchId: '${user.uid}_${DateTime.now().millisecondsSinceEpoch}',
+          playerId: user.uid,
+          opponentId: 'cpu_${state.difficulty.name}',
+          opponentName: state.difficulty.displayName,
+          playerRatingBefore: currentRating,
+          playerRatingAfter: currentRating + ratingDelta,
+          opponentRatingBefore: opponentElo,
+          opponentRatingAfter: opponentElo,
+          result: playerResult,
+          timeControl: 'unrated',
+          playedAt: DateTime.now(),
+        ),
+        moves: state.moves
+            .map((m) => {
+                  'from': m.fromAlgebraic,
+                  'to': m.toAlgebraic,
+                  'promotion': m.promotion?.name,
+                })
+            .toList(),
+      ));
 
       // Best-effort: advance any active seasonal challenge tracking wins/
       // draws/games-played - previously nothing in the app ever called

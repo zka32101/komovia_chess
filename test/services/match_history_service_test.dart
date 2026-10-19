@@ -193,6 +193,54 @@ void main() {
         expect(fake.lastWrittenData?['result'], 'win');
         expect(fake.collectionsTouched.any((c) => c == 'users'), isFalse);
       });
+
+      test('stores the given moves under the raw movesUci key', () async {
+        final fake = _RecordingFirestore();
+        final recordingService = MatchHistoryService(firestore: fake);
+
+        await recordingService.recordMatch(
+          MatchRecord(
+            matchId: 'match_456',
+            playerId: 'player1',
+            opponentId: 'player2',
+            opponentName: 'Opponent',
+            playerRatingBefore: 1600,
+            playerRatingAfter: 1615,
+            opponentRatingBefore: 1500,
+            opponentRatingAfter: 1485,
+            result: 'win',
+            timeControl: 'blitz',
+            playedAt: DateTime.now(),
+          ),
+          moves: [
+            {'from': 'e2', 'to': 'e4', 'promotion': null},
+          ],
+        );
+
+        expect(fake.lastWrittenData?['movesUci'], hasLength(1));
+        expect(fake.lastWrittenData?['movesUci'][0]['from'], 'e2');
+      });
+
+      test('omits movesUci entirely when no moves are given', () async {
+        final fake = _RecordingFirestore();
+        final recordingService = MatchHistoryService(firestore: fake);
+
+        await recordingService.recordMatch(MatchRecord(
+          matchId: 'match_789',
+          playerId: 'player1',
+          opponentId: 'player2',
+          opponentName: 'Opponent',
+          playerRatingBefore: 1600,
+          playerRatingAfter: 1615,
+          opponentRatingBefore: 1500,
+          opponentRatingAfter: 1485,
+          result: 'draw',
+          timeControl: 'blitz',
+          playedAt: DateTime.now(),
+        ));
+
+        expect(fake.lastWrittenData?.containsKey('movesUci'), isFalse);
+      });
     });
   });
 }

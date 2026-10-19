@@ -182,14 +182,29 @@ class MatchHistoryService {
   /// zero callers anywhere, so match_history_screen.dart/
   /// comparison_service.dart's reads were permanently empty, and this
   /// double-increment bug was never actually exercised either.)
-  Future<void> recordMatch(MatchRecord match) async {
+  ///
+  /// [moves], when given, is the game's move list as plain
+  /// {'from','to','promotion'} maps - stored under the raw `movesUci`
+  /// key alongside [match]'s own fields rather than as a declared field
+  /// on [MatchRecord] itself, since adding a field to that @freezed
+  /// model would need build_runner codegen this sandbox has no dart
+  /// tooling to run. OpeningExplorerService reads this same raw key
+  /// back directly (bypassing MatchRecord.fromJson) to build personal
+  /// opening statistics.
+  Future<void> recordMatch(
+    MatchRecord match, {
+    List<Map<String, dynamic>>? moves,
+  }) async {
     try {
       await _firestore
           .collection('match_history')
           .doc(match.playerId)
           .collection('matches')
           .doc(match.matchId)
-          .set(match.toJson());
+          .set({
+        ...match.toJson(),
+        if (moves != null) 'movesUci': moves,
+      });
     } catch (e) {
       throw Exception('Failed to record match: $e');
     }

@@ -302,32 +302,46 @@ class OnlineGameService {
       // rather than a second increment (recordMatch only writes the
       // match_history entry itself - see its own doc comment).
       final matchHistoryService = MatchHistoryService();
-      unawaited(matchHistoryService.recordMatch(MatchRecord(
-        matchId: '${gameId}_white',
-        playerId: game.whitePlayerId,
-        opponentId: game.blackPlayerId,
-        opponentName: game.blackPlayerName,
-        playerRatingBefore: game.whiteRating,
-        playerRatingAfter: whiteNewRating,
-        opponentRatingBefore: game.blackRating,
-        opponentRatingAfter: blackNewRating,
-        result: whiteResult,
-        timeControl: game.timeControl,
-        playedAt: DateTime.now(),
-      )));
-      unawaited(matchHistoryService.recordMatch(MatchRecord(
-        matchId: '${gameId}_black',
-        playerId: game.blackPlayerId,
-        opponentId: game.whitePlayerId,
-        opponentName: game.whitePlayerName,
-        playerRatingBefore: game.blackRating,
-        playerRatingAfter: blackNewRating,
-        opponentRatingBefore: game.whiteRating,
-        opponentRatingAfter: whiteNewRating,
-        result: blackResult,
-        timeControl: game.timeControl,
-        playedAt: DateTime.now(),
-      )));
+      final movesUci = game.moves
+          .where((m) => m.from.isNotEmpty && m.to.isNotEmpty) // skip passes
+          .map((m) => {
+                'from': m.from,
+                'to': m.to,
+                'promotion': m.promotion,
+              })
+          .toList();
+      unawaited(matchHistoryService.recordMatch(
+        MatchRecord(
+          matchId: '${gameId}_white',
+          playerId: game.whitePlayerId,
+          opponentId: game.blackPlayerId,
+          opponentName: game.blackPlayerName,
+          playerRatingBefore: game.whiteRating,
+          playerRatingAfter: whiteNewRating,
+          opponentRatingBefore: game.blackRating,
+          opponentRatingAfter: blackNewRating,
+          result: whiteResult,
+          timeControl: game.timeControl,
+          playedAt: DateTime.now(),
+        ),
+        moves: movesUci,
+      ));
+      unawaited(matchHistoryService.recordMatch(
+        MatchRecord(
+          matchId: '${gameId}_black',
+          playerId: game.blackPlayerId,
+          opponentId: game.whitePlayerId,
+          opponentName: game.whitePlayerName,
+          playerRatingBefore: game.blackRating,
+          playerRatingAfter: blackNewRating,
+          opponentRatingBefore: game.whiteRating,
+          opponentRatingAfter: whiteNewRating,
+          result: blackResult,
+          timeControl: game.timeControl,
+          playedAt: DateTime.now(),
+        ),
+        moves: movesUci,
+      ));
 
       _logger.i('Game completed: $gameId - $result ($resultReason)');
 
