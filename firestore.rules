@@ -365,6 +365,51 @@ service cloud.firestore {
       }
     }
 
+    // SeasonalEventService.getEventLeaderboard reads
+    // player_event_progress/{eventId}/leaderboard - note the parent id
+    // here is an eventId, not a playerId, reusing the same top-level
+    // collection name as the block above for an unrelated shape. No
+    // reachable caller ever writes this subcollection (same
+    // already-documented "always renders empty" bug as
+    // getEventLeaderboard itself), so read-only.
+    match /player_event_progress/{eventId} {
+      match /leaderboard/{entryId} {
+        allow read: if isSignedIn();
+        allow write: if false;
+      }
+    }
+
+    // ComparisonService (player_comparison_screen.dart): both collections
+    // are read-only from every reachable caller - saveHeadToHeadStats has
+    // no caller anywhere in the app, so there's no reachable write path
+    // to allow yet.
+    match /player_matchups/{matchupId} {
+      allow read: if isSignedIn();
+      allow write: if false;
+    }
+
+    match /match_history/{playerId} {
+      match /matches/{matchId} {
+        allow read: if isSignedIn();
+        allow write: if false;
+      }
+    }
+
+    // SeasonChallengeService (seasonal_hub_screen.dart). season_challenges
+    // is curated content, same read-only pattern as seasons/seasonal_events
+    // above; player_challenge_progress is the player's own progress, every
+    // reachable caller passes the signed-in user's own uid.
+    match /season_challenges/{challengeId} {
+      allow read: if isSignedIn();
+      allow write: if false;
+    }
+
+    match /player_challenge_progress/{playerId} {
+      match /challenges/{challengeId} {
+        allow read, write: if isOwner(playerId);
+      }
+    }
+
     // ============================================
     // Battle Pass (BattlePassService)
     // ============================================
