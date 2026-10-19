@@ -5,6 +5,7 @@ import '../../providers/auth_provider.dart';
 import '../../providers/online_game_provider.dart';
 import '../../services/game_gif_service.dart';
 import '../../services/game_share_service.dart';
+import 'game_review_screen.dart';
 import 'online_game_screen.dart';
 
 /// Displays the result of a completed online game
@@ -376,6 +377,31 @@ class _OnlineGameResultScreenState
               label: Text(
                 _isSharing ? 'Creating GIF...' : 'Share on X',
                 style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
+              ),
+            ),
+            const SizedBox(height: 12),
+            // GameReviewScreen (move-by-move replay + Stockfish analysis via
+            // ChessAnalysisService) was already fully built and wired from
+            // profile_screen.dart's match history and cpu_game_screen.dart's
+            // post-game flow - but a player finishing an online PvP game
+            // (the result screen reached right after a real match ends)
+            // had no path into it at all.
+            OutlinedButton.icon(
+              onPressed: () {
+                Navigator.of(context).push(
+                  MaterialPageRoute(
+                    builder: (_) =>
+                        GameReviewScreen(gameId: game.gameId, game: game),
+                  ),
+                );
+              },
+              icon: const Icon(Icons.analytics_outlined),
+              style: OutlinedButton.styleFrom(
+                padding: const EdgeInsets.symmetric(vertical: 16),
+              ),
+              label: const Text(
+                'Review Game',
+                style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
               ),
             ),
             const SizedBox(height: 12),
