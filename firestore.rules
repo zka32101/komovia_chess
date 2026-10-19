@@ -46,14 +46,17 @@ service cloud.firestore {
       allow delete: if isOwner(userId) || isAdmin();
 
       // Cross-user: OnlineGameService._endGameWithResult persists the
-      // new onlineRating to BOTH participants when a game ends, so the
-      // caller (whichever participant's resign/draw/timeout/forfeit
-      // action triggered completion) is often not `userId` itself -
-      // same client-trusted pattern this app already uses for other
-      // self-reported game outcomes, narrowed to just this one field so
-      // nothing else about another user's document can be touched this
-      // way.
-      allow update: if isSignedIn() && onlyChanged(['onlineRating']);
+      // new onlineRating, plus the shared wins/losses/draws/gamesPlayed
+      // stat fields (the same ones CpuGameProvider increments for CPU
+      // games - AchievementService reads `wins` off this doc), to BOTH
+      // participants when a game ends, so the caller (whichever
+      // participant's resign/draw/timeout/forfeit action triggered
+      // completion) is often not `userId` itself - same client-trusted
+      // pattern this app already uses for other self-reported game
+      // outcomes, narrowed to just these fields so nothing else about
+      // another user's document can be touched this way.
+      allow update: if isSignedIn() &&
+        onlyChanged(['onlineRating', 'wins', 'losses', 'draws', 'gamesPlayed']);
 
       // ----------------------------------------------
       // Friendships (users/{uid}/friends/{friendUid})
