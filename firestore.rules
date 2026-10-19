@@ -639,19 +639,34 @@ service cloud.firestore {
     // itself having been a no-op before this fix. Reads are open to any
     // signed-in user since finding a compatible opponent means scanning
     // every other player's waiting entry, same as this app's open-read
-    // pattern for `games`-adjacent discovery data. Updates are similarly
-    // open (not owner-restricted) because claiming a match and writing
-    // the final `matched` status both require the player who runs
-    // tryMatch to update the OPPONENT's entry, not just their own - the
-    // update rule still keeps every entry's identity/rating fields
-    // immutable and only allows the specific status progression
-    // tryMatch actually performs.
+    // pattern for `games`-adjacent discovery data. Updates must still
+    // reach the OPPONENT's entry too (MatchmakingService._claimPair
+    // sets matchedOpponentId on both sides in one transaction, and the
+    // later 'matched' write touches both queue docs again) - but
+    // "reaches the opponent's doc" and "any signed-in stranger" are not
+    // the same thing. Without the participant check below, any
+    // signed-in user (not just the actual matched opponent) could
+    // update a stranger's waiting entry to
+    // status:'matched'/matchedGameId:<garbage> and disrupt matchmaking
+    // for players they have no relationship to at all. A legitimate
+    // writer is always either the entry's own owner, or the player
+    // tryMatch just claimed/confirmed as its matchedOpponentId (on the
+    // FIRST write setting it, matchedOpponentId is in
+    // request.resource.data; on the SECOND write - the final 'matched'
+    // status - it's unchanged from the already-stored resource.data).
+    function isMatchmakingParticipant() {
+      return request.auth.uid == resource.data.playerId ||
+        request.auth.uid == request.resource.data.matchedOpponentId ||
+        request.auth.uid == resource.data.matchedOpponentId;
+    }
+
     match /matchmaking_queue/{queueId} {
       allow read: if isSignedIn();
       allow create: if isSignedIn() &&
         request.resource.data.playerId == request.auth.uid &&
         request.resource.data.status == 'waiting';
       allow update: if isSignedIn() &&
+        isMatchmakingParticipant() &&
         unchanged('playerId') &&
         unchanged('currentRating') &&
         unchanged('timeControlType') &&
