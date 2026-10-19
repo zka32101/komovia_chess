@@ -55,8 +55,35 @@ service cloud.firestore {
       // pattern this app already uses for other self-reported game
       // outcomes, narrowed to just these fields so nothing else about
       // another user's document can be touched this way.
+      //
+      // Previously this had no further shape requirement, so any
+      // signed-in stranger (not just a real opponent) could call
+      // `users/{victim}.update({onlineRating: 0, losses: 999999})`
+      // directly with no game in common at all - pure griefing/
+      // leaderboard manipulation. Now requires this to look like exactly
+      // one real game's worth of bookkeeping: gamesPlayed increases by
+      // exactly 1, exactly one of wins/losses/draws increases by exactly
+      // 1 (the others, if present at all, unchanged), and onlineRating
+      // moves by a bounded amount in one call (±64 covers this app's own
+      // K-factor-based rating-system.js/rating_calculator.dart output
+      // with headroom; a legitimate single game can never swing a rating
+      // further than that).
       allow update: if isSignedIn() &&
-        onlyChanged(['onlineRating', 'wins', 'losses', 'draws', 'gamesPlayed']);
+        onlyChanged(['onlineRating', 'wins', 'losses', 'draws', 'gamesPlayed']) &&
+        request.resource.data.gamesPlayed == resource.data.gamesPlayed + 1 &&
+        (request.resource.data.onlineRating - resource.data.get('onlineRating', 0)) >= -64 &&
+        (request.resource.data.onlineRating - resource.data.get('onlineRating', 0)) <= 64 &&
+        (
+          (request.resource.data.get('wins', 0) == resource.data.get('wins', 0) + 1 &&
+            request.resource.data.get('losses', 0) == resource.data.get('losses', 0) &&
+            request.resource.data.get('draws', 0) == resource.data.get('draws', 0)) ||
+          (request.resource.data.get('losses', 0) == resource.data.get('losses', 0) + 1 &&
+            request.resource.data.get('wins', 0) == resource.data.get('wins', 0) &&
+            request.resource.data.get('draws', 0) == resource.data.get('draws', 0)) ||
+          (request.resource.data.get('draws', 0) == resource.data.get('draws', 0) + 1 &&
+            request.resource.data.get('wins', 0) == resource.data.get('wins', 0) &&
+            request.resource.data.get('losses', 0) == resource.data.get('losses', 0))
+        );
 
       // ----------------------------------------------
       // Friendships (users/{uid}/friends/{friendUid})
@@ -259,6 +286,50 @@ service cloud.firestore {
         return isParticipant([resource.data.whitePlayerId, resource.data.blackPlayerId]);
       }
 
+      function callerIsWhite() {
+        return request.auth.uid == resource.data.whitePlayerId;
+      }
+
+      // Guards the one-time 'active' -> 'completed' transition that
+      // resignGame/acceptDraw/claimDraw/abandonGame/claimAbandonmentForfeit
+      // (Dart, OnlineGameService._endGameWithResult) make directly from the
+      // client. recordMove's own checkmate/stalemate ending runs inside the
+      // recordMove Cloud Function and handleTimeout is a scheduled Cloud
+      // Function - both Admin SDK, both bypass these rules entirely - so a
+      // client write that sets status to 'completed' is always one of the
+      // four self-reported endings this function validates.
+      //
+      // Previously `status`/`result` carried no constraint at all here
+      // (only currentFen/pgn/moves/the clock fields were locked for
+      // non-cpu games), so any participant could set
+      // `status:'completed'` with any `result`/`resultReason` pair at
+      // all - including declaring themselves the winner of their own
+      // resignation, or re-ending an already-completed game - and that
+      // forged result flowed straight into the otherwise-unrestricted
+      // `users/{uid}` cross-user stat update (see that collection's own
+      // update rule).
+      function gameEndIsValid() {
+        let newStatus = request.resource.data.status;
+        let result = request.resource.data.result;
+        let reason = request.resource.data.resultReason;
+        return newStatus != 'completed' ||
+          (resource.data.status == 'active' &&
+            result in ['white_win', 'black_win', 'draw'] &&
+            (
+              // Resigning/abandoning player always reports their OWN loss -
+              // never the opponent's.
+              ((reason == 'resignation' || reason == 'abandonment') &&
+                result == (callerIsWhite() ? 'black_win' : 'white_win')) ||
+              // A mutual draw: either side may file it, result is fixed.
+              (reason in ['draw_agreement', 'draw_claim_threefold', 'draw_claim_fifty_move'] &&
+                result == 'draw') ||
+              // Forfeit claim always reports the CLAIMANT (caller) as the
+              // winner, against the opponent who went silent.
+              (reason == 'abandonment_forfeit' &&
+                result == (callerIsWhite() ? 'white_win' : 'black_win'))
+            ));
+      }
+
       // Only the caller's own takeback request may ever be *set* - a
       // player can clear the field (decline/accept) freely, but can
       // never write someone else's uid into it. Without this, any
@@ -335,6 +406,12 @@ service cloud.firestore {
           (unchanged('currentFen') && unchanged('pgn') &&
            unchanged('moves') && unchanged('lastMoveTimestamp') &&
            unchanged('whiteTimeRemainingMs') && unchanged('blackTimeRemainingMs'))) &&
+        // CPU games are single-device, self-reported, and never touch
+        // another user's stats (whitePlayerId/blackPlayerId are the
+        // literal strings 'player'/'cpu') - gameEndIsValid()'s
+        // winner/loser shape only matters for real PvP games, where a
+        // forged result flows into another real player's onlineRating.
+        (resource.data.type == 'cpu' || gameEndIsValid()) &&
         takebackFieldValid() &&
         activityTimestampsValid();
       allow delete: if false;
