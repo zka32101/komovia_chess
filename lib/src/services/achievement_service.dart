@@ -239,7 +239,12 @@ class AchievementService {
       final userDoc = await _firestore.collection('users').doc(userId).get();
       final data = userDoc.data() ?? const <String, dynamic>{};
       final wins = (data['wins'] as num?)?.toInt() ?? 0;
-      final puzzlesCompleted = (data['puzzlesCompleted'] as num?)?.toInt() ?? 0;
+      // PuzzleService.recordPuzzleAttempt writes this as `puzzlesSolved`
+      // (same field `getUserPuzzleStats`/the puzzle screen read) - this
+      // read used the nonexistent name `puzzlesCompleted`, which nothing
+      // in the app ever wrote, so puzzle_master could never progress
+      // past 0 regardless of how many puzzles were solved.
+      final puzzlesSolved = (data['puzzlesSolved'] as num?)?.toInt() ?? 0;
 
       switch (achievementId) {
         case 'first_win':
@@ -247,7 +252,7 @@ class AchievementService {
         case 'five_wins':
           return wins;
         case 'puzzle_master':
-          return puzzlesCompleted;
+          return puzzlesSolved;
         default:
           return 0;
       }
