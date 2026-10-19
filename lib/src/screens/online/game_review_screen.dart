@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:share_plus/share_plus.dart';
 import '../../models/online_game.dart';
 import '../../services/chess_engine_service.dart';
 import '../../services/stockfish_engine_service.dart';
+import '../../utils/pgn_builder.dart';
 import '../../widgets/game_analysis_bar.dart';
 import '../../widgets/game_board.dart';
 import '../../providers/user_preferences_provider.dart';
@@ -105,6 +107,11 @@ class _GameReviewScreenState extends ConsumerState<GameReviewScreen> {
                   ),
                 ),
               ),
+            ),
+            IconButton(
+              icon: const Icon(Icons.description_outlined),
+              tooltip: 'Export PGN',
+              onPressed: _sharePgn,
             ),
             IconButton(
               icon: const Icon(Icons.info_outline),
@@ -464,6 +471,19 @@ class _GameReviewScreenState extends ConsumerState<GameReviewScreen> {
         _seekTo(currentMoveIndex + 1);
       } else {
         setState(() => isAutoPlaying = false);
+      }
+    }
+  }
+
+  Future<void> _sharePgn() async {
+    try {
+      final pgn = buildPgn(widget.game);
+      await Share.share(pgn, subject: 'Komovia Chess game PGN');
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Could not export PGN: $e')),
+        );
       }
     }
   }
