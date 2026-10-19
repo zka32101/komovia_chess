@@ -84,7 +84,32 @@ function detectGameConclusion(chess) {
   return { concluded: true, result: "draw", reason: "fifty_move_rule" };
 }
 
+/**
+ * Replays [moves] (an array of {from, to, promotion}) from the standard
+ * starting position and returns the resulting Chess instance - used by
+ * `respondToTakeback` (index.js) to recompute currentFen/pgn after
+ * dropping the last move, the same "replay from scratch" approach
+ * applyMove already relies on for a single move.
+ * @returns {Chess}
+ */
+function replayMoves(moves) {
+  const chess = new Chess();
+  for (const m of moves) {
+    if (!m.from || !m.to) continue; // pass/sentinel moves, if any
+    try {
+      chess.move(
+        m.promotion ? { from: m.from, to: m.to, promotion: m.promotion } : { from: m.from, to: m.to }
+      );
+    } catch (e) {
+      // Already-recorded moves came from applyMove, so this should never
+      // actually be illegal - skip rather than abort the whole replay.
+    }
+  }
+  return chess;
+}
+
 module.exports = {
   applyMove,
   detectGameConclusion,
+  replayMoves,
 };

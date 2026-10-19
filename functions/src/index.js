@@ -1,7 +1,7 @@
 const functions = require("firebase-functions");
 const admin = require("firebase-admin");
 const { matchPlayers } = require("./matchmaking");
-const { applyMove, detectGameConclusion } = require("./game-validation");
+const { applyMove, detectGameConclusion, replayMoves } = require("./game-validation");
 const { computeGameEndUpdates } = require("./game-ending");
 const {
   handleGameTimeout,
@@ -335,6 +335,113 @@ exports.recordMove = functions
       };
     } catch (error) {
       console.error("Move recording error:", error);
+      throw error;
+    }
+  });
+
+/**
+ * Cloud Function: Accept a pending takeback request, undoing the last
+ * move actually recorded on the server.
+ *
+ * Undoing a move means recomputing currentFen/pgn/moves - the same
+ * fields firestore.rules locks to this Admin SDK alone for online PvP
+ * games (see firestore.rules' own comment on why: a client can't be
+ * trusted to report its own resulting position) - so this has to be a
+ * Cloud Function, not a plain client update, unlike requestTakeback/
+ * declineTakeback (lib/src/services/online_game_service.dart), which
+ * only ever touch the unrestricted `takebackRequestedBy` field directly.
+ */
+exports.respondToTakeback = functions
+  .runWith({ timeoutSeconds: 30, memory: "256MB" })
+  .https.onCall(async (data, context) => {
+    const { gameId, playerId } = data;
+
+    if (!context.auth) {
+      throw new functions.https.HttpsError(
+        "unauthenticated",
+        "User must be authenticated"
+      );
+    }
+    if (context.auth.uid !== playerId) {
+      throw new functions.https.HttpsError(
+        "permission-denied",
+        "Player ID mismatch"
+      );
+    }
+
+    try {
+      const gameRef = db.collection("games").doc(gameId);
+      const gameDoc = await gameRef.get();
+
+      if (!gameDoc.exists) {
+        throw new functions.https.HttpsError("not-found", "Game not found");
+      }
+
+      const game = gameDoc.data();
+
+      if (game.status !== "active") {
+        throw new functions.https.HttpsError(
+          "failed-precondition",
+          "Game is not active"
+        );
+      }
+      if (playerId !== game.whitePlayerId && playerId !== game.blackPlayerId) {
+        throw new functions.https.HttpsError(
+          "permission-denied",
+          "Not a participant in this game"
+        );
+      }
+      if (!game.takebackRequestedBy) {
+        throw new functions.https.HttpsError(
+          "failed-precondition",
+          "No takeback request pending"
+        );
+      }
+      if (game.takebackRequestedBy === playerId) {
+        throw new functions.https.HttpsError(
+          "permission-denied",
+          "Cannot accept your own takeback request"
+        );
+      }
+
+      const moves = game.moves || [];
+      if (moves.length === 0) {
+        throw new functions.https.HttpsError(
+          "failed-precondition",
+          "No move to undo"
+        );
+      }
+
+      const remainingMoves = moves.slice(0, -1);
+      const chess = replayMoves(remainingMoves);
+
+      const batch = db.batch();
+      batch.update(gameRef, {
+        currentFen: chess.fen(),
+        pgn: chess.pgn(),
+        moves: remainingMoves,
+        takebackRequestedBy: null,
+      });
+
+      // Remove the now-undone move's own subcollection doc too
+      // (recordMove's `moves` subcollection - gameMoveProvider/
+      // getGameMoves reads it for the move-history list), so that list
+      // doesn't show a move that no longer exists on the board.
+      const staleMoveDocs = await gameRef
+        .collection("moves")
+        .where("moveNumber", "==", moves.length)
+        .get();
+      for (const doc of staleMoveDocs.docs) {
+        batch.delete(doc.ref);
+      }
+
+      await batch.commit();
+
+      console.log(`Takeback accepted in game ${gameId}`);
+
+      return { success: true };
+    } catch (error) {
+      console.error("Takeback response error:", error);
       throw error;
     }
   });

@@ -467,6 +467,64 @@ class OnlineGameService {
     }
   }
 
+  /// Request to undo the move just made (while it's the opponent's turn -
+  /// [OnlineGame.canRequestTakeback] enforces this). Only sets the flag;
+  /// the opponent must still accept it via [acceptTakeback].
+  Future<void> requestTakeback(String gameId, String playerId) async {
+    try {
+      await _firestore.collection(_gamesCollection).doc(gameId).update({
+        'takebackRequestedBy': playerId,
+      });
+
+      _logger.i('Player $playerId requested a takeback in game $gameId');
+    } catch (e, st) {
+      _logger.e('Failed to request takeback', error: e, stackTrace: st);
+      rethrow;
+    }
+  }
+
+  /// Decline the outstanding takeback request
+  Future<void> declineTakeback(String gameId) async {
+    try {
+      await _firestore.collection(_gamesCollection).doc(gameId).update({
+        'takebackRequestedBy': null,
+      });
+
+      _logger.i('Takeback request declined in game $gameId');
+    } catch (e, st) {
+      _logger.e('Failed to decline takeback', error: e, stackTrace: st);
+      rethrow;
+    }
+  }
+
+  /// Accept the outstanding takeback request, actually undoing the last
+  /// move. Unlike offerDraw/declineDraw (which only ever touch
+  /// `drawOfferedBy`), undoing a move means recomputing `currentFen`/
+  /// `pgn`/`moves` - fields firestore.rules locks to the `recordMove`
+  /// Cloud Function's Admin SDK for exactly the same reason recordMove
+  /// itself had to move server-side (see game-validation.js's own doc
+  /// comment): a client can no longer be trusted to report its own
+  /// resulting position. So this calls a dedicated `respondToTakeback`
+  /// Cloud Function rather than writing directly to Firestore.
+  Future<void> acceptTakeback(String gameId, String playerId) async {
+    try {
+      final callable = _functions.httpsCallable('respondToTakeback');
+      await callable.call<Map<String, dynamic>>({
+        'gameId': gameId,
+        'playerId': playerId,
+      });
+
+      _logger.i('Takeback accepted in game $gameId');
+    } on FirebaseFunctionsException catch (e, st) {
+      _logger.e('Failed to accept takeback: ${e.code} ${e.message}',
+          error: e, stackTrace: st);
+      rethrow;
+    } catch (e, st) {
+      _logger.e('Failed to accept takeback', error: e, stackTrace: st);
+      rethrow;
+    }
+  }
+
   /// Claim a draw under the threefold-repetition or 50-move rule.
   /// `chess_lib.Chess.fromFEN(currentFen)` alone has no memory of earlier
   /// positions, so threefold repetition can only be detected by replaying
