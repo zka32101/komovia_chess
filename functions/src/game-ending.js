@@ -39,6 +39,12 @@ function computeGameEndUpdates(game, result, resultReason) {
     blackRatingDelta: changes.blackChange,
     whiteNewRating,
     blackNewRating,
+    // Mirrors OnlineGameService._endGameWithResult (Dart) clearing both
+    // flags as part of the same write a game-ending update already
+    // makes, rather than leaving a stale drawOfferedBy/
+    // takebackRequestedBy behind on a now-completed game.
+    drawOfferedBy: null,
+    takebackRequestedBy: null,
   };
 
   const whiteUserUpdate = {

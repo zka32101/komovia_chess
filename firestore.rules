@@ -240,6 +240,35 @@ service cloud.firestore {
         return isParticipant([resource.data.whitePlayerId, resource.data.blackPlayerId]);
       }
 
+      // Only the caller's own takeback request may ever be *set* - a
+      // player can clear the field (decline/accept) freely, but can
+      // never write someone else's uid into it. Without this, any
+      // participant could call
+      // `games/{id}.update({takebackRequestedBy: <opponent uid>})`
+      // directly (bypassing OnlineGameService.requestTakeback's own
+      // canRequestTakeback check entirely, since Firestore rules - not
+      // the Dart UI - are the only real enforcement) and then accept
+      // their own forged "opponent's" request via respondToTakeback,
+      // force-undoing their own last move with no actual opponent
+      // consent at all.
+      function takebackFieldValid() {
+        return unchanged('takebackRequestedBy') ||
+          request.resource.data.takebackRequestedBy == null ||
+          request.resource.data.takebackRequestedBy == request.auth.uid;
+      }
+
+      // Each player may only ever write their OWN activity timestamp,
+      // never the opponent's - recordActivity already only ever touches
+      // the caller's own field, but without this a participant could
+      // otherwise backdate the OPPONENT's timestamp directly to make
+      // canClaimAbandonmentForfeit (lib/src/models/online_game.dart)
+      // return true immediately and claim a forfeit win against an
+      // opponent who is actually still active.
+      function activityTimestampsValid() {
+        return (unchanged('whiteLastActivityTimestamp') || request.auth.uid == resource.data.whitePlayerId) &&
+          (unchanged('blackLastActivityTimestamp') || request.auth.uid == resource.data.blackPlayerId);
+      }
+
       // Spectator mode: any signed-in user may read (and list, via
       // liveGamesProvider's status/type query) a game that is currently
       // "active" and an online PvP match - not a participant-only
@@ -252,30 +281,43 @@ service cloud.firestore {
         (isSignedIn() && resource.data.type == 'online_pvp' && resource.data.status == 'active');
       allow create: if isSignedIn() &&
         request.auth.uid in [request.resource.data.whitePlayerId, request.resource.data.blackPlayerId];
-      // startGame/updateTimeRemaining/recordActivity/_endGameWithResult
-      // (resign/draw/claimDraw/abandon/forfeit) all update a mix of
-      // status/result/timing fields on this doc from whichever
-      // participant's action triggered them - never the identity of the
-      // two players themselves.
+      // startGame/recordActivity/_endGameWithResult (resign/draw/
+      // claimDraw/abandon/forfeit) all update a mix of status/result/
+      // timing fields on this doc from whichever participant's action
+      // triggered them - never the identity of the two players
+      // themselves.
       //
-      // currentFen/pgn/moves/lastMoveTimestamp are deliberately locked
-      // from direct client writes for online PvP games specifically
-      // (type != 'cpu'): a move's legality can no longer be trusted from
-      // the client at all there - chess.js now validates it server-side
-      // in the `recordMove` Cloud Function
-      // (functions/src/game-validation.js), and only the Admin SDK
-      // (which bypasses these rules entirely) may change these fields
-      // for such a game now. Before this, any PvP participant could set
-      // their own game's `currentFen` to an arbitrary, even illegal,
-      // position. CPU games (`cpu_game_provider.dart`, which shares this
-      // same `games` collection) have no server-side validation at all -
-      // only the human player's own device ever plays either side - so
-      // they're explicitly exempted rather than broken by this rule.
+      // currentFen/pgn/moves/lastMoveTimestamp/whiteTimeRemainingMs/
+      // blackTimeRemainingMs are deliberately locked from direct client
+      // writes for online PvP games specifically (type != 'cpu'): a
+      // move's legality - and, since this session's timeout-handling
+      // fix, the clock values recordMove/handleTimeout trust as the
+      // authoritative source for ending a game on time - can no longer
+      // be trusted from the client at all there. chess.js validates
+      // moves server-side in the `recordMove` Cloud Function
+      // (functions/src/game-validation.js), which is also the only
+      // place either clock field is legitimately decremented now
+      // (OnlineGameService.updateTimeRemaining/the provider wrapper
+      // that called it have zero real callers anywhere in the app -
+      // confirmed dead code). Only the Admin SDK (which bypasses these
+      // rules entirely) may change these fields for such a game now.
+      // Before locking the clock fields too, any participant could call
+      // `games/{id}.update({whiteTimeRemainingMs: 999999999})` directly
+      // and recordMove's own timeout check would have trusted it,
+      // granting unlimited time. CPU games (`cpu_game_provider.dart`,
+      // which shares this same `games` collection) have no server-side
+      // validation at all - only the human player's own device ever
+      // plays either side, and their clock fields are only ever written
+      // once at creation anyway - so they're explicitly exempted rather
+      // than broken by this rule.
       allow update: if isGameParticipant() &&
         unchanged('whitePlayerId') && unchanged('blackPlayerId') &&
         (resource.data.type == 'cpu' ||
           (unchanged('currentFen') && unchanged('pgn') &&
-           unchanged('moves') && unchanged('lastMoveTimestamp')));
+           unchanged('moves') && unchanged('lastMoveTimestamp') &&
+           unchanged('whiteTimeRemainingMs') && unchanged('blackTimeRemainingMs'))) &&
+        takebackFieldValid() &&
+        activityTimestampsValid();
       allow delete: if false;
 
       match /moves/{moveId} {

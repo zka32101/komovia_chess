@@ -1,4 +1,4 @@
-const { applyMove, detectGameConclusion } = require('./game-validation');
+const { applyMove, detectGameConclusion, replayMoves } = require('./game-validation');
 
 const START_FEN = 'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1';
 
@@ -99,5 +99,32 @@ describe('detectGameConclusion', () => {
       result: 'draw',
       reason: 'insufficient_material',
     });
+  });
+});
+
+describe('replayMoves', () => {
+  it('reproduces the same position applyMove would reach move-by-move', () => {
+    const chess = replayMoves([
+      { from: 'e2', to: 'e4' },
+      { from: 'e7', to: 'e5' },
+    ]);
+    expect(chess.fen()).toBe(
+      'rnbqkbnr/pppp1ppp/8/4p3/4P3/8/PPPP1PPP/RNBQKBNR w KQkq - 0 2',
+    );
+  });
+
+  it('returns the standard starting position for an empty move list', () => {
+    const chess = replayMoves([]);
+    expect(chess.fen()).toBe(START_FEN);
+  });
+
+  it('skips sentinel/pass entries with no from/to', () => {
+    const chess = replayMoves([
+      { from: 'e2', to: 'e4' },
+      { from: '', to: '' },
+    ]);
+    expect(chess.fen()).toBe(
+      'rnbqkbnr/pppppppp/8/8/4P3/8/PPPP1PPP/RNBQKBNR b KQkq - 0 1',
+    );
   });
 });
