@@ -1,7 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:komovia_core/komovia_core.dart';
+import 'package:url_launcher/url_launcher.dart';
 import '../../providers/auth_provider.dart';
 import '../../providers/user_preferences_provider.dart';
+import '../../utils/komovia_cross_promo_roster.dart';
 import 'sound_preferences_screen.dart';
 import 'legal_documents_screen.dart';
 import 'board_themes_screen.dart';
@@ -179,6 +182,12 @@ class SettingsScreen extends ConsumerWidget {
                   ],
                 ),
 
+                // Cross-promotion for the other Komovia series apps
+                _buildSettingSection(
+                  title: '他のKomoviaシリーズ',
+                  children: _buildCrossPromoTiles(context),
+                ),
+
                 // About
                 _buildSettingSection(
                   title: 'About',
@@ -225,6 +234,67 @@ class SettingsScreen extends ConsumerWidget {
         ),
       ),
     );
+  }
+
+  /// One tappable [ListTile] per sibling Komovia app (shogi/go), built
+  /// from the shared [PromotedApp] model (komovia_core). The store URL
+  /// is intentionally just a honest placeholder for now (see
+  /// komovia_cross_promo_roster.dart) - tapping a not-yet-published
+  /// sibling shows a "まだ公開されていません" message instead of
+  /// opening a broken link, the same honest-coming-soon convention
+  /// already used elsewhere in this app for unfinished integrations.
+  List<Widget> _buildCrossPromoTiles(BuildContext context) {
+    final others = otherKomoviaApps(komoviaRoster, kKomoviaChessAppId);
+    final tiles = <Widget>[];
+
+    for (var i = 0; i < others.length; i++) {
+      if (i > 0) tiles.add(const Divider(height: 1));
+      final app = others[i];
+      tiles.add(
+        ListTile(
+          leading: Icon(_iconForCategory(app.category)),
+          title: Text(app.name),
+          subtitle: Text(app.tagline),
+          trailing: const Icon(Icons.open_in_new, size: 16),
+          onTap: () => _openStore(context, app),
+        ),
+      );
+    }
+
+    return tiles;
+  }
+
+  IconData _iconForCategory(String category) {
+    switch (category) {
+      case 'shogi':
+        return Icons.sports_esports;
+      case 'go':
+        return Icons.circle_outlined;
+      case 'chess':
+        return Icons.sports_esports_outlined;
+      default:
+        return Icons.apps;
+    }
+  }
+
+  Future<void> _openStore(BuildContext context, PromotedApp app) async {
+    final isIOS = Theme.of(context).platform == TargetPlatform.iOS;
+    final storeUrl = app.storeUrlFor(isIOS: isIOS);
+
+    if (storeUrl == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('${app.name}はまだ公開されていません')),
+      );
+      return;
+    }
+
+    final uri = Uri.parse(storeUrl);
+    final launched = await launchUrl(uri, mode: LaunchMode.externalApplication);
+    if (!launched && context.mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('${app.name}のストアページを開けませんでした')),
+      );
+    }
   }
 
   Widget _buildSettingSection({
