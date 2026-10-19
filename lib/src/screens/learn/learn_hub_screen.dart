@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../providers/phase_i_providers.dart';
 import 'how_to_play_screen.dart';
 import 'opening_course_screen.dart';
+import 'opening_explorer_screen.dart';
 import 'strategy_screen.dart';
 import 'tactics_screen.dart';
 
@@ -65,6 +66,19 @@ class LearnHubScreen extends ConsumerWidget {
                 Navigator.of(context).push(
                   MaterialPageRoute(
                       builder: (_) => const OpeningCourseScreen()),
+                );
+              },
+            ),
+            const SizedBox(height: 12),
+            _LearnCard(
+              icon: Icons.manage_search_outlined,
+              iconColor: Colors.teal,
+              title: 'マイオープニング統計',
+              subtitle: '自分の過去の対局から、よく指す局面の勝率を振り返る',
+              onTap: () {
+                Navigator.of(context).push(
+                  MaterialPageRoute(
+                      builder: (_) => const OpeningExplorerScreen()),
                 );
               },
             ),
