@@ -2,6 +2,8 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../models/puzzle.dart';
+import '../services/season_challenge_service.dart';
+import '../services/season_management_service.dart';
 
 // Puzzle provider for loading and tracking puzzle solving
 class PuzzleService {
@@ -142,6 +144,23 @@ class PuzzleService {
             'lastPuzzleSolvedDate': todayKey,
           });
         });
+
+        // Best-effort: advance any active seasonal challenge tracking
+        // puzzle solves - previously nothing in the app ever called into
+        // SeasonChallengeService from a real puzzle solve, so no seasonal
+        // challenge could progress through actual play.
+        try {
+          final season = await SeasonManagementService().getCurrentSeason();
+          if (season != null) {
+            await SeasonChallengeService().recordMetricProgress(
+              playerId: user.uid,
+              seasonId: season.seasonId,
+              metric: GameplayMetric.solvePuzzles,
+            );
+          }
+        } catch (_) {
+          // Best-effort; don't block puzzle-solving on this.
+        }
       }
     } catch (e) {
       print('Error recording puzzle attempt: $e');

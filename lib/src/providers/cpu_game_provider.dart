@@ -9,6 +9,8 @@ import '../models/cpu_game_state.dart';
 import '../services/chess_engine_service.dart';
 import '../services/ai_opponent_engine.dart';
 import '../services/stockfish_engine_service.dart';
+import '../services/season_challenge_service.dart';
+import '../services/season_management_service.dart';
 import '../services/achievement_service.dart';
 
 /// CPU game state
@@ -670,6 +672,33 @@ class CpuGameNotifier extends StateNotifier<CpuGameState> {
         if (playerResult == 'loss') 'losses': FieldValue.increment(1),
         if (playerResult == 'draw') 'draws': FieldValue.increment(1),
       });
+
+      // Best-effort: advance any active seasonal challenge tracking wins/
+      // draws/games-played - previously nothing in the app ever called
+      // into SeasonChallengeService from a real game ending, so no
+      // seasonal challenge could progress through actual play.
+      final season = await SeasonManagementService().getCurrentSeason();
+      if (season != null) {
+        final challengeService = SeasonChallengeService();
+        await challengeService.recordMetricProgress(
+          playerId: user.uid,
+          seasonId: season.seasonId,
+          metric: GameplayMetric.playGames,
+        );
+        if (playerResult == 'win') {
+          await challengeService.recordMetricProgress(
+            playerId: user.uid,
+            seasonId: season.seasonId,
+            metric: GameplayMetric.winGames,
+          );
+        } else if (playerResult == 'draw') {
+          await challengeService.recordMetricProgress(
+            playerId: user.uid,
+            seasonId: season.seasonId,
+            metric: GameplayMetric.drawGames,
+          );
+        }
+      }
 
       // Best-effort: a win may have just satisfied an achievement
       // (first_win/five_wins) - this was previously only wired up for
