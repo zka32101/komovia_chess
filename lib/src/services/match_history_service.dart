@@ -170,26 +170,26 @@ class MatchHistoryService {
     }
   }
 
-  /// Record a new match
+  /// Record a new match.
+  ///
+  /// Only writes the `match_history` entry itself - CpuGameProvider and
+  /// OnlineGameService (the two real callers) both already update
+  /// `users/{playerId}`'s `gamesPlayed`/`wins`/`losses`/`draws`/rating
+  /// fields themselves as part of ending a game, before calling this.
+  /// This method used to ALSO increment those same fields a second
+  /// time, which - had it ever been wired up with those fields still
+  /// here - would have double-counted every game. (Previously this had
+  /// zero callers anywhere, so match_history_screen.dart/
+  /// comparison_service.dart's reads were permanently empty, and this
+  /// double-increment bug was never actually exercised either.)
   Future<void> recordMatch(MatchRecord match) async {
     try {
-      // Record for player
       await _firestore
           .collection('match_history')
           .doc(match.playerId)
           .collection('matches')
           .doc(match.matchId)
           .set(match.toJson());
-
-      // Also record basic info in user stats for quick access
-      await _firestore.collection('users').doc(match.playerId).update({
-        'gamesPlayed': FieldValue.increment(1),
-        if (match.result == 'win') 'wins': FieldValue.increment(1),
-        if (match.result == 'loss') 'losses': FieldValue.increment(1),
-        if (match.result == 'draw') 'draws': FieldValue.increment(1),
-        'rating': match.playerRatingAfter,
-        'lastUpdatedAt': FieldValue.serverTimestamp(),
-      });
     } catch (e) {
       throw Exception('Failed to record match: $e');
     }

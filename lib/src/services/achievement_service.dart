@@ -10,6 +10,14 @@ class AchievementService {
   final Map<String, List<AchievementDefinition>> _achievementCache = {};
   final Map<String, Timer> _cacheTimers = {};
 
+  /// Fetches `users/{userId}` once, for callers (like
+  /// `userAchievementProgressProvider`) that otherwise evaluate
+  /// [getAchievementProgress] once per achievement definition and would
+  /// each independently re-read the same doc.
+  Future<DocumentSnapshot<Map<String, dynamic>>> getUserDocSnapshot(
+          String userId) =>
+      _firestore.collection('users').doc(userId).get();
+
   Future<List<UserAchievement>> getUserAchievements(String userId) async {
     try {
       final snapshot = await _firestore
@@ -102,13 +110,21 @@ class AchievementService {
     }
   }
 
+  /// [userDoc], when given, is used instead of a fresh `users/{userId}`
+  /// read - callers that already evaluate progress for several
+  /// achievements in one invocation (checkAndUnlockAchievements,
+  /// getNearbyAchievements) fetch it once and pass it to every call
+  /// here, rather than each call independently re-reading the same
+  /// unchanging-within-this-invocation user doc.
   Future<AchievementProgress> getAchievementProgress(
-      String userId, String achievementId) async {
+      String userId, String achievementId,
+      {DocumentSnapshot<Map<String, dynamic>>? userDoc}) async {
     try {
       // Resolved through getAllAchievements() (bootstrap-fallback aware)
       // rather than a raw doc read, since `achievements/definitions/all`
       // may not have a real doc for this id at all when falling back to
-      // _bootstrapDefinitions.
+      // _bootstrapDefinitions. Cached in-process for an hour, so this is
+      // a real Firestore read only on a cold cache, never per-call.
       final allAchievements = await getAllAchievements();
       final def = allAchievements.firstWhere(
         (a) => a.achievementId == achievementId,
@@ -136,7 +152,8 @@ class AchievementService {
       int currentValue = 0;
 
       if (!isUnlocked) {
-        currentValue = await _calculateCurrentProgress(userId, achievementId);
+        currentValue = await _calculateCurrentProgress(userId, achievementId,
+            userDoc: userDoc);
       }
 
       final unlockedData = userAchievement.data();
@@ -163,11 +180,13 @@ class AchievementService {
   Future<List<NearbyAchievement>> getNearbyAchievements(String userId) async {
     try {
       final allAchievements = await getAllAchievements();
+      final userDoc = await _firestore.collection('users').doc(userId).get();
       final nearby = <NearbyAchievement>[];
 
       for (final achievement in allAchievements) {
-        final progress =
-            await getAchievementProgress(userId, achievement.achievementId);
+        final progress = await getAchievementProgress(
+            userId, achievement.achievementId,
+            userDoc: userDoc);
 
         if (!progress.isUnlocked) {
           final progressPercent = progress.targetValue > 0
@@ -219,9 +238,11 @@ class AchievementService {
   Future<void> checkAndUnlockAchievements(String userId) async {
     try {
       final definitions = await getAllAchievements();
+      final userDoc = await _firestore.collection('users').doc(userId).get();
       for (final def in definitions) {
-        final progress =
-            await getAchievementProgress(userId, def.achievementId);
+        final progress = await getAchievementProgress(
+            userId, def.achievementId,
+            userDoc: userDoc);
         if (!progress.isUnlocked &&
             progress.targetValue > 0 &&
             progress.currentValue >= progress.targetValue) {
@@ -234,10 +255,12 @@ class AchievementService {
   }
 
   Future<int> _calculateCurrentProgress(
-      String userId, String achievementId) async {
+      String userId, String achievementId,
+      {DocumentSnapshot<Map<String, dynamic>>? userDoc}) async {
     try {
-      final userDoc = await _firestore.collection('users').doc(userId).get();
-      final data = userDoc.data() ?? const <String, dynamic>{};
+      final doc =
+          userDoc ?? await _firestore.collection('users').doc(userId).get();
+      final data = doc.data() ?? const <String, dynamic>{};
       final wins = (data['wins'] as num?)?.toInt() ?? 0;
       // PuzzleService.recordPuzzleAttempt writes this as `puzzlesSolved`
       // (same field `getUserPuzzleStats`/the puzzle screen read) - this

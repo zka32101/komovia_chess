@@ -615,10 +615,22 @@ service cloud.firestore {
       allow write: if false;
     }
 
+    // Previously `allow write: if false` unconditionally - harmless
+    // while MatchHistoryService.recordMatch had zero real callers
+    // anywhere (Match History / comparison screens read this
+    // collection but nothing ever wrote to it), but would have
+    // rejected the writes once wired up. recordMatch is called from
+    // both CpuGameProvider (the signed-in player's own match) and
+    // OnlineGameService._endGameWithResult (one match doc per
+    // participant, written by whichever client's game-end transaction
+    // runs first - not necessarily that player's own client, same
+    // cross-user client-trusted pattern as `users/{userId}`'s
+    // win/loss/draw stat fields just above).
     match /match_history/{playerId} {
       match /matches/{matchId} {
         allow read: if isSignedIn();
-        allow write: if false;
+        allow create: if isSignedIn() && request.resource.data.playerId == playerId;
+        allow update, delete: if false;
       }
     }
 

@@ -12,6 +12,8 @@ import '../services/stockfish_engine_service.dart';
 import '../services/season_challenge_service.dart';
 import '../services/season_management_service.dart';
 import '../services/achievement_service.dart';
+import '../services/match_history_service.dart';
+import '../models/match_record.dart';
 
 /// CPU game state
 class CPUGameState {
@@ -672,6 +674,27 @@ class CpuGameNotifier extends StateNotifier<CpuGameState> {
         if (playerResult == 'loss') 'losses': FieldValue.increment(1),
         if (playerResult == 'draw') 'draws': FieldValue.increment(1),
       });
+
+      // Best-effort: record this match for Match History / comparison -
+      // previously nothing anywhere ever called MatchHistoryService.
+      // recordMatch, so those screens always showed an empty history
+      // regardless of games played. Uses the rating/wins/etc. already
+      // just incremented above rather than a second increment (which
+      // recordMatch used to also do internally - see its own doc
+      // comment on why that would have double-counted every game).
+      unawaited(MatchHistoryService().recordMatch(MatchRecord(
+        matchId: '${user.uid}_${DateTime.now().millisecondsSinceEpoch}',
+        playerId: user.uid,
+        opponentId: 'cpu_${state.difficulty.name}',
+        opponentName: state.difficulty.displayName,
+        playerRatingBefore: currentRating,
+        playerRatingAfter: currentRating + ratingDelta,
+        opponentRatingBefore: opponentElo,
+        opponentRatingAfter: opponentElo,
+        result: playerResult,
+        timeControl: 'unrated',
+        playedAt: DateTime.now(),
+      )));
 
       // Best-effort: advance any active seasonal challenge tracking wins/
       // draws/games-played - previously nothing in the app ever called

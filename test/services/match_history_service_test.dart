@@ -1,6 +1,66 @@
 import 'package:flutter_test/flutter_test.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:komovia_chess/src/services/match_history_service.dart';
 import 'package:komovia_chess/src/models/match_record.dart';
+
+/// A minimal hand-rolled fake covering only the `match_history/{id}/
+/// matches/{id}.set()` chain `recordMatch` actually calls - enough to
+/// assert it writes exactly that one document and never touches
+/// `users/{playerId}` (recordMatch used to also increment stats there,
+/// which would have double-counted every game now that both real
+/// callers - CpuGameProvider, OnlineGameService - already do that
+/// increment themselves before calling recordMatch).
+class _RecordingFirestore implements FirebaseFirestore {
+  final List<String> collectionsTouched = [];
+  Map<String, dynamic>? lastWrittenData;
+  String? lastWrittenPath;
+
+  @override
+  CollectionReference<Map<String, dynamic>> collection(String path) {
+    collectionsTouched.add(path);
+    return _RecordingCollection(this, path);
+  }
+
+  @override
+  dynamic noSuchMethod(Invocation invocation) =>
+      throw UnimplementedError('Unexpected Firestore call: $invocation');
+}
+
+class _RecordingCollection implements CollectionReference<Map<String, dynamic>> {
+  _RecordingCollection(this._db, this._path);
+  final _RecordingFirestore _db;
+  final String _path;
+
+  @override
+  DocumentReference<Map<String, dynamic>> doc([String? id]) =>
+      _RecordingDoc(_db, '$_path/$id');
+
+  @override
+  dynamic noSuchMethod(Invocation invocation) =>
+      throw UnimplementedError('Unexpected Firestore call: $invocation');
+}
+
+class _RecordingDoc implements DocumentReference<Map<String, dynamic>> {
+  _RecordingDoc(this._db, this._path);
+  final _RecordingFirestore _db;
+  final String _path;
+
+  @override
+  CollectionReference<Map<String, dynamic>> collection(String path) {
+    _db.collectionsTouched.add('$_path/$path');
+    return _RecordingCollection(_db, '$_path/$path');
+  }
+
+  @override
+  Future<void> set(Map<String, dynamic> data, [SetOptions? options]) async {
+    _db.lastWrittenPath = _path;
+    _db.lastWrittenData = data;
+  }
+
+  @override
+  dynamic noSuchMethod(Invocation invocation) =>
+      throw UnimplementedError('Unexpected Firestore call: $invocation');
+}
 
 void main() {
   group('MatchHistoryService', () {
@@ -106,6 +166,32 @@ void main() {
 
         expect(
             ['bullet', 'blitz', 'rapid'].contains(match.timeControl), isTrue);
+      });
+    });
+
+    group('recordMatch', () {
+      test('writes only the match_history doc, never touches users/',
+          () async {
+        final fake = _RecordingFirestore();
+        final recordingService = MatchHistoryService(firestore: fake);
+
+        await recordingService.recordMatch(MatchRecord(
+          matchId: 'match_123',
+          playerId: 'player1',
+          opponentId: 'player2',
+          opponentName: 'Opponent',
+          playerRatingBefore: 1600,
+          playerRatingAfter: 1615,
+          opponentRatingBefore: 1500,
+          opponentRatingAfter: 1485,
+          result: 'win',
+          timeControl: 'blitz',
+          playedAt: DateTime.now(),
+        ));
+
+        expect(fake.lastWrittenPath, 'match_history/player1/matches/match_123');
+        expect(fake.lastWrittenData?['result'], 'win');
+        expect(fake.collectionsTouched.any((c) => c == 'users'), isFalse);
       });
     });
   });
