@@ -4,7 +4,6 @@ import 'package:flutter/foundation.dart';
 import '../services/season_management_service.dart';
 import '../services/battle_pass_service.dart';
 import '../services/season_challenge_service.dart';
-import '../services/seasonal_reward_service.dart';
 import '../services/seasonal_event_service.dart';
 
 // Parameter classes for family providers (Dart 2.17+ compatibility)
@@ -213,66 +212,6 @@ class EventChallengesParams {
   int get hashCode => seasonId.hashCode ^ eventId.hashCode;
 }
 
-@immutable
-class RewardHistoryParams {
-  const RewardHistoryParams({
-    required this.playerId,
-    required this.limit,
-    this.seasonId,
-  });
-  final String playerId;
-  final String? seasonId;
-  final int limit;
-
-  @override
-  bool operator ==(Object other) =>
-      identical(this, other) ||
-      other is RewardHistoryParams &&
-          runtimeType == other.runtimeType &&
-          playerId == other.playerId &&
-          seasonId == other.seasonId &&
-          limit == other.limit;
-
-  @override
-  int get hashCode => playerId.hashCode ^ seasonId.hashCode ^ limit.hashCode;
-}
-
-@immutable
-class RewardCodeParams {
-  const RewardCodeParams({required this.playerId, required this.code});
-  final String playerId;
-  final String code;
-
-  @override
-  bool operator ==(Object other) =>
-      identical(this, other) ||
-      other is RewardCodeParams &&
-          runtimeType == other.runtimeType &&
-          playerId == other.playerId &&
-          code == other.code;
-
-  @override
-  int get hashCode => playerId.hashCode ^ code.hashCode;
-}
-
-@immutable
-class RewardsByTypeParams {
-  const RewardsByTypeParams({required this.seasonId, required this.type});
-  final String seasonId;
-  final String type;
-
-  @override
-  bool operator ==(Object other) =>
-      identical(this, other) ||
-      other is RewardsByTypeParams &&
-          runtimeType == other.runtimeType &&
-          seasonId == other.seasonId &&
-          type == other.type;
-
-  @override
-  int get hashCode => seasonId.hashCode ^ type.hashCode;
-}
-
 /// Phase U - Seasonal Rewards & Battle Pass Providers
 /// Provides reactive access to seasonal gameplay, rewards, and events
 
@@ -286,9 +225,6 @@ final battlePassServiceProvider = Provider<BattlePassService>(
 
 final seasonChallengeServiceProvider = Provider<SeasonChallengeService>(
     (ref) => SeasonChallengeService(firestore: FirebaseFirestore.instance));
-
-final seasonalRewardServiceProvider = Provider<SeasonalRewardService>(
-    (ref) => SeasonalRewardService(firestore: FirebaseFirestore.instance));
 
 final seasonalEventServiceProvider = Provider<SeasonalEventService>(
     (ref) => SeasonalEventService(firestore: FirebaseFirestore.instance));
@@ -443,54 +379,6 @@ final playerSeasonChallengesProvider = FutureProvider.family<
   );
 });
 
-// Reward Providers
-
-/// Get rewards by type
-final rewardsByTypeProvider =
-    FutureProvider.family<List<Reward>, RewardsByTypeParams>(
-  (ref, params) {
-    final service = ref.watch(seasonalRewardServiceProvider);
-    return service.getRewardsByType(
-      seasonId: params.seasonId,
-      type: params.type,
-    );
-  },
-);
-
-/// Get player's reward history
-final playerRewardHistoryProvider =
-    FutureProvider.family<List<PlayerRewardHistory>, RewardHistoryParams>(
-        (ref, params) {
-  final service = ref.watch(seasonalRewardServiceProvider);
-  return service.getPlayerRewardHistory(
-    playerId: params.playerId,
-    seasonId: params.seasonId,
-    limit: params.limit,
-  );
-});
-
-/// Get season-end rewards
-final seasonEndRewardsProvider =
-    FutureProvider.family<List<Reward>, SeasonChallengesParams>(
-  (ref, params) {
-    final service = ref.watch(seasonalRewardServiceProvider);
-    return service.calculateSeasonEndRewards(
-      playerId: params.playerId,
-      seasonId: params.seasonId,
-    );
-  },
-);
-
-/// Check if player has redeemed code
-final playerCodeRedemptionProvider =
-    FutureProvider.family<bool, RewardCodeParams>((ref, params) {
-  final service = ref.watch(seasonalRewardServiceProvider);
-  return service.hasPlayerRedeemedCode(
-    playerId: params.playerId,
-    code: params.code,
-  );
-});
-
 // Event Providers
 
 /// Get active events for season
@@ -570,13 +458,6 @@ final eventParticipationNotifierProvider =
         (ref) {
   final service = ref.watch(seasonalEventServiceProvider);
   return EventParticipationNotifier(service);
-});
-
-/// State notifier for reward claiming
-final rewardClaimNotifierProvider =
-    StateNotifierProvider<RewardClaimNotifier, RewardClaimState>((ref) {
-  final service = ref.watch(seasonalRewardServiceProvider);
-  return RewardClaimNotifier(service);
 });
 
 // Notifier Implementations
@@ -748,39 +629,6 @@ class EventParticipationNotifier
   }
 }
 
-class RewardClaimNotifier extends StateNotifier<RewardClaimState> {
-  RewardClaimNotifier(this._service) : super(const RewardClaimState());
-  final SeasonalRewardService _service;
-
-  Future<bool> redeemCode({
-    required String playerId,
-    required String code,
-  }) async {
-    state = state.copyWith(isLoading: true);
-
-    try {
-      final success = await _service.redeemRewardCode(
-        playerId: playerId,
-        code: code,
-      );
-
-      state = state.copyWith(
-        isLoading: false,
-        lastRedeemedCode: success ? code : null,
-        error: null,
-      );
-
-      return success;
-    } catch (e) {
-      state = state.copyWith(
-        isLoading: false,
-        error: e.toString(),
-      );
-      return false;
-    }
-  }
-}
-
 // State Classes
 
 class BattlePassClaimState {
@@ -853,24 +701,3 @@ class EventParticipationState {
       );
 }
 
-class RewardClaimState {
-  const RewardClaimState({
-    this.isLoading = false,
-    this.lastRedeemedCode,
-    this.error,
-  });
-  final bool isLoading;
-  final String? lastRedeemedCode;
-  final String? error;
-
-  RewardClaimState copyWith({
-    bool? isLoading,
-    String? lastRedeemedCode,
-    String? error,
-  }) =>
-      RewardClaimState(
-        isLoading: isLoading ?? this.isLoading,
-        lastRedeemedCode: lastRedeemedCode ?? this.lastRedeemedCode,
-        error: error ?? this.error,
-      );
-}
