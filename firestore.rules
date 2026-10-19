@@ -193,6 +193,26 @@ service cloud.firestore {
     }
 
     // ============================================
+    // Activity Feed (FriendService.logActivity/getActivityFeed)
+    // ============================================
+    // Previously uncovered entirely (fell through to the file's
+    // default-deny), so FriendsScreen's reachable activity feed tab
+    // would have failed to load, and OnlineGameService's post-game
+    // logActivity call (writing into BOTH players' friends' feeds once
+    // a game ends) would have been rejected. The writer is whichever
+    // client's transaction detects game end first, so request.auth.uid
+    // is not necessarily the feed owner nor the activity's own userId -
+    // client-trusted the same way games/matchmaking_queue already are,
+    // since there's no Cloud Function to arbitrate this.
+    match /activity_feed/{feedOwnerUid} {
+      match /feed/{activityId} {
+        allow read: if isOwner(feedOwnerUid);
+        allow create: if isSignedIn() && request.resource.data.userId is string;
+        allow update, delete: if false;
+      }
+    }
+
+    // ============================================
     // Friend Challenges (FriendChallengeService)
     // ============================================
     // Previously uncovered entirely (fell through to the file's
