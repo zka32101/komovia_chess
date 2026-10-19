@@ -6,8 +6,10 @@ import 'package:cloud_functions/cloud_functions.dart';
 import 'package:chess/chess.dart' as chess_lib;
 import 'package:logger/logger.dart';
 import '../models/online_game.dart';
+import '../models/match_record.dart';
 import 'achievement_service.dart';
 import 'friend_service.dart';
+import 'match_history_service.dart';
 import 'season_challenge_service.dart';
 import 'season_management_service.dart';
 
@@ -278,6 +280,42 @@ class OnlineGameService {
         if (blackResult == 'loss') 'losses': FieldValue.increment(1),
         if (blackResult == 'draw') 'draws': FieldValue.increment(1),
       });
+
+      // Best-effort: record this match for both players' Match History /
+      // comparison screens - previously nothing anywhere ever called
+      // MatchHistoryService.recordMatch, so those screens always showed
+      // an empty history regardless of games played. One record per
+      // player, from that player's own perspective (opponent = the
+      // other side), using the ratings already just computed above
+      // rather than a second increment (recordMatch only writes the
+      // match_history entry itself - see its own doc comment).
+      final matchHistoryService = MatchHistoryService();
+      unawaited(matchHistoryService.recordMatch(MatchRecord(
+        matchId: '${gameId}_white',
+        playerId: game.whitePlayerId,
+        opponentId: game.blackPlayerId,
+        opponentName: game.blackPlayerName,
+        playerRatingBefore: game.whiteRating,
+        playerRatingAfter: whiteNewRating,
+        opponentRatingBefore: game.blackRating,
+        opponentRatingAfter: blackNewRating,
+        result: whiteResult,
+        timeControl: game.timeControl,
+        playedAt: DateTime.now(),
+      )));
+      unawaited(matchHistoryService.recordMatch(MatchRecord(
+        matchId: '${gameId}_black',
+        playerId: game.blackPlayerId,
+        opponentId: game.whitePlayerId,
+        opponentName: game.whitePlayerName,
+        playerRatingBefore: game.blackRating,
+        playerRatingAfter: blackNewRating,
+        opponentRatingBefore: game.whiteRating,
+        opponentRatingAfter: whiteNewRating,
+        result: blackResult,
+        timeControl: game.timeControl,
+        playedAt: DateTime.now(),
+      )));
 
       _logger.i('Game completed: $gameId - $result ($resultReason)');
 

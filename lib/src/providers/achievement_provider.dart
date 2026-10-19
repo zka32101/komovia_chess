@@ -14,10 +14,12 @@ final userAchievementProgressProvider =
 
   final service = ref.watch(achievementServiceProvider);
   final definitions = await service.getAllAchievements();
+  final userDoc = await service.getUserDocSnapshot(user.uid);
   final progress = await Future.wait(
     definitions.map((d) => service.getAchievementProgress(
           user.uid,
           d.achievementId,
+          userDoc: userDoc,
         )),
   );
 
