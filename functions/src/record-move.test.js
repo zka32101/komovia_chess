@@ -12,6 +12,11 @@ const functionsTest = require('firebase-functions-test')();
 
 const INCREMENT = Symbol.for('increment');
 
+/** A minimal stand-in for admin.firestore.Timestamp good enough for toMillis(). */
+function fakeTimestamp(ms) {
+  return { toMillis: () => ms };
+}
+
 function makeFakeFirestore(seedGames, seedUsers) {
   const games = new Map(Object.entries(seedGames));
   const users = new Map(Object.entries(seedUsers));
@@ -23,7 +28,11 @@ function makeFakeFirestore(seedGames, seedUsers) {
       if (value && value.__type === INCREMENT) {
         result[key] = (result[key] || 0) + value.amount;
       } else if (value === 'SERVER_TIMESTAMP' || value === 'NOW_TIMESTAMP') {
-        result[key] = new Date();
+        // A real admin.firestore.Timestamp exposes toMillis() - production
+        // code (recordMove's own clock-decrement logic) calls that on
+        // whatever lastMoveTimestamp was stored by a previous move, so a
+        // plain Date here would break every move after the first.
+        result[key] = fakeTimestamp(Date.now());
       } else if (value && value.__arrayUnion) {
         result[key] = [...(result[key] || []), ...value.items];
       } else {
@@ -154,6 +163,9 @@ describe('recordMove', () => {
           currentFen: 'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1',
           pgn: '',
           moves: [],
+          startedAt: fakeTimestamp(Date.now()),
+          whiteTimeRemainingMs: 5 * 60 * 1000,
+          blackTimeRemainingMs: 5 * 60 * 1000,
         },
       },
       {
@@ -268,5 +280,65 @@ describe('recordMove', () => {
     await expect(
       callAs('white_uid', { gameId: 'game_1', from: 'e2', to: 'e4', playerId: 'white_uid' }),
     ).rejects.toThrow(/not active|failed-precondition/i);
+  });
+
+  describe('clock handling', () => {
+    it("decrements only the mover's own remaining time, leaving the opponent's untouched", async () => {
+      fake.games.set('game_1', {
+        ...fake.games.get('game_1'),
+        startedAt: fakeTimestamp(Date.now() - 10_000), // white thought for 10s
+      });
+
+      await callAs('white_uid', { gameId: 'game_1', from: 'e2', to: 'e4', playerId: 'white_uid' });
+
+      const game = fake.games.get('game_1');
+      expect(game.whiteTimeRemainingMs).toBeLessThanOrEqual(5 * 60 * 1000 - 10_000);
+      expect(game.blackTimeRemainingMs).toBe(5 * 60 * 1000);
+    });
+
+    it('ends the game as a timeout (not a move) once the mover is already out of time', async () => {
+      fake.games.set('game_1', {
+        ...fake.games.get('game_1'),
+        // White's clock already expired before this move attempt arrived.
+        whiteTimeRemainingMs: 1000,
+        startedAt: fakeTimestamp(Date.now() - 5000),
+      });
+
+      await expect(
+        callAs('white_uid', { gameId: 'game_1', from: 'e2', to: 'e4', playerId: 'white_uid' }),
+      ).rejects.toMatchObject({ code: 'failed-precondition' });
+
+      const game = fake.games.get('game_1');
+      expect(game.status).toBe('completed');
+      expect(game.resultReason).toBe('timeout');
+      expect(game.result).toBe('black_win');
+      expect(fake.users.get('black_uid').wins).toBe(1);
+      expect(fake.users.get('white_uid').losses).toBe(1);
+      // No chess move was ever actually applied.
+      expect(game.currentFen).toBe(
+        'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1',
+      );
+    });
+
+    it("never charges elapsed time against the side who isn't on move", async () => {
+      // Black's clock is nearly expired, but it's White's move - a stale
+      // elapsed-time read should never end the game on Black's behalf.
+      fake.games.set('game_1', {
+        ...fake.games.get('game_1'),
+        blackTimeRemainingMs: 500,
+        startedAt: fakeTimestamp(Date.now() - 10_000),
+      });
+
+      const result = await callAs('white_uid', {
+        gameId: 'game_1',
+        from: 'e2',
+        to: 'e4',
+        playerId: 'white_uid',
+      });
+
+      expect(result.success).toBe(true);
+      expect(fake.games.get('game_1').status).toBe('active');
+      expect(fake.games.get('game_1').blackTimeRemainingMs).toBe(500);
+    });
   });
 });

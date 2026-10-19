@@ -8,7 +8,6 @@ const {
   maybeUnlockAchievementsAfterTimeouts,
   cleanupExpiredQueues,
 } = require("./timeout-handler");
-const { calculateRatingChanges } = require("./rating-system");
 
 admin.initializeApp();
 
@@ -186,6 +185,52 @@ exports.recordMove = functions
         );
       }
 
+      // How long the player on move has actually been thinking, measured
+      // server-side - this is also the only place whiteTimeRemainingMs/
+      // blackTimeRemainingMs ever get decremented (see below), since
+      // nothing in lib/ ever calls OnlineGameService.updateTimeRemaining
+      // at all (confirmed via grep: zero callers of
+      // OnlineGameNotifier.updateTimeRemaining anywhere in the app).
+      // Before this fix, both fields stayed frozen at the game's initial
+      // time-control allotment for the whole game.
+      const lastMoveMs = game.lastMoveTimestamp
+        ? game.lastMoveTimestamp.toMillis()
+        : game.startedAt.toMillis();
+      const elapsedMs = Date.now() - lastMoveMs;
+      const onMoveRemainingField = isWhiteTurn
+        ? "whiteTimeRemainingMs"
+        : "blackTimeRemainingMs";
+      const onMoveRemainingMs =
+        (game[onMoveRemainingField] || 0) - elapsedMs;
+
+      // The player on move already ran out of time before this move
+      // arrived - end the game as a timeout now rather than silently
+      // recording a late move. This closes the same loophole as the
+      // per-minute handleTimeout cron, just immediately instead of
+      // waiting up to a minute.
+      if (onMoveRemainingMs <= 0) {
+        const result = isWhiteTurn ? "black_win" : "white_win";
+        const { gameUpdate, whiteUserUpdate, blackUserUpdate } =
+          computeGameEndUpdates(game, result, "timeout");
+
+        const timeoutBatch = db.batch();
+        timeoutBatch.update(gameRef, gameUpdate);
+        timeoutBatch.update(
+          db.collection("users").doc(game.whitePlayerId),
+          whiteUserUpdate
+        );
+        timeoutBatch.update(
+          db.collection("users").doc(game.blackPlayerId),
+          blackUserUpdate
+        );
+        await timeoutBatch.commit();
+
+        throw new functions.https.HttpsError(
+          "failed-precondition",
+          "Time expired"
+        );
+      }
+
       // Validate AND apply the move server-side via chess.js - the
       // resulting FEN/PGN are computed here, never trusted from the
       // client (previously the client's own `fen`/`pgn` were written
@@ -219,6 +264,7 @@ exports.recordMove = functions
         pgn: chess.pgn(),
         moves: admin.firestore.FieldValue.arrayUnion([moveRecord]),
         lastMoveTimestamp: nowTs,
+        [onMoveRemainingField]: onMoveRemainingMs,
         [isWhitePlayer
           ? "whiteLastActivityTimestamp"
           : "blackLastActivityTimestamp"]: nowTs,
@@ -301,6 +347,16 @@ exports.handleTimeout = functions
 
       for (const doc of snapshot.docs) {
         const game = doc.data();
+
+        // CPU games (cpu_game_provider.dart) share this same `games`
+        // collection and also start with status "active", but they're
+        // played entirely on the user's own device with no server-side
+        // clock concept at all - whitePlayerId/blackPlayerId are the
+        // literal strings 'player'/'cpu', not real uids, so ending one
+        // here would try to credit wins/losses to nonexistent
+        // `users/player` and `users/cpu` documents.
+        if (game.type === "cpu") continue;
+
         const now = Date.now();
 
         // Calculate actual time remaining
@@ -309,17 +365,28 @@ exports.handleTimeout = functions
           : game.startedAt.toMillis();
         const elapsedMs = now - lastMoveTime;
 
-        // Check white timeout
-        if (game.whiteTimeRemainingMs - elapsedMs <= 0) {
-          const { winnerId } = handleGameTimeout(batch, doc.ref, game, "white");
-          if (winnerId) winnerIds.push(winnerId);
-          timeoutCount++;
-          continue;
-        }
+        // Only the player currently on move has a clock running - a real
+        // chess clock never ticks for the side waiting on their
+        // opponent. Previously this checked BOTH players' remaining time
+        // against the same elapsed-since-last-move value unconditionally,
+        // so once a game's time-control duration had passed since any
+        // move at all, White was always flagged first (and `continue`d
+        // past), regardless of whose turn it actually was - and since
+        // neither field was ever decremented in the first place (see
+        // recordMove), this was the only timeout signal that existed.
+        const moveCount = game.moves ? game.moves.length : 0;
+        const isWhiteTurn = moveCount % 2 === 0;
+        const onMoveRemainingMs = isWhiteTurn
+          ? game.whiteTimeRemainingMs
+          : game.blackTimeRemainingMs;
 
-        // Check black timeout
-        if (game.blackTimeRemainingMs - elapsedMs <= 0) {
-          const { winnerId } = handleGameTimeout(batch, doc.ref, game, "black");
+        if (onMoveRemainingMs - elapsedMs <= 0) {
+          const { winnerId } = handleGameTimeout(
+            batch,
+            doc.ref,
+            game,
+            isWhiteTurn ? "white" : "black"
+          );
           if (winnerId) winnerIds.push(winnerId);
           timeoutCount++;
         }
@@ -342,91 +409,35 @@ exports.handleTimeout = functions
  * Cloud Function: Update game ratings after completion
  * Calculates ELO changes and updates player ratings
  */
-exports.updateGameRatings = functions
-  .runWith({ timeoutSeconds: 30, memory: "256MB" })
-  .firestore.document("games/{gameId}")
-  .onUpdate(async (change, context) => {
-    const before = change.before.data();
-    const after = change.after.data();
-
-    // Only process when game transitions to completed
-    if (before.status === "active" && after.status === "completed") {
-      console.log(`Updating ratings for completed game ${context.params.gameId}`);
-
-      try {
-        const { whiteChange, blackChange } = calculateRatingChanges(
-          after.whiteRating,
-          after.blackRating,
-          after.result
-        );
-
-        const whiteNewRating = after.whiteRating + whiteChange;
-        const blackNewRating = after.blackRating + blackChange;
-
-        const batch = db.batch();
-
-        // Update game with rating changes
-        batch.update(change.after.ref, {
-          whiteRatingDelta: whiteChange,
-          blackRatingDelta: blackChange,
-          whiteNewRating: whiteNewRating,
-          blackNewRating: blackNewRating,
-        });
-
-        // Update player ratings in users collection
-        // (Implementation would depend on user document structure)
-
-        await batch.commit();
-
-        console.log(
-          `Ratings updated: White ${after.whiteRating}→${whiteNewRating}, Black ${after.blackRating}→${blackNewRating}`
-        );
-
-        return null;
-      } catch (error) {
-        console.error("Rating update error:", error);
-        throw error;
-      }
-    }
-
-    return null;
-  });
+// There used to be an `updateGameRatings` Firestore onUpdate trigger
+// here, firing on every games/{gameId} transition to "completed" to
+// recompute ELO deltas. It never actually did the one thing its own
+// comment said it should ("Update player ratings in users collection -
+// Implementation would depend on user document structure" - no such
+// write existed) and was pure redundant work: every real way a game
+// ends - resign/draw/abandonment/forfeit (OnlineGameService.
+// _endGameWithResult, Dart), a server-detected checkmate/stalemate
+// (recordMove's conclusion branch, via game-ending.js), and a timeout
+// (handleGameTimeout) - already computes the same deltas and writes
+// both the game doc AND both players' users/{uid} docs correctly on
+// its own. Removed rather than "finished", since finishing it would
+// have meant a second, independent path writing the same stats -  a
+// real risk of double-crediting if the two ever drifted.
 
 /**
  * Cloud Function: Cleanup expired queue entries
  * Runs hourly to remove stale matchmaking entries
+ *
+ * Delegates to timeout-handler.js's cleanupExpiredQueues, which was
+ * previously imported but never actually called here - this function
+ * duplicated the exact same query/batch-delete logic inline instead.
  */
 exports.cleanupExpiredQueue = functions
   .runWith({ timeoutSeconds: 300, memory: "256MB" })
   .pubsub.schedule("every 1 hours")
   .onRun(async (context) => {
     console.log("Cleaning up expired queue entries...");
-
-    try {
-      const now = admin.firestore.Timestamp.now();
-      const snapshot = await db
-        .collection("matchmaking_queue")
-        .where("timeoutAt", "<", now)
-        .get();
-
-      let cleaned = 0;
-      const batch = db.batch();
-
-      for (const doc of snapshot.docs) {
-        batch.delete(doc.ref);
-        cleaned++;
-      }
-
-      if (cleaned > 0) {
-        await batch.commit();
-        console.log(`Cleaned up ${cleaned} expired entries`);
-      }
-
-      return { cleaned };
-    } catch (error) {
-      console.error("Cleanup error:", error);
-      throw error;
-    }
+    return cleanupExpiredQueues();
   });
 
 /**

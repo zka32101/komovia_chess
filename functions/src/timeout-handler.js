@@ -1,11 +1,22 @@
 /**
  * Game timeout handling
- * 
+ *
  * Responsibilities:
  * - Detect timeouts
  * - End games with timeout result
  * - Calculate rating changes
  * - Log timeout events
+ *
+ * This module used to also export `checkAndHandleTimeouts`, a full
+ * duplicate of the scan-and-flag loop that `exports.handleTimeout`
+ * (index.js) implements inline - it was never actually called from
+ * anywhere (index.js only imports `handleGameTimeout`/
+ * `maybeUnlockAchievementsAfterTimeouts`), and it carried the same
+ * whose-turn-is-it-anyway bug index.js's copy had (checking BOTH
+ * players' remaining time against the same elapsed-since-last-move
+ * value, regardless of whose turn it actually was) - fixing one copy
+ * without the other would have left this dead, misleading twin behind.
+ * Removed outright rather than fixed, since nothing used it.
  */
 
 const admin = require("firebase-admin");
@@ -133,66 +144,8 @@ async function cleanupExpiredQueues() {
   }
 }
 
-/**
- * Check and handle timeouts in active games
- */
-async function checkAndHandleTimeouts() {
-  try {
-    const snapshot = await db
-      .collection("games")
-      .where("status", "==", "active")
-      .get();
-
-    let timeoutCount = 0;
-    const batch = db.batch();
-    const winnerIds = [];
-
-    const now = Date.now();
-
-    for (const doc of snapshot.docs) {
-      const game = doc.data();
-
-      // Get start time and last move time
-      const startTime = game.startedAt ? game.startedAt.toMillis() : now;
-      const lastMoveTime = game.lastMoveTimestamp
-        ? game.lastMoveTimestamp.toMillis()
-        : startTime;
-
-      // Calculate elapsed time since last move
-      const elapsedMs = now - lastMoveTime;
-
-      // Check white timeout
-      if (game.whiteTimeRemainingMs - elapsedMs <= 0) {
-        const { winnerId } = handleGameTimeout(batch, doc.ref, game, "white");
-        if (winnerId) winnerIds.push(winnerId);
-        timeoutCount++;
-        continue;
-      }
-
-      // Check black timeout
-      if (game.blackTimeRemainingMs - elapsedMs <= 0) {
-        const { winnerId } = handleGameTimeout(batch, doc.ref, game, "black");
-        if (winnerId) winnerIds.push(winnerId);
-        timeoutCount++;
-      }
-    }
-
-    if (timeoutCount > 0) {
-      await batch.commit();
-      console.log(`Handled ${timeoutCount} timeouts`);
-      await maybeUnlockAchievementsAfterTimeouts(winnerIds);
-    }
-
-    return { timeoutCount };
-  } catch (error) {
-    console.error("Timeout check error:", error);
-    throw error;
-  }
-}
-
 module.exports = {
   handleGameTimeout,
   maybeUnlockAchievementsAfterTimeouts,
   cleanupExpiredQueues,
-  checkAndHandleTimeouts,
 };
