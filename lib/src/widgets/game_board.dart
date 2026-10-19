@@ -17,6 +17,8 @@ class GameBoard extends StatefulWidget {
     this.isPlayerTurn = true,
     this.theme = BoardThemeCatalog.classic,
     this.showCoordinates = true,
+    this.premoveColor,
+    this.onPremove,
   }) : super(key: key);
   final chess_lib.Chess gameState;
   final Function(String, String, {String? promotion})? onMove;
@@ -28,6 +30,24 @@ class GameBoard extends StatefulWidget {
   final bool isPlayerTurn;
   final BoardTheme theme;
   final bool showCoordinates;
+
+  /// When set (and [isPlayerTurn] is false), lets the local player select
+  /// and queue a move for their own [premoveColor] pieces during the
+  /// opponent's turn - standard in competitive online play (chess.com,
+  /// lichess) and previously entirely unsupported: `_handleSquareTap`
+  /// unconditionally ignored every tap whenever it wasn't the local
+  /// player's turn. Destinations are computed against the CURRENT
+  /// position with the side-to-move swapped to [premoveColor] (a
+  /// pseudo-legal approximation of "if it were my turn right now"),
+  /// since the real post-opponent-move position isn't known yet - the
+  /// caller is expected to re-validate (and clear, on rejection) the
+  /// queued move once it's actually the player's turn.
+  final chess_lib.Color? premoveColor;
+
+  /// Called instead of [onMove] when a move is selected while
+  /// [premoveColor] is active - the caller queues it rather than
+  /// submitting immediately.
+  final Function(String, String, {String? promotion})? onPremove;
 
   @override
   State<GameBoard> createState() => _GameBoardState();
@@ -114,16 +134,22 @@ class _GameBoardState extends State<GameBoard> {
   }
 
   void _handleSquareTap(String square) {
-    if (!widget.isPlayerTurn) return;
+    final isPremoveMode = !widget.isPlayerTurn && widget.premoveColor != null;
+    if (!widget.isPlayerTurn && !isPremoveMode) return;
+
+    final activeColor = isPremoveMode ? widget.premoveColor! : widget.gameState.turn;
+    List<String> movesForSquare(String sq) => isPremoveMode
+        ? _getPremoveDestinations(sq, activeColor)
+        : _getLegalMovesForSquare(sq);
 
     final piece = _getPieceAt(square);
 
     if (_selectedSquare == null) {
       // Select piece
-      if (piece != null && piece.color == widget.gameState.turn) {
+      if (piece != null && piece.color == activeColor) {
         setState(() {
           _selectedSquare = square;
-          _availableMoves = _getLegalMovesForSquare(square);
+          _availableMoves = movesForSquare(square);
         });
       }
     } else {
@@ -145,9 +171,13 @@ class _GameBoardState extends State<GameBoard> {
             ((piece?.color == chess_lib.Color.WHITE && to[1] == '8') ||
                 (piece?.color == chess_lib.Color.BLACK && to[1] == '1'))) {
           // Show promotion dialog
-          _showPromotionDialog(from, to);
+          _showPromotionDialog(from, to, isPremove: isPremoveMode);
         } else {
-          widget.onMove?.call(from, to);
+          if (isPremoveMode) {
+            widget.onPremove?.call(from, to);
+          } else {
+            widget.onMove?.call(from, to);
+          }
           setState(() {
             _selectedSquare = null;
             _availableMoves = [];
@@ -155,10 +185,10 @@ class _GameBoardState extends State<GameBoard> {
         }
       } else {
         // Select different piece
-        if (piece != null && piece.color == widget.gameState.turn) {
+        if (piece != null && piece.color == activeColor) {
           setState(() {
             _selectedSquare = square;
-            _availableMoves = _getLegalMovesForSquare(square);
+            _availableMoves = movesForSquare(square);
           });
         } else {
           setState(() {
@@ -170,7 +200,27 @@ class _GameBoardState extends State<GameBoard> {
     }
   }
 
-  void _showPromotionDialog(String from, String to) {
+  /// Pseudo-legal destinations for [square] as if it were [myColor]'s
+  /// turn right now - see [GameBoard.premoveColor]'s doc comment for why
+  /// this is an approximation rather than the real future position.
+  List<String> _getPremoveDestinations(String square, chess_lib.Color myColor) {
+    final fenParts = widget.gameState.fen.split(' ');
+    if (fenParts.length < 2) return [];
+    fenParts[1] = myColor == chess_lib.Color.WHITE ? 'w' : 'b';
+    try {
+      final hypothetical = chess_lib.Chess.fromFEN(fenParts.join(' '));
+      return hypothetical
+          .moves({'asObjects': true})
+          .cast<chess_lib.Move>()
+          .where((move) => move.fromAlgebraic == square)
+          .map((move) => move.toAlgebraic)
+          .toList();
+    } catch (_) {
+      return [];
+    }
+  }
+
+  void _showPromotionDialog(String from, String to, {bool isPremove = false}) {
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
@@ -186,7 +236,11 @@ class _GameBoardState extends State<GameBoard> {
             };
             return ElevatedButton(
               onPressed: () {
-                widget.onMove?.call(from, to, promotion: promotion);
+                if (isPremove) {
+                  widget.onPremove?.call(from, to, promotion: promotion);
+                } else {
+                  widget.onMove?.call(from, to, promotion: promotion);
+                }
                 Navigator.pop(context);
                 setState(() {
                   _selectedSquare = null;

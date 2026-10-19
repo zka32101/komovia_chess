@@ -159,7 +159,12 @@ class StockfishEngineService {
   /// A forced mate is reported as a large magnitude score (±100000, further
   /// reduced by however many moves away the mate is) so it still sorts
   /// correctly against ordinary centipawn scores.
-  Future<int?> evaluatePosition(String fen, {int moveTimeMs = 500}) async {
+  /// When [depth] is given, evaluates to that fixed search depth instead
+  /// of a time budget - lets the user trade analysis quality for speed via
+  /// Settings' "Analysis Depth" preference, the same way [getBestMove]'s
+  /// own [depth] parameter already does for the CPU opponent.
+  Future<int?> evaluatePosition(String fen,
+      {int moveTimeMs = 500, int? depth}) async {
     await initialize();
 
     final completer = Completer<int?>();
@@ -184,11 +189,16 @@ class StockfishEngineService {
     });
 
     _send('position fen $fen');
-    _send('go movetime $moveTimeMs');
+    if (depth != null) {
+      _send('go depth $depth');
+    } else {
+      _send('go movetime $moveTimeMs');
+    }
 
+    final timeoutMs = depth != null ? 15000 : moveTimeMs + 5000;
     try {
       return await completer.future.timeout(
-        Duration(milliseconds: moveTimeMs + 5000),
+        Duration(milliseconds: timeoutMs),
         onTimeout: () {
           _send('stop');
           return lastScore;
