@@ -16,6 +16,7 @@ import '../messages/message_threads_screen.dart';
 import '../ranking/leaderboard_screen.dart';
 import '../learn/learn_hub_screen.dart';
 import '../online/live_games_screen.dart';
+import '../tournaments/tournaments_screen.dart';
 
 class HomeScreen extends ConsumerStatefulWidget {
   const HomeScreen({Key? key}) : super(key: key);
@@ -224,6 +225,14 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
 
                 // Learn Section
                 const _LearnSection(),
+
+                // Tournaments Section - previously only reachable via a
+                // single MaterialPageRoute push from profile_screen.dart,
+                // with no entry point on the home screen, bottom nav, or
+                // anywhere else discoverable, despite the tournament
+                // system itself (registration, standings, match results)
+                // being fully implemented.
+                const _TournamentsSection(),
 
                 // Daily Challenge Section
                 const _DailyChallengeSection(),
@@ -488,6 +497,58 @@ class _LearnSection extends StatelessWidget {
                         const SizedBox(height: 4),
                         Text(
                           '初めての方はここから。ルールからオープニングまで、ステップで学べます。',
+                          style: Theme.of(context).textTheme.bodySmall,
+                        ),
+                      ],
+                    ),
+                  ),
+                  const Icon(Icons.chevron_right),
+                ],
+              ),
+            ),
+          ),
+        ),
+      );
+}
+
+class _TournamentsSection extends StatelessWidget {
+  const _TournamentsSection();
+
+  @override
+  Widget build(BuildContext context) => Padding(
+        padding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
+        child: Card(
+          color: Theme.of(context)
+              .colorScheme
+              .secondaryContainer
+              .withOpacity(0.4),
+          child: InkWell(
+            borderRadius: BorderRadius.circular(12),
+            onTap: () {
+              Navigator.of(context).push(
+                SmoothPageTransition(page: const TournamentsScreen()),
+              );
+            },
+            child: Padding(
+              padding: const EdgeInsets.all(16),
+              child: Row(
+                children: [
+                  const Icon(Icons.emoji_events_outlined, size: 32),
+                  const SizedBox(width: 16),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          'トーナメント',
+                          style:
+                              Theme.of(context).textTheme.titleMedium?.copyWith(
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                        ),
+                        const SizedBox(height: 4),
+                        Text(
+                          '開催中・参加予定のトーナメントを確認、新規登録もここから。',
                           style: Theme.of(context).textTheme.bodySmall,
                         ),
                       ],
