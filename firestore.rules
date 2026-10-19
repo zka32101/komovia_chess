@@ -405,7 +405,25 @@ service cloud.firestore {
     // way `games`/`matchmaking_queue` already are, since there's no
     // Cloud Function to arbitrate a challenge's outcome.
     match /friend_challenges/active/list/{challengeId} {
-      allow read: if isSignedIn();
+      // Previously a bare `isSignedIn()` read, which in Firestore rules
+      // also authorizes `list`/query operations across the whole
+      // collection - not just single-document gets. FriendChallengeService.
+      // getActiveChallenges/getChallengeHistory ran an unfiltered-by-user
+      // `where('status', ...)` query and filtered to the caller's own
+      // challenges client-side only, so any signed-in user could bypass
+      // the app entirely and query this collection directly to read
+      // every pair of users' challenges app-wide (wagerPoints, both
+      // display names, timing). Firestore can only validate an OR
+      // condition like this against a `list` query whose own filters
+      // already constrain one of the two branches to request.auth.uid
+      // (a get() of a single doc is always checked per-document and
+      // unaffected) - so getActiveChallenges/getChallengeHistory now run
+      // two separately-equality-filtered queries (one per uid field)
+      // instead of one broader query, each of which satisfies this rule
+      // on its own. getPendingChallenges already queried this way.
+      allow read: if isSignedIn() &&
+        (resource.data.challengerUserId == request.auth.uid ||
+         resource.data.challengeeUserId == request.auth.uid);
       allow create: if isSignedIn() &&
         request.resource.data.challengerUserId == request.auth.uid &&
         request.resource.data.status == 'pending';

@@ -30,12 +30,12 @@ void main() {
         // Stalemate position: Black king on h8, white queen on f6, white king on g5
         chess.initGame(fen: '7k/5Q2/6K1/8/8/8/8/8 b - - 0 1');
 
-        final isStalemate = DrawDetectionService.isStalemate(chess);
+        final isStalemate = DrawDetectionService.isStalemate(chess.rawChess);
         expect(isStalemate, true);
       });
 
       test('does not detect stalemate in normal position', () {
-        final isStalemate = DrawDetectionService.isStalemate(chess);
+        final isStalemate = DrawDetectionService.isStalemate(chess.rawChess);
         expect(isStalemate, false);
       });
 
@@ -43,7 +43,7 @@ void main() {
         // Checkmate position
         chess.initGame(fen: '6k1/5Q2/6K1/8/8/8/8/8 b - - 0 1');
 
-        final isStalemate = DrawDetectionService.isStalemate(chess);
+        final isStalemate = DrawDetectionService.isStalemate(chess.rawChess);
         expect(isStalemate, false);
       });
     });
@@ -53,7 +53,7 @@ void main() {
         chess.initGame(fen: '8/8/4k3/8/8/4K3/8/8 w - - 0 1');
 
         final isInsufficient =
-            DrawDetectionService.isInsufficientMaterial(chess);
+            DrawDetectionService.isInsufficientMaterial(chess.rawChess);
         expect(isInsufficient, true);
       });
 
@@ -61,7 +61,7 @@ void main() {
         chess.initGame(fen: '8/8/4k3/8/8/4K2N/8/8 w - - 0 1');
 
         final isInsufficient =
-            DrawDetectionService.isInsufficientMaterial(chess);
+            DrawDetectionService.isInsufficientMaterial(chess.rawChess);
         expect(isInsufficient, true);
       });
 
@@ -69,7 +69,7 @@ void main() {
         chess.initGame(fen: '8/8/4k3/8/8/4K2B/8/8 w - - 0 1');
 
         final isInsufficient =
-            DrawDetectionService.isInsufficientMaterial(chess);
+            DrawDetectionService.isInsufficientMaterial(chess.rawChess);
         expect(isInsufficient, true);
       });
 
@@ -77,7 +77,7 @@ void main() {
         chess.initGame(fen: '8/8/4k3/8/8/4K2Q/8/8 w - - 0 1');
 
         final isInsufficient =
-            DrawDetectionService.isInsufficientMaterial(chess);
+            DrawDetectionService.isInsufficientMaterial(chess.rawChess);
         expect(isInsufficient, false);
       });
 
@@ -85,7 +85,7 @@ void main() {
         chess.initGame(fen: '8/8/4k3/8/8/4K2R/8/8 w - - 0 1');
 
         final isInsufficient =
-            DrawDetectionService.isInsufficientMaterial(chess);
+            DrawDetectionService.isInsufficientMaterial(chess.rawChess);
         expect(isInsufficient, false);
       });
 
@@ -93,8 +93,39 @@ void main() {
         chess.initGame(fen: '8/8/4k3/8/8/4K1P1/8/8 w - - 0 1');
 
         final isInsufficient =
-            DrawDetectionService.isInsufficientMaterial(chess);
+            DrawDetectionService.isInsufficientMaterial(chess.rawChess);
         expect(isInsufficient, false);
+      });
+
+      test('does not treat K+N+B vs K as insufficient (a real forced-mate endgame)',
+          () {
+        // White king e3, knight h3, bishop g3; lone black king e6.
+        chess.initGame(fen: '8/8/4k3/8/8/4K1BN/8/8 w - - 0 1');
+
+        final isInsufficient =
+            DrawDetectionService.isInsufficientMaterial(chess.rawChess);
+        expect(isInsufficient, false);
+      });
+
+      test(
+          'does not treat K+B+B vs K as insufficient when the bishops are '
+          'opposite-colored (also a real forced-mate endgame)', () {
+        // White bishops on c1 (dark) and d1 (light) - opposite colors.
+        chess.initGame(fen: '8/8/4k3/8/8/4K3/8/2BB4 w - - 0 1');
+
+        final isInsufficient =
+            DrawDetectionService.isInsufficientMaterial(chess.rawChess);
+        expect(isInsufficient, false);
+      });
+
+      test('treats K+B+B vs K as insufficient when both bishops share a color',
+          () {
+        // White bishops on c1 and e1 - both the same color square.
+        chess.initGame(fen: '8/8/4k3/8/8/4K3/8/2B1B3 w - - 0 1');
+
+        final isInsufficient =
+            DrawDetectionService.isInsufficientMaterial(chess.rawChess);
+        expect(isInsufficient, true);
       });
     });
 
@@ -197,7 +228,7 @@ void main() {
     group('getDrawReasons', () {
       test('returns empty list for non-draw position', () {
         final reasons = DrawDetectionService.getDrawReasons(
-          chess,
+          chess.rawChess,
           chess.getCurrentFen(),
           [],
         );
@@ -208,7 +239,7 @@ void main() {
         chess.initGame(fen: '7k/5Q2/6K1/8/8/8/8/8 b - - 0 1');
 
         final reasons = DrawDetectionService.getDrawReasons(
-          chess,
+          chess.rawChess,
           chess.getCurrentFen(),
           [],
         );
@@ -219,7 +250,7 @@ void main() {
         chess.initGame(fen: '8/8/4k3/8/8/4K3/8/8 w - - 0 1');
 
         final reasons = DrawDetectionService.getDrawReasons(
-          chess,
+          chess.rawChess,
           chess.getCurrentFen(),
           [],
         );
@@ -232,7 +263,7 @@ void main() {
         chess.initGame(fen: '7k/5Q2/6K1/8/8/8/8/8 b - - 0 1');
 
         final canClaim = DrawDetectionService.canClaimDraw(
-          chess,
+          chess.rawChess,
           chess.getCurrentFen(),
           [],
         );
@@ -241,7 +272,7 @@ void main() {
 
       test('returns false for ongoing game', () {
         final canClaim = DrawDetectionService.canClaimDraw(
-          chess,
+          chess.rawChess,
           chess.getCurrentFen(),
           [],
         );
@@ -254,7 +285,7 @@ void main() {
         chess.initGame(fen: '8/8/4k3/8/8/4K3/8/8 w - - 100 50');
 
         final reasons = DrawDetectionService.getDrawReasons(
-          chess,
+          chess.rawChess,
           chess.getCurrentFen(),
           [],
         );

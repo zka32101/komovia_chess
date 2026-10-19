@@ -301,34 +301,6 @@
       ]
     },
     {
-      "collectionGroup": "list",
-      "queryScope": "Collection",
-      "fields": [
-        {
-          "fieldPath": "status",
-          "order": "ASCENDING"
-        },
-        {
-          "fieldPath": "createdAt",
-          "order": "DESCENDING"
-        }
-      ]
-    },
-    {
-      "collectionGroup": "list",
-      "queryScope": "Collection",
-      "fields": [
-        {
-          "fieldPath": "status",
-          "order": "ASCENDING"
-        },
-        {
-          "fieldPath": "completedAt",
-          "order": "DESCENDING"
-        }
-      ]
-    },
-    {
       "collectionGroup": "challenge_results",
       "queryScope": "Collection",
       "fields": [

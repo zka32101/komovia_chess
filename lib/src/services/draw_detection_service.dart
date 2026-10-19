@@ -11,39 +11,66 @@ class DrawDetectionService {
   static bool isInsufficientMaterial(chess_lib.Chess chess) {
     try {
       // Count all pieces on the board (piece.type.name is the single-letter
-      // code, e.g. 'k', 'n', 'b' — see chess_lib.PieceType).
+      // code, e.g. 'k', 'n', 'b' — see chess_lib.PieceType), and each
+      // bishop's own square color (needed below - same-colored bishops
+      // can never force mate, opposite-colored ones can).
       final pieces = <String>[];
-      for (final file in _files) {
+      final bishopSquaresAreLight = <bool>[];
+      for (var fileIndex = 0; fileIndex < _files.length; fileIndex++) {
         for (var rank = 1; rank <= 8; rank++) {
-          final piece = chess.get('$file$rank');
+          final piece = chess.get('${_files[fileIndex]}$rank');
           if (piece != null) {
             pieces.add(piece.type.name);
+            if (piece.type.name == 'b') {
+              // Standard light/dark square parity: (file + rank) even
+              // = dark, odd = light (a1 is dark: file 0 + rank 1 = 1,
+              // odd -> light... a1 is actually dark in real chess, so
+              // this is just an internal, self-consistent parity label
+              // - what matters is that two bishops compare equal here
+              // iff they're genuinely on the same color square).
+              bishopSquaresAreLight.add((fileIndex + rank).isOdd);
+            }
           }
         }
       }
 
-      // Insufficient material if only kings remain
-      if (pieces.isEmpty) {
-        return true;
-      }
-
-      // Insufficient material: K vs K, K+N vs K, K+B vs K
+      // Insufficient material: K vs K, K+N vs K, K+B vs K. The
+      // `pieces.length == 3` guard on the knight check is load-bearing,
+      // not redundant with the "every piece is k or n" check further
+      // up: without it, a position like K+N+B vs K (a real forced-mate
+      // endgame) passed the knight-count-1 check too (which only
+      // counted knights, never checking that no OTHER piece - the
+      // bishop - was also on the board), so it was wrongly declared
+      // insufficient material. A player reaching that genuinely-winning
+      // position against the CPU had the game auto-declared a draw
+      // instead of being able to continue toward checkmate.
       if (pieces.every((p) => p == 'k' || p == 'n')) {
         return true;
       }
 
-      if (pieces.every((p) => p == 'k' || p == 'b')) {
+      // K+bishops vs K (any number of bishops, on either side) is only
+      // automatically drawn when every bishop present shares the same
+      // square color - opposite-colored bishops (even just K+B vs K+B)
+      // can force mate and are NOT insufficient material. The previous
+      // version treated ANY all-kings-and-bishops position as a draw
+      // regardless of color, wrongly auto-drawing e.g. K+B+B vs K with
+      // the two bishops on opposite colors (also a real forced-mate
+      // endgame).
+      if (pieces.every((p) => p == 'k' || p == 'b') &&
+          bishopSquaresAreLight.toSet().length <= 1) {
         return true;
       }
 
       // King and knight vs king
-      if (pieces.where((p) => p == 'k').length == 2 &&
+      if (pieces.length == 3 &&
+          pieces.where((p) => p == 'k').length == 2 &&
           pieces.where((p) => p == 'n').length == 1) {
         return true;
       }
 
       // King and bishop vs king
-      if (pieces.where((p) => p == 'k').length == 2 &&
+      if (pieces.length == 3 &&
+          pieces.where((p) => p == 'k').length == 2 &&
           pieces.where((p) => p == 'b').length == 1) {
         return true;
       }
