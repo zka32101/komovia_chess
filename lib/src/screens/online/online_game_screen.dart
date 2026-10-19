@@ -116,6 +116,7 @@ class _OnlineGameScreenState extends ConsumerState<OnlineGameScreen> {
         ),
 
         _buildDrawOfferBanner(game),
+        _buildTakebackRequestBanner(game),
         _buildAbandonmentForfeitBanner(game),
 
         // Move/Action buttons - once the game ends, OnlineGameResultScreen
@@ -291,6 +292,16 @@ class _OnlineGameScreenState extends ConsumerState<OnlineGameScreen> {
               icon: const Icon(Icons.check),
               label: const Text('Claim Draw'),
             ),
+
+            // Request Takeback button - only once it's the opponent's
+            // turn (i.e. the local player just moved) and no takeback
+            // request is already outstanding (OnlineGame.canRequestTakeback).
+            if (game.canRequestTakeback(_getCurrentPlayerId()))
+              OutlinedButton.icon(
+                onPressed: () => _requestTakeback(game),
+                icon: const Icon(Icons.undo),
+                label: const Text('Request Takeback'),
+              ),
           ],
         ),
       );
@@ -333,6 +344,103 @@ class _OnlineGameScreenState extends ConsumerState<OnlineGameScreen> {
         ],
       ),
     );
+  }
+
+  /// Build a banner offering Accept/Decline when the opponent has
+  /// requested a takeback (undoing the move they just made) -
+  /// OnlineGame.canRespondToTakeback restricts this to the player who
+  /// did NOT request it.
+  Widget _buildTakebackRequestBanner(OnlineGame game) {
+    if (!game.canRespondToTakeback(_getCurrentPlayerId())) {
+      return const SizedBox.shrink();
+    }
+
+    return Container(
+      margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: Colors.amber.withOpacity(0.1),
+        border: Border.all(color: Colors.amber),
+        borderRadius: BorderRadius.circular(8),
+      ),
+      child: Row(
+        children: [
+          const Icon(Icons.undo, color: Colors.amber),
+          const SizedBox(width: 12),
+          const Expanded(
+            child: Text(
+              'Opponent requested a takeback',
+              style: TextStyle(fontWeight: FontWeight.w600),
+            ),
+          ),
+          TextButton(
+            onPressed: _acceptTakeback,
+            child: const Text('Accept'),
+          ),
+          TextButton(
+            onPressed: _declineTakeback,
+            child: const Text('Decline'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  /// Request to undo the move just made
+  Future<void> _requestTakeback(OnlineGame game) async {
+    try {
+      await ref
+          .read(onlineGameServiceProvider)
+          .requestTakeback(_gameId, _getCurrentPlayerId());
+
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Takeback request sent to opponent'),
+            duration: Duration(seconds: 2),
+          ),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Error requesting takeback: $e')),
+        );
+      }
+    }
+  }
+
+  /// Accept the opponent's outstanding takeback request
+  Future<void> _acceptTakeback() async {
+    try {
+      await ref
+          .read(onlineGameServiceProvider)
+          .acceptTakeback(_gameId, _getCurrentPlayerId());
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Error accepting takeback: $e')),
+        );
+      }
+    }
+  }
+
+  /// Decline the opponent's outstanding takeback request
+  Future<void> _declineTakeback() async {
+    try {
+      await ref.read(onlineGameServiceProvider).declineTakeback(_gameId);
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Takeback request declined')),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Error declining takeback: $e')),
+        );
+      }
+    }
   }
 
   /// Build error state

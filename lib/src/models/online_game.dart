@@ -33,6 +33,7 @@ class OnlineGame {
     this.whiteNewRating,
     this.blackNewRating,
     this.drawOfferedBy,
+    this.takebackRequestedBy,
   });
 
   /// Create from Firestore JSON
@@ -80,6 +81,7 @@ class OnlineGame {
         whiteNewRating: json['whiteNewRating'] as int?,
         blackNewRating: json['blackNewRating'] as int?,
         drawOfferedBy: json['drawOfferedBy'] as String?,
+        takebackRequestedBy: json['takebackRequestedBy'] as String?,
       );
   final String gameId;
   final String type; // online_pvp, online_rapid, online_blitz
@@ -125,6 +127,12 @@ class OnlineGame {
   /// Player ID of whoever currently has an outstanding draw offer, if any.
   final String? drawOfferedBy;
 
+  /// Player ID of whoever currently has an outstanding takeback request,
+  /// if any - set when a player asks to undo the move they just made
+  /// (while it's the opponent's turn), cleared when the opponent
+  /// accepts/declines.
+  final String? takebackRequestedBy;
+
   /// Convert to Firestore JSON
   Map<String, dynamic> toJson() => {
         'gameId': gameId,
@@ -163,6 +171,7 @@ class OnlineGame {
         'whiteNewRating': whiteNewRating,
         'blackNewRating': blackNewRating,
         'drawOfferedBy': drawOfferedBy,
+        'takebackRequestedBy': takebackRequestedBy,
       };
 
   /// Create a copy with modifications
@@ -198,6 +207,8 @@ class OnlineGame {
     int? blackNewRating,
     String? drawOfferedBy,
     bool clearDrawOffer = false,
+    String? takebackRequestedBy,
+    bool clearTakebackRequest = false,
   }) =>
       OnlineGame(
         gameId: gameId ?? this.gameId,
@@ -233,6 +244,9 @@ class OnlineGame {
         blackNewRating: blackNewRating ?? this.blackNewRating,
         drawOfferedBy:
             clearDrawOffer ? null : (drawOfferedBy ?? this.drawOfferedBy),
+        takebackRequestedBy: clearTakebackRequest
+            ? null
+            : (takebackRequestedBy ?? this.takebackRequestedBy),
       );
 
   /// Get whose turn it is
@@ -253,6 +267,28 @@ class OnlineGame {
   /// the player whose turn it is has gone silent for at least [threshold].
   /// Distinct from the per-move clock: this is for a game abandoned in the
   /// real world (days), not a slow move.
+  /// True only for the player who just moved (i.e. it is currently the
+  /// OTHER side's turn) and whose own takeback request hasn't already
+  /// been sent - a player may ask to undo the move they just made, not
+  /// one from further back, and not twice in a row.
+  bool canRequestTakeback(String uid) {
+    if (status != 'active') return false;
+    if (moves.isEmpty) return false;
+    if (uid != whitePlayerId && uid != blackPlayerId) return false;
+    if (takebackRequestedBy != null) return false;
+
+    final myColor = uid == whitePlayerId ? 'white' : 'black';
+    return currentTurn != myColor;
+  }
+
+  /// True only for the player who did NOT request the outstanding
+  /// takeback - they're the one who gets to accept/decline it.
+  bool canRespondToTakeback(String uid) =>
+      status == 'active' &&
+      takebackRequestedBy != null &&
+      takebackRequestedBy != uid &&
+      (uid == whitePlayerId || uid == blackPlayerId);
+
   bool canClaimAbandonmentForfeit(
     String uid, {
     Duration threshold = const Duration(hours: 48),

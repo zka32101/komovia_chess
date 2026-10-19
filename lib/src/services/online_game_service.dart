@@ -233,7 +233,17 @@ class OnlineGameService {
       whiteNewRating = game.whiteRating + whiteRatingDelta;
       blackNewRating = game.blackRating + blackRatingDelta;
 
-      // Update game with results
+      // Update game with results. Also clears drawOfferedBy/
+      // takebackRequestedBy as part of this same write - acceptDraw used
+      // to do this as a separate, later .update() call, which could
+      // leave a completed game with a stale drawOfferedBy if the app
+      // died or the network dropped between the two writes (the
+      // draw-offer banner in online_game_screen.dart isn't gated on
+      // status == 'active', only on drawOfferedBy != null). Every path
+      // through here (resign/claimDraw/abandon/forfeit/acceptDraw/
+      // timeout) can equally leave either flag stale, so clearing both
+      // unconditionally here is simpler and safer than fixing each
+      // caller individually.
       await _firestore.collection(_gamesCollection).doc(gameId).update({
         'status': 'completed',
         'endedAt': FieldValue.serverTimestamp(),
@@ -243,6 +253,8 @@ class OnlineGameService {
         'blackRatingDelta': blackRatingDelta,
         'whiteNewRating': whiteNewRating,
         'blackNewRating': blackNewRating,
+        'drawOfferedBy': null,
+        'takebackRequestedBy': null,
       });
 
       // Persist the new rating to each player's own record - previously
@@ -450,15 +462,13 @@ class OnlineGameService {
   /// Accept the outstanding draw offer, ending the game as a draw
   Future<void> acceptDraw(String gameId) async {
     try {
+      // _endGameWithResult now clears drawOfferedBy atomically as part
+      // of its own single write - no separate update needed here.
       await _endGameWithResult(
         gameId: gameId,
         result: 'draw',
         resultReason: 'draw_agreement',
       );
-
-      await _firestore.collection(_gamesCollection).doc(gameId).update({
-        'drawOfferedBy': null,
-      });
 
       _logger.i('Draw accepted in game $gameId');
     } catch (e, st) {
