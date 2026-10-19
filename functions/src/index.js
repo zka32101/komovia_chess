@@ -157,170 +157,205 @@ exports.recordMove = functions
 
     try {
       const gameRef = db.collection("games").doc(gameId);
-      const gameDoc = await gameRef.get();
 
-      if (!gameDoc.exists) {
-        throw new functions.https.HttpsError("not-found", "Game not found");
-      }
+      // Everything below runs inside a single Firestore transaction -
+      // previously this was a plain get() followed by a later
+      // batch.commit(), with no re-read in between. Two near-simultaneous
+      // calls for the SAME move (a retried network request, or a
+      // double-tap reaching the function twice before the first
+      // commit() lands) would both read the same stale moveCount/
+      // currentFen, both pass the turn/legality checks, and both
+      // arrayUnion a (distinct, so non-deduplicated) move record onto
+      // `moves` - leaving the game's `moves` array and `currentFen`
+      // permanently out of sync with each other. A transaction makes
+      // Firestore detect the second writer's read as stale and retry
+      // it against the first writer's already-committed state, so the
+      // retry's own moveCount/turn check now correctly rejects it.
+      //
+      // Results that must survive past the transaction (for the
+      // success response, the timeout error, or the post-commit
+      // achievement/Realtime DB side effects, none of which belong
+      // inside the transaction itself) are captured into these
+      // closures-over variables rather than returned from the
+      // transaction callback, since a timeout still needs to both
+      // commit its own update AND surface as a thrown HttpsError to
+      // the caller - throwing from inside the transaction callback
+      // would instead abort that commit and retry the whole callback.
+      let timedOut = false;
+      let timeoutWinnerId = null;
+      let moveConclusion = null;
+      let moveWinnerId = null;
+      let resultFen = null;
 
-      const game = gameDoc.data();
+      await db.runTransaction(async (transaction) => {
+        const gameDoc = await transaction.get(gameRef);
 
-      // Verify game is active
-      if (game.status !== "active") {
-        throw new functions.https.HttpsError(
-          "failed-precondition",
-          "Game is not active"
-        );
-      }
-
-      // Verify it's the player's turn
-      const moveCount = game.moves ? game.moves.length : 0;
-      const isWhiteTurn = moveCount % 2 === 0;
-      const isWhitePlayer = playerId === game.whitePlayerId;
-
-      if (isWhiteTurn !== isWhitePlayer) {
-        throw new functions.https.HttpsError(
-          "failed-precondition",
-          "Not player's turn"
-        );
-      }
-
-      // How long the player on move has actually been thinking, measured
-      // server-side - this is also the only place whiteTimeRemainingMs/
-      // blackTimeRemainingMs ever get decremented (see below), since
-      // nothing in lib/ ever calls OnlineGameService.updateTimeRemaining
-      // at all (confirmed via grep: zero callers of
-      // OnlineGameNotifier.updateTimeRemaining anywhere in the app).
-      // Before this fix, both fields stayed frozen at the game's initial
-      // time-control allotment for the whole game.
-      const lastMoveMs = game.lastMoveTimestamp
-        ? game.lastMoveTimestamp.toMillis()
-        : game.startedAt.toMillis();
-      const elapsedMs = Date.now() - lastMoveMs;
-      const onMoveRemainingField = isWhiteTurn
-        ? "whiteTimeRemainingMs"
-        : "blackTimeRemainingMs";
-      const onMoveRemainingMs =
-        (game[onMoveRemainingField] || 0) - elapsedMs;
-
-      // The player on move already ran out of time before this move
-      // arrived - end the game as a timeout now rather than silently
-      // recording a late move. This closes the same loophole as the
-      // per-minute handleTimeout cron, just immediately instead of
-      // waiting up to a minute.
-      if (onMoveRemainingMs <= 0) {
-        const result = isWhiteTurn ? "black_win" : "white_win";
-        const { gameUpdate, whiteUserUpdate, blackUserUpdate, winnerId } =
-          computeGameEndUpdates(game, result, "timeout");
-
-        const timeoutBatch = db.batch();
-        timeoutBatch.update(gameRef, gameUpdate);
-        timeoutBatch.update(
-          db.collection("users").doc(game.whitePlayerId),
-          whiteUserUpdate
-        );
-        timeoutBatch.update(
-          db.collection("users").doc(game.blackPlayerId),
-          blackUserUpdate
-        );
-        await timeoutBatch.commit();
-        if (winnerId) {
-          await maybeUnlockAchievementsAfterTimeouts([winnerId]);
+        if (!gameDoc.exists) {
+          throw new functions.https.HttpsError("not-found", "Game not found");
         }
 
+        const game = gameDoc.data();
+
+        // Verify game is active
+        if (game.status !== "active") {
+          throw new functions.https.HttpsError(
+            "failed-precondition",
+            "Game is not active"
+          );
+        }
+
+        // Verify it's the player's turn
+        const moveCount = game.moves ? game.moves.length : 0;
+        const isWhiteTurn = moveCount % 2 === 0;
+        const isWhitePlayer = playerId === game.whitePlayerId;
+
+        if (isWhiteTurn !== isWhitePlayer) {
+          throw new functions.https.HttpsError(
+            "failed-precondition",
+            "Not player's turn"
+          );
+        }
+
+        // How long the player on move has actually been thinking, measured
+        // server-side - this is also the only place whiteTimeRemainingMs/
+        // blackTimeRemainingMs ever get decremented (see below), since
+        // nothing in lib/ ever calls OnlineGameService.updateTimeRemaining
+        // at all (confirmed via grep: zero callers of
+        // OnlineGameNotifier.updateTimeRemaining anywhere in the app).
+        // Before this fix, both fields stayed frozen at the game's initial
+        // time-control allotment for the whole game.
+        const lastMoveMs = game.lastMoveTimestamp
+          ? game.lastMoveTimestamp.toMillis()
+          : game.startedAt.toMillis();
+        const elapsedMs = Date.now() - lastMoveMs;
+        const onMoveRemainingField = isWhiteTurn
+          ? "whiteTimeRemainingMs"
+          : "blackTimeRemainingMs";
+        const onMoveRemainingMs =
+          (game[onMoveRemainingField] || 0) - elapsedMs;
+
+        // The player on move already ran out of time before this move
+        // arrived - end the game as a timeout now rather than silently
+        // recording a late move. This closes the same loophole as the
+        // per-minute handleTimeout cron, just immediately instead of
+        // waiting up to a minute.
+        if (onMoveRemainingMs <= 0) {
+          const result = isWhiteTurn ? "black_win" : "white_win";
+          const { gameUpdate, whiteUserUpdate, blackUserUpdate, winnerId } =
+            computeGameEndUpdates(game, result, "timeout");
+
+          transaction.update(gameRef, gameUpdate);
+          transaction.update(
+            db.collection("users").doc(game.whitePlayerId),
+            whiteUserUpdate
+          );
+          transaction.update(
+            db.collection("users").doc(game.blackPlayerId),
+            blackUserUpdate
+          );
+          timedOut = true;
+          timeoutWinnerId = winnerId;
+          return;
+        }
+
+        // Validate AND apply the move server-side via chess.js - the
+        // resulting FEN/PGN are computed here, never trusted from the
+        // client (previously the client's own `fen`/`pgn` were written
+        // straight through, so any participant could set their game's
+        // board to an arbitrary, even illegal, position).
+        const { legal, chess, moveResult } = applyMove(
+          game.currentFen,
+          from,
+          to,
+          promotion
+        );
+        if (!legal) {
+          throw new functions.https.HttpsError(
+            "invalid-argument",
+            "Illegal move"
+          );
+        }
+
+        const nowTs = admin.firestore.Timestamp.now();
+        const moveRecord = {
+          moveNumber: moveCount + 1,
+          from,
+          to,
+          promotion: moveResult.promotion || null,
+          timestamp: nowTs,
+          playerId,
+        };
+
+        const updates = {
+          currentFen: chess.fen(),
+          pgn: chess.pgn(),
+          moves: admin.firestore.FieldValue.arrayUnion([moveRecord]),
+          lastMoveTimestamp: nowTs,
+          [onMoveRemainingField]: onMoveRemainingMs,
+          [isWhitePlayer
+            ? "whiteLastActivityTimestamp"
+            : "blackLastActivityTimestamp"]: nowTs,
+        };
+
+        // Record the move in the `moves` subcollection too, matching what
+        // OnlineGameService.recordMove (Dart) used to write directly -
+        // gameMoveProvider/getGameMoves still reads this subcollection for
+        // the move-history list.
+        const moveSubDocRef = gameRef.collection("moves").doc();
+
+        // Detect checkmate/stalemate/draw now that the move has been
+        // applied. Previously nothing server-side (and nothing
+        // client-side either - online_game_screen.dart's `in_checkmate`
+        // check only ever played a sound) ever actually ended a PvP game
+        // on checkmate: the game doc just sat at status "active" forever
+        // until someone manually resigned or timed out.
+        const conclusion = detectGameConclusion(chess);
+        if (conclusion.concluded) {
+          const { gameUpdate, whiteUserUpdate, blackUserUpdate, winnerId } =
+            computeGameEndUpdates(game, conclusion.result, conclusion.reason);
+          Object.assign(updates, gameUpdate);
+
+          transaction.update(gameRef, updates);
+          transaction.set(moveSubDocRef, moveRecord);
+          transaction.update(db.collection("users").doc(game.whitePlayerId), whiteUserUpdate);
+          transaction.update(db.collection("users").doc(game.blackPlayerId), blackUserUpdate);
+          moveWinnerId = winnerId;
+        } else {
+          transaction.update(gameRef, updates);
+          transaction.set(moveSubDocRef, moveRecord);
+        }
+
+        moveConclusion = conclusion;
+        resultFen = chess.fen();
+      });
+
+      if (timedOut) {
+        if (timeoutWinnerId) {
+          await maybeUnlockAchievementsAfterTimeouts([timeoutWinnerId]);
+        }
         throw new functions.https.HttpsError(
           "failed-precondition",
           "Time expired"
         );
       }
 
-      // Validate AND apply the move server-side via chess.js - the
-      // resulting FEN/PGN are computed here, never trusted from the
-      // client (previously the client's own `fen`/`pgn` were written
-      // straight through, so any participant could set their game's
-      // board to an arbitrary, even illegal, position).
-      const { legal, chess, moveResult } = applyMove(
-        game.currentFen,
-        from,
-        to,
-        promotion
-      );
-      if (!legal) {
-        throw new functions.https.HttpsError(
-          "invalid-argument",
-          "Illegal move"
-        );
-      }
-
-      const nowTs = admin.firestore.Timestamp.now();
-      const moveRecord = {
-        moveNumber: moveCount + 1,
-        from,
-        to,
-        promotion: moveResult.promotion || null,
-        timestamp: nowTs,
-        playerId,
-      };
-
-      const updates = {
-        currentFen: chess.fen(),
-        pgn: chess.pgn(),
-        moves: admin.firestore.FieldValue.arrayUnion([moveRecord]),
-        lastMoveTimestamp: nowTs,
-        [onMoveRemainingField]: onMoveRemainingMs,
-        [isWhitePlayer
-          ? "whiteLastActivityTimestamp"
-          : "blackLastActivityTimestamp"]: nowTs,
-      };
-
-      // Record the move in the `moves` subcollection too, matching what
-      // OnlineGameService.recordMove (Dart) used to write directly -
-      // gameMoveProvider/getGameMoves still reads this subcollection for
-      // the move-history list.
-      const moveSubDocRef = gameRef.collection("moves").doc();
-
-      // Detect checkmate/stalemate/draw now that the move has been
-      // applied. Previously nothing server-side (and nothing
-      // client-side either - online_game_screen.dart's `in_checkmate`
-      // check only ever played a sound) ever actually ended a PvP game
-      // on checkmate: the game doc just sat at status "active" forever
-      // until someone manually resigned or timed out.
-      const conclusion = detectGameConclusion(chess);
-      if (conclusion.concluded) {
-        const { gameUpdate, whiteUserUpdate, blackUserUpdate, winnerId } =
-          computeGameEndUpdates(game, conclusion.result, conclusion.reason);
-        Object.assign(updates, gameUpdate);
-
-        const batch = db.batch();
-        batch.update(gameRef, updates);
-        batch.set(moveSubDocRef, moveRecord);
-        batch.update(db.collection("users").doc(game.whitePlayerId), whiteUserUpdate);
-        batch.update(db.collection("users").doc(game.blackPlayerId), blackUserUpdate);
-        await batch.commit();
-
-        // Previously a server-detected checkmate/stalemate (the most
-        // common way an online PvP game actually ends) credited stats
-        // correctly but never unlocked an achievement for the winner -
-        // only resign/draw/abandon/timeout (which route through the
-        // Dart client's _endGameWithResult) and the handleTimeout cron
-        // did this. maybeUnlockAchievementsAfterTimeouts isn't actually
-        // timeout-specific internally; it just runs the same
-        // best-effort achievement check for each winner id given.
-        if (winnerId) {
-          await maybeUnlockAchievementsAfterTimeouts([winnerId]);
-        }
-      } else {
-        const batch = db.batch();
-        batch.update(gameRef, updates);
-        batch.set(moveSubDocRef, moveRecord);
-        await batch.commit();
+      // Previously a server-detected checkmate/stalemate (the most
+      // common way an online PvP game actually ends) credited stats
+      // correctly but never unlocked an achievement for the winner -
+      // only resign/draw/abandon/timeout (which route through the
+      // Dart client's _endGameWithResult) and the handleTimeout cron
+      // did this. maybeUnlockAchievementsAfterTimeouts isn't actually
+      // timeout-specific internally; it just runs the same
+      // best-effort achievement check for each winner id given.
+      if (moveWinnerId) {
+        await maybeUnlockAchievementsAfterTimeouts([moveWinnerId]);
       }
 
       // Sync to Realtime DB
       await realtimeDb.ref(`games/${gameId}/lastMove`).set({
         from,
         to,
-        fen: chess.fen(),
+        fen: resultFen,
         playerId,
         timestamp: Date.now(),
       });
@@ -330,8 +365,8 @@ exports.recordMove = functions
       return {
         success: true,
         message: "Move recorded successfully",
-        concluded: conclusion.concluded,
-        result: conclusion.result,
+        concluded: moveConclusion.concluded,
+        result: moveConclusion.result,
       };
     } catch (error) {
       console.error("Move recording error:", error);

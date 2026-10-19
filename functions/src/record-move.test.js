@@ -144,6 +144,27 @@ function makeFakeFirestore(seedGames, seedUsers) {
         },
       };
     },
+    // Real Firestore transactions re-run the whole callback on a
+    // contended read, retrying it against the state the FIRST writer
+    // just committed. This fake doesn't simulate actual contention (no
+    // test here exercises concurrent calls), but still gives
+    // recordMove's transaction.get/update/set calls a working
+    // same-process implementation - real behavior for a single
+    // non-contended call.
+    async runTransaction(updateFunction) {
+      const transaction = {
+        async get(ref) {
+          return ref.get();
+        },
+        update(ref, patch) {
+          ref.update(patch);
+        },
+        set(ref, data) {
+          ref.set(data);
+        },
+      };
+      return updateFunction(transaction);
+    },
   };
 
   return { db, games, users, moveSubdocs, achievementUnlocks };
@@ -313,6 +334,60 @@ describe('recordMove', () => {
     // cron). first_win's target (1 win) is now satisfied by this game.
     expect(fake.achievementUnlocks.get('black_uid')?.has('first_win')).toBe(true);
     expect(fake.achievementUnlocks.get('white_uid')).toBeUndefined();
+  });
+
+  it('never double-records a move resubmitted while the first commit is still in flight', async () => {
+    // Simulates the race a non-transactional get()-then-commit() would
+    // lose: two calls for the SAME move (a client retry, or a
+    // double-tap) racing each other. Delays the fake transaction's own
+    // get() so the second call's read starts before the first call's
+    // write has landed, then releases the first write - a real
+    // Firestore transaction would instead force the second call to
+    // retry against the first call's already-committed state, which is
+    // exactly what this regression test is asserting still happens
+    // with the fake's (non-contending, in-process) runTransaction.
+    let firstGetStarted = false;
+    let releaseFirstGet;
+    const firstGetGate = new Promise((resolve) => {
+      releaseFirstGet = resolve;
+    });
+    const originalRunTransaction = fake.db.runTransaction;
+    let callIndex = 0;
+    fake.db.runTransaction = async (updateFunction) => {
+      const myIndex = callIndex;
+      callIndex += 1;
+      if (myIndex === 0) {
+        firstGetStarted = true;
+      } else {
+        // Second call: wait until the first call's write has actually
+        // committed before this one reads, so its own moveCount check
+        // sees the post-first-move state (as a real serialized
+        // transaction retry would) rather than racing it.
+        await firstGetGate;
+      }
+      const result = await originalRunTransaction(updateFunction);
+      if (myIndex === 0) {
+        releaseFirstGet();
+      }
+      return result;
+    };
+
+    const callA = callAs('white_uid', { gameId: 'game_1', from: 'e2', to: 'e4', playerId: 'white_uid' });
+    // Give the first call's runTransaction a chance to start before
+    // firing the resubmission.
+    await new Promise((resolve) => setImmediate(resolve));
+    expect(firstGetStarted).toBe(true);
+    const callB = callAs('white_uid', { gameId: 'game_1', from: 'e2', to: 'e4', playerId: 'white_uid' });
+
+    const resultA = await callA;
+    await expect(callB).rejects.toMatchObject({ code: 'failed-precondition' });
+
+    expect(resultA.success).toBe(true);
+    const game = fake.games.get('game_1');
+    expect(game.moves).toHaveLength(1);
+    expect(game.currentFen).toBe(
+      'rnbqkbnr/pppppppp/8/8/4P3/8/PPPP1PPP/RNBQKBNR b KQkq - 0 1',
+    );
   });
 
   it('rejects any move once the game is no longer active', async () => {
