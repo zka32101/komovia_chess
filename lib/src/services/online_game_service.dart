@@ -240,11 +240,31 @@ class OnlineGameService {
       // (not on the profile, not on any leaderboard) after the game
       // ended. `onlineRating` is this app's separate PvP rating track,
       // distinct from the CPU-game `rating` field.
+      //
+      // wins/losses/draws/gamesPlayed are the same shared stat fields
+      // CpuGameProvider already increments for CPU games (see
+      // cpu_game_provider.dart) - AchievementService._calculateCurrentProgress
+      // reads `wins` off this exact user doc for first_win/five_wins, but
+      // until this fix an online win never moved it, so those achievements
+      // could only ever be unlocked by playing CPU games.
+      final String whiteResult =
+          result == 'white_win' ? 'win' : (result == 'draw' ? 'draw' : 'loss');
+      final String blackResult =
+          result == 'black_win' ? 'win' : (result == 'draw' ? 'draw' : 'loss');
+
       await _firestore.collection('users').doc(game.whitePlayerId).update({
         'onlineRating': whiteNewRating,
+        'gamesPlayed': FieldValue.increment(1),
+        if (whiteResult == 'win') 'wins': FieldValue.increment(1),
+        if (whiteResult == 'loss') 'losses': FieldValue.increment(1),
+        if (whiteResult == 'draw') 'draws': FieldValue.increment(1),
       });
       await _firestore.collection('users').doc(game.blackPlayerId).update({
         'onlineRating': blackNewRating,
+        'gamesPlayed': FieldValue.increment(1),
+        if (blackResult == 'win') 'wins': FieldValue.increment(1),
+        if (blackResult == 'loss') 'losses': FieldValue.increment(1),
+        if (blackResult == 'draw') 'draws': FieldValue.increment(1),
       });
 
       _logger.i('Game completed: $gameId - $result ($resultReason)');
