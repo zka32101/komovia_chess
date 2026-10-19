@@ -14,6 +14,7 @@ class CpuGameState {
     this.endTime,
     this.isAIThinking = false,
     this.playerIsWhite = true,
+    this.startingFen,
   });
   final chess_lib.Chess gameState;
   final AIDifficulty difficulty;
@@ -25,6 +26,13 @@ class CpuGameState {
   final DateTime? endTime;
   final bool isAIThinking;
   final bool playerIsWhite;
+
+  /// The FEN the game actually began from, when it wasn't the standard
+  /// starting position (e.g. a midgame/endgame practice position) - null
+  /// for an ordinary from-scratch game. Kept so [CpuGameNotifier.reset]
+  /// can restart from the same practice position instead of always
+  /// jumping back to move 1 of a brand new game.
+  final String? startingFen;
 
   /// Get the current turn (true = white, false = black)
   bool get isWhiteTurn => gameState.turn == chess_lib.Color.WHITE;
@@ -56,6 +64,7 @@ class CpuGameState {
     DateTime? endTime,
     bool? isAIThinking,
     bool? playerIsWhite,
+    String? startingFen,
   }) =>
       CpuGameState(
         gameState: gameState ?? this.gameState,
@@ -68,5 +77,6 @@ class CpuGameState {
         endTime: endTime ?? this.endTime,
         isAIThinking: isAIThinking ?? this.isAIThinking,
         playerIsWhite: playerIsWhite ?? this.playerIsWhite,
+        startingFen: startingFen ?? this.startingFen,
       );
 }

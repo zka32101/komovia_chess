@@ -434,12 +434,22 @@ class CpuGameNotifier extends StateNotifier<CpuGameState> {
   late ChessEngineService _chess;
   late AIOpponentEngine _aiEngine;
 
-  /// Initialize a new game
+  /// Initialize a new game.
+  ///
+  /// [startingFen], when given, begins the game from that position
+  /// instead of the standard starting array - e.g. a curated midgame/
+  /// endgame practice position (see CPUGameSelectionScreen). Move
+  /// generation, check/checkmate/stalemate detection, undo, and the
+  /// end-of-game rating/match-history recording in [_recordResult] all
+  /// already operate purely on the current `chess_lib.Chess` position
+  /// with no assumption about how the game began, so no other change is
+  /// needed to support this.
   void initGame({
     AIDifficulty difficulty = AIDifficulty.medium,
     bool playerIsWhite = true,
+    String? startingFen,
   }) {
-    _chess.initGame();
+    _chess.initGame(fen: startingFen);
     _aiEngine = AIOpponentEngine(_chess, difficulty);
 
     state = CpuGameState(
@@ -448,6 +458,7 @@ class CpuGameNotifier extends StateNotifier<CpuGameState> {
       moves: [],
       startTime: DateTime.now(),
       playerIsWhite: playerIsWhite,
+      startingFen: startingFen,
     );
   }
 
@@ -584,9 +595,15 @@ class CpuGameNotifier extends StateNotifier<CpuGameState> {
     _recordResult('draw');
   }
 
-  /// Reset the game
+  /// Reset the game - back to [CpuGameState.startingFen] when the current
+  /// game began from a custom practice position, otherwise the standard
+  /// starting array.
   void reset() {
-    _chess.reset();
+    if (state.startingFen != null) {
+      _chess.loadFromFen(state.startingFen!);
+    } else {
+      _chess.reset();
+    }
     _aiEngine = AIOpponentEngine(_chess, state.difficulty);
 
     state = CpuGameState(
@@ -595,6 +612,7 @@ class CpuGameNotifier extends StateNotifier<CpuGameState> {
       moves: [],
       startTime: DateTime.now(),
       playerIsWhite: state.playerIsWhite,
+      startingFen: state.startingFen,
     );
   }
 
@@ -696,13 +714,23 @@ class CpuGameNotifier extends StateNotifier<CpuGameState> {
           timeControl: 'unrated',
           playedAt: DateTime.now(),
         ),
-        moves: state.moves
-            .map((m) => {
-                  'from': m.fromAlgebraic,
-                  'to': m.toAlgebraic,
-                  'promotion': m.promotion?.name,
-                })
-            .toList(),
+        // OpeningExplorerService replays a match's recorded `movesUci`
+        // against the STANDARD starting position to build per-position
+        // statistics - a game that began from a custom midgame/endgame
+        // practice position (state.startingFen != null) has a move list
+        // that is meaningless, or even illegal, from move 1 of a normal
+        // game, and would corrupt that replay. Recording the match's
+        // rating/win-loss-draw/match-history entry itself is unaffected
+        // either way - only the move list is withheld here.
+        moves: state.startingFen != null
+            ? null
+            : state.moves
+                .map((m) => {
+                      'from': m.fromAlgebraic,
+                      'to': m.toAlgebraic,
+                      'promotion': m.promotion?.name,
+                    })
+                .toList(),
       ));
 
       // Best-effort: advance any active seasonal challenge tracking wins/
