@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:chess/chess.dart' as chess_lib;
 import '../../models/online_game.dart';
 import '../../providers/online_game_provider.dart';
+import '../../providers/user_preferences_provider.dart';
 import '../../widgets/game_board.dart';
 import '../../widgets/time_clock.dart';
 import '../../widgets/game_info_panel.dart';
@@ -167,12 +168,15 @@ class _OnlineGameScreenState extends ConsumerState<OnlineGameScreen> {
   ) {
     try {
       final gameState = chess_lib.Chess.fromFEN(game.currentFen);
+      final showCoordinates =
+          ref.watch(userPreferencesProvider).value?.showCoordinates ?? true;
 
       return SingleChildScrollView(
         child: Padding(
           padding: const EdgeInsets.symmetric(vertical: 16),
           child: GameBoard(
             gameState: gameState,
+            showCoordinates: showCoordinates,
             // Online games don't support undo, so the real move history
             // (needed only to enable/disable the undo button) isn't wired
             // through - GameMove doesn't carry enough data to reconstruct

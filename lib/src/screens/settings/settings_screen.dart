@@ -143,18 +143,6 @@ class SettingsScreen extends ConsumerWidget {
                     ),
                     const Divider(height: 1),
                     _buildBoardThemeOption(context, ref),
-                    const Divider(height: 1),
-                    _buildStyleOption(
-                      title: 'Piece Style',
-                      currentValue: preferences.pieceStyle,
-                      options: const ['Default', 'Wooden', 'Classic'],
-                      onChanged: (value) {
-                        preferencesService.setStyles(
-                          pieceStyle: value.toLowerCase(),
-                          boardStyle: preferences.boardStyle,
-                        );
-                      },
-                    ),
                   ],
                 ),
 
@@ -529,54 +517,6 @@ class SettingsScreen extends ConsumerWidget {
       },
     );
   }
-
-  Widget _buildStyleOption({
-    required String title,
-    required String currentValue,
-    required List<String> options,
-    required Function(String) onChanged,
-  }) =>
-      Builder(
-        builder: (context) => ListTile(
-          title: Text(title),
-          subtitle:
-              Text(currentValue[0].toUpperCase() + currentValue.substring(1)),
-          trailing: const Icon(Icons.arrow_forward_ios, size: 16),
-          onTap: () {
-            showModalBottomSheet(
-              context: context,
-              builder: (context) => SafeArea(
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Padding(
-                      padding: const EdgeInsets.all(16),
-                      child: Text(
-                        'Select $title',
-                        style: const TextStyle(
-                          fontSize: 18,
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
-                    ),
-                    ...options.map((option) => ListTile(
-                          title: Text(option),
-                          trailing: option.toLowerCase() == currentValue
-                              ? const Icon(Icons.check, color: Colors.blue)
-                              : null,
-                          onTap: () {
-                            onChanged(option.toLowerCase());
-                            Navigator.pop(context);
-                          },
-                        )),
-                    const SizedBox(height: 8),
-                  ],
-                ),
-              ),
-            );
-          },
-        ),
-      );
 
   Widget _buildToggleOption({
     required String title,

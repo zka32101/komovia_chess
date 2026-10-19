@@ -16,6 +16,7 @@ class GameBoard extends StatefulWidget {
     this.showMaterial = true,
     this.isPlayerTurn = true,
     this.theme = BoardThemeCatalog.classic,
+    this.showCoordinates = true,
   }) : super(key: key);
   final chess_lib.Chess gameState;
   final Function(String, String, {String? promotion})? onMove;
@@ -26,6 +27,7 @@ class GameBoard extends StatefulWidget {
   final bool showMaterial;
   final bool isPlayerTurn;
   final BoardTheme theme;
+  final bool showCoordinates;
 
   @override
   State<GameBoard> createState() => _GameBoardState();
@@ -285,6 +287,7 @@ class _GameBoardState extends State<GameBoard> {
                         theme: widget.theme,
                         selectedSquare: _selectedSquare,
                         legalMoveSquares: _availableMoves,
+                        showCoordinates: widget.showCoordinates,
                       ),
                       size: Size(boardSize, boardSize),
                     ),
@@ -354,11 +357,13 @@ class _GameBoardPainter extends CustomPainter {
     required this.theme,
     required this.selectedSquare,
     required this.legalMoveSquares,
+    this.showCoordinates = true,
   });
   final double size;
   final BoardTheme theme;
   final String? selectedSquare;
   final List<String> legalMoveSquares;
+  final bool showCoordinates;
 
   @override
   void paint(Canvas canvas, Size canvasSize) {
@@ -406,6 +411,54 @@ class _GameBoardPainter extends CustomPainter {
         }
       }
     }
+
+    if (showCoordinates) {
+      _drawCoordinates(canvas, squareSize);
+    }
+  }
+
+  void _drawCoordinates(Canvas canvas, double squareSize) {
+    const files = ['a', 'b', 'c', 'd', 'e', 'f', 'g', 'h'];
+    const ranks = ['8', '7', '6', '5', '4', '3', '2', '1'];
+
+    final textPainter = TextPainter(textDirection: TextDirection.ltr);
+    final fontSize = squareSize * 0.15;
+    const padding = 3.0;
+
+    for (int i = 0; i < 8; i++) {
+      textPainter.text = TextSpan(
+        text: files[i],
+        style: TextStyle(
+          color: (i % 2 == 0) ? Colors.grey.shade700 : Colors.grey.shade400,
+          fontSize: fontSize,
+          fontWeight: FontWeight.bold,
+        ),
+      );
+      textPainter.layout();
+      textPainter.paint(
+        canvas,
+        Offset(
+          i * squareSize + squareSize - textPainter.width - padding,
+          size - squareSize + padding,
+        ),
+      );
+    }
+
+    for (int i = 0; i < 8; i++) {
+      textPainter.text = TextSpan(
+        text: ranks[i],
+        style: TextStyle(
+          color: (i % 2 == 0) ? Colors.grey.shade700 : Colors.grey.shade400,
+          fontSize: fontSize,
+          fontWeight: FontWeight.bold,
+        ),
+      );
+      textPainter.layout();
+      textPainter.paint(
+        canvas,
+        Offset(padding, i * squareSize + padding),
+      );
+    }
   }
 
   @override
@@ -413,5 +466,6 @@ class _GameBoardPainter extends CustomPainter {
       oldDelegate.size != size ||
       oldDelegate.theme != theme ||
       oldDelegate.selectedSquare != selectedSquare ||
-      oldDelegate.legalMoveSquares != legalMoveSquares;
+      oldDelegate.legalMoveSquares != legalMoveSquares ||
+      oldDelegate.showCoordinates != showCoordinates;
 }
