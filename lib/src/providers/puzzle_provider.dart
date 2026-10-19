@@ -76,11 +76,15 @@ class PuzzleService {
     required String puzzleId,
     required bool solved,
     required List<String> userMoves,
+    required int puzzleRating,
   }) async {
     final user = _auth.currentUser;
     if (user == null) throw Exception('No user logged in');
 
     try {
+      // Each attempt is its own doc (id includes a timestamp), so there's
+      // nothing to increment on this doc itself - it always represents
+      // exactly one attempt.
       final resultId =
           '${user.uid}_${puzzleId}_${DateTime.now().millisecondsSinceEpoch}';
 
@@ -90,13 +94,53 @@ class PuzzleService {
         'solved': solved,
         'userMoves': userMoves,
         'timestamp': FieldValue.serverTimestamp(),
-        'attempts': 1, // Will be incremented per attempt
       });
 
-      // Update user's total puzzles solved
+      // Update the user's aggregate stats. puzzlesSolved/averageRating/
+      // dailyStreak previously only ever had puzzlesSolved actually
+      // written - averageRating and dailyStreak were read everywhere
+      // (getUserPuzzleStats, puzzle_screen.dart) but never computed, so
+      // they always showed their hardcoded defaults. A transaction is
+      // needed since averageRating is a running average, not a counter
+      // FieldValue.increment can express on its own.
       if (solved) {
-        await _firestore.collection('users').doc(user.uid).update({
-          'puzzlesSolved': FieldValue.increment(1),
+        final userRef = _firestore.collection('users').doc(user.uid);
+        await _firestore.runTransaction((transaction) async {
+          final userDoc = await transaction.get(userRef);
+          final data = userDoc.data() ?? const <String, dynamic>{};
+
+          final previousSolved = (data['puzzlesSolved'] as num?)?.toInt() ?? 0;
+          final previousAverage =
+              (data['averageRating'] as num?)?.toInt() ?? 1600;
+          final newAverage = previousSolved == 0
+              ? puzzleRating
+              : ((previousAverage * previousSolved) + puzzleRating) ~/
+                  (previousSolved + 1);
+
+          final today = DateTime.now();
+          final todayKey =
+              '${today.year}-${today.month.toString().padLeft(2, '0')}-${today.day.toString().padLeft(2, '0')}';
+          final lastSolvedDate = data['lastPuzzleSolvedDate'] as String?;
+          final previousStreak = (data['dailyStreak'] as num?)?.toInt() ?? 0;
+
+          int newStreak;
+          if (lastSolvedDate == todayKey) {
+            // Already solved a puzzle today - same streak, just a second
+            // win on the same day.
+            newStreak = previousStreak;
+          } else if (lastSolvedDate != null &&
+              today.difference(DateTime.parse(lastSolvedDate)).inDays == 1) {
+            newStreak = previousStreak + 1;
+          } else {
+            newStreak = 1;
+          }
+
+          transaction.update(userRef, {
+            'puzzlesSolved': FieldValue.increment(1),
+            'averageRating': newAverage,
+            'dailyStreak': newStreak,
+            'lastPuzzleSolvedDate': todayKey,
+          });
         });
       }
     } catch (e) {
