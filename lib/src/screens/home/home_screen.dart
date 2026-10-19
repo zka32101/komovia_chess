@@ -15,6 +15,7 @@ import '../notifications_screen.dart';
 import '../messages/message_threads_screen.dart';
 import '../ranking/leaderboard_screen.dart';
 import '../learn/learn_hub_screen.dart';
+import '../online/live_games_screen.dart';
 
 class HomeScreen extends ConsumerStatefulWidget {
   const HomeScreen({Key? key}) : super(key: key);
@@ -186,6 +187,15 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                   );
                 },
                 tooltip: 'Leaderboard',
+              ),
+              IconButton(
+                icon: const Icon(Icons.visibility_outlined),
+                onPressed: () {
+                  Navigator.of(context).push(
+                    SmoothPageTransition(page: const LiveGamesScreen()),
+                  );
+                },
+                tooltip: 'Watch Live Games',
               ),
               IconButton(
                 icon: const Icon(Icons.star_outline),
