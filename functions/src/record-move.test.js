@@ -21,6 +21,7 @@ function makeFakeFirestore(seedGames, seedUsers) {
   const games = new Map(Object.entries(seedGames));
   const users = new Map(Object.entries(seedUsers));
   const moveSubdocs = new Map(); // gameId -> array of written move records
+  const achievementUnlocks = new Map(); // uid -> Set(achievementId)
 
   function applySentinels(existing, patch) {
     const result = { ...existing };
@@ -87,6 +88,38 @@ function makeFakeFirestore(seedGames, seedUsers) {
             },
           };
         }
+        if (name === 'achievements') {
+          if (docId === 'definitions') {
+            return {
+              collection() {
+                // Empty on purpose - falls back to achievement-service.js's
+                // own BOOTSTRAP_DEFINITIONS (first_win/five_wins/puzzle_master).
+                return { async get() { return { empty: true, docs: [] }; } };
+              },
+            };
+          }
+          if (docId === 'user_achievements') {
+            return {
+              collection(uid) {
+                return {
+                  doc(achievementId) {
+                    return {
+                      async get() {
+                        const set = achievementUnlocks.get(uid) || new Set();
+                        return { exists: set.has(achievementId) };
+                      },
+                      async set() {
+                        const set = achievementUnlocks.get(uid) || new Set();
+                        set.add(achievementId);
+                        achievementUnlocks.set(uid, set);
+                      },
+                    };
+                  },
+                };
+              },
+            };
+          }
+        }
         throw new Error(`Unhandled fake collection: ${name}`);
       },
     };
@@ -113,7 +146,7 @@ function makeFakeFirestore(seedGames, seedUsers) {
     },
   };
 
-  return { db, games, users, moveSubdocs };
+  return { db, games, users, moveSubdocs, achievementUnlocks };
 }
 
 jest.mock('firebase-admin', () => {
@@ -272,6 +305,14 @@ describe('recordMove', () => {
     expect(fake.users.get('black_uid').gamesPlayed).toBe(1);
     expect(fake.users.get('white_uid').losses).toBe(1);
     expect(fake.users.get('white_uid').gamesPlayed).toBe(1);
+
+    // Previously a server-detected checkmate credited stats but never
+    // unlocked an achievement for the winner - only resign/draw/abandon/
+    // timeout did, since those route through the Dart client's
+    // _endGameWithResult (or, for a real timeout, the handleTimeout
+    // cron). first_win's target (1 win) is now satisfied by this game.
+    expect(fake.achievementUnlocks.get('black_uid')?.has('first_win')).toBe(true);
+    expect(fake.achievementUnlocks.get('white_uid')).toBeUndefined();
   });
 
   it('rejects any move once the game is no longer active', async () => {
@@ -314,6 +355,7 @@ describe('recordMove', () => {
       expect(game.result).toBe('black_win');
       expect(fake.users.get('black_uid').wins).toBe(1);
       expect(fake.users.get('white_uid').losses).toBe(1);
+      expect(fake.achievementUnlocks.get('black_uid')?.has('first_win')).toBe(true);
       // No chess move was ever actually applied.
       expect(game.currentFen).toBe(
         'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1',

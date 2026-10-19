@@ -210,7 +210,7 @@ exports.recordMove = functions
       // waiting up to a minute.
       if (onMoveRemainingMs <= 0) {
         const result = isWhiteTurn ? "black_win" : "white_win";
-        const { gameUpdate, whiteUserUpdate, blackUserUpdate } =
+        const { gameUpdate, whiteUserUpdate, blackUserUpdate, winnerId } =
           computeGameEndUpdates(game, result, "timeout");
 
         const timeoutBatch = db.batch();
@@ -224,6 +224,9 @@ exports.recordMove = functions
           blackUserUpdate
         );
         await timeoutBatch.commit();
+        if (winnerId) {
+          await maybeUnlockAchievementsAfterTimeouts([winnerId]);
+        }
 
         throw new functions.https.HttpsError(
           "failed-precondition",
@@ -284,7 +287,7 @@ exports.recordMove = functions
       // until someone manually resigned or timed out.
       const conclusion = detectGameConclusion(chess);
       if (conclusion.concluded) {
-        const { gameUpdate, whiteUserUpdate, blackUserUpdate } =
+        const { gameUpdate, whiteUserUpdate, blackUserUpdate, winnerId } =
           computeGameEndUpdates(game, conclusion.result, conclusion.reason);
         Object.assign(updates, gameUpdate);
 
@@ -294,6 +297,18 @@ exports.recordMove = functions
         batch.update(db.collection("users").doc(game.whitePlayerId), whiteUserUpdate);
         batch.update(db.collection("users").doc(game.blackPlayerId), blackUserUpdate);
         await batch.commit();
+
+        // Previously a server-detected checkmate/stalemate (the most
+        // common way an online PvP game actually ends) credited stats
+        // correctly but never unlocked an achievement for the winner -
+        // only resign/draw/abandon/timeout (which route through the
+        // Dart client's _endGameWithResult) and the handleTimeout cron
+        // did this. maybeUnlockAchievementsAfterTimeouts isn't actually
+        // timeout-specific internally; it just runs the same
+        // best-effort achievement check for each winner id given.
+        if (winnerId) {
+          await maybeUnlockAchievementsAfterTimeouts([winnerId]);
+        }
       } else {
         const batch = db.batch();
         batch.update(gameRef, updates);
