@@ -1,6 +1,5 @@
 const functions = require("firebase-functions");
 const admin = require("firebase-admin");
-const { matchPlayers } = require("./matchmaking");
 const { applyMove, detectGameConclusion, replayMoves } = require("./game-validation");
 const { computeGameEndUpdates } = require("./game-ending");
 const {
@@ -14,121 +13,32 @@ admin.initializeApp();
 const db = admin.firestore();
 const realtimeDb = admin.database();
 
-/**
- * Cloud Function: Find matches in queue every 5 seconds
- * Pairs players with compatible ratings
- */
-exports.matchmakingWorker = functions
-  .runWith({ timeoutSeconds: 540, memory: "256MB" })
-  .pubsub.schedule("every 5 seconds")
-  .onRun(async (context) => {
-    console.log("Starting matchmaking worker...");
-
-    try {
-      // Get all waiting queue entries
-      const snapshot = await db
-        .collection("matchmaking_queue")
-        .where("status", "==", "waiting")
-        .orderBy("priority", "descending")
-        .orderBy("queuedAt", "ascending")
-        .get();
-
-      if (snapshot.empty) {
-        console.log("No players in queue");
-        return null;
-      }
-
-      const queueEntries = snapshot.docs.map((doc) => ({
-        id: doc.id,
-        ...doc.data(),
-      }));
-
-      // Attempt to match players
-      const matches = matchPlayers(queueEntries);
-      console.log(`Found ${matches.length} matches`);
-
-      // Create games for each match
-      const batch = db.batch();
-
-      for (const match of matches) {
-        const gameId = db.collection("games").doc().id;
-        const now = admin.firestore.Timestamp.now();
-
-        // Determine colors
-        const whiteId =
-          match.player1.color === "white"
-            ? match.player1.playerId
-            : match.player2.playerId;
-        const blackId =
-          match.player1.color === "black"
-            ? match.player1.playerId
-            : match.player2.playerId;
-        const whitePlayer =
-          match.player1.playerId === whiteId ? match.player1 : match.player2;
-        const blackPlayer =
-          match.player1.playerId === blackId ? match.player1 : match.player2;
-
-        // Create game document
-        const gameData = {
-          gameId,
-          type: "online_pvp",
-          status: "matchmaking",
-          createdAt: now,
-          whitePlayerId: whiteId,
-          blackPlayerId: blackId,
-          whitePlayerName: whitePlayer.playerName,
-          blackPlayerName: blackPlayer.playerName,
-          whiteRating: whitePlayer.currentRating,
-          blackRating: blackPlayer.currentRating,
-          pgn: "",
-          currentFen:
-            "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1",
-          moves: [],
-          timeControl: match.timeControlType,
-          timeControlMs: timeControlMs(match.timeControlType),
-          whiteTimeRemainingMs: timeControlMs(match.timeControlType),
-          blackTimeRemainingMs: timeControlMs(match.timeControlType),
-        };
-
-        batch.set(db.collection("games").doc(gameId), gameData);
-
-        // Update queue entries
-        batch.update(
-          db.collection("matchmaking_queue").doc(match.player1.queueId),
-          {
-            status: "matched",
-            matchedGameId: gameId,
-            matchedOpponentId: match.player2.playerId,
-          }
-        );
-
-        batch.update(
-          db.collection("matchmaking_queue").doc(match.player2.queueId),
-          {
-            status: "matched",
-            matchedGameId: gameId,
-            matchedOpponentId: match.player1.playerId,
-          }
-        );
-
-        // Create Realtime DB game node for real-time sync
-        await realtimeDb.ref(`games/${gameId}`).set({
-          status: "matchmaking",
-          createdAt: Date.now(),
-          whitePlayerId: whiteId,
-          blackPlayerId: blackId,
-        });
-      }
-
-      await batch.commit();
-      console.log(`Created ${matches.length} games`);
-
-      return { matched: matches.length };
-    } catch (error) {
-      console.error("Matchmaking error:", error);
-      throw error;
-    }
-  });
+// A scheduled `matchmakingWorker` Cloud Function used to live here,
+// independently scanning `matchmaking_queue` for 'waiting' entries
+// and matching them every 5 seconds via the same pure matchPlayers()
+// (./matchmaking.js) the Dart client's own matching path uses.
+// Removed: MatchmakingService.tryMatch (lib/src/services/
+// matchmaking_service.dart) already does this client-side, polled by
+// MatchmakingScreen - and does it *correctly*, atomically claiming
+// both queue entries (flipping them to an intermediate 'matching'
+// status inside a Firestore transaction, _claimPair) before either
+// side creates a game. This worker had no such claim step: it took a
+// plain get() snapshot, computed matches, then unconditionally wrote
+// 'matched' + created a new `games` doc with a batch, never
+// re-checking that either entry was still 'waiting' at commit time.
+// Running both concurrently (which they were - this fired every 5s
+// regardless of whether tryMatch's own polling had already claimed a
+// pair) could create two separate games for the same two players,
+// with the queue docs' matchedGameId ending up pointing at whichever
+// system committed last - a genuine race, not a deliberate
+// belt-and-suspenders safety net, since this worker was already
+// documented as nonexistent in firestore.rules' own
+// matchmaking_queue comment ("there's no Cloud Function to own this
+// step") before this fix. matchPlayers()/matchmaking.js itself is
+// kept (and still covered by matchmaking.test.js) since it's a pure
+// pairing-selection function with its own value independent of which
+// caller drives it; only this redundant, racing Cloud Function
+// wrapper around it is removed.
 
 /**
  * Cloud Function: Record player move

@@ -89,10 +89,29 @@ service cloud.firestore {
       }
 
       // Cross-user: a friend-request/accept notification is written into
-      // the OTHER party's inbox by `FriendService`.
+      // the OTHER party's inbox by `FriendService`
+      // (sendFriendRequest/acceptFriendRequest), and a rematch
+      // notification by `OnlineGameService`
+      // (notifyOpponentOfRematch) - request.auth.uid is therefore
+      // never necessarily `userId` here by design. Previously this had
+      // no restriction at all beyond "doc id matches the path", so any
+      // signed-in stranger could flood any victim's inbox with
+      // completely attacker-controlled title/body/type and an
+      // arbitrary data.actionUrl (a phishing-style deep link, since
+      // NotificationScreen navigates to whatever actionUrl a
+      // notification carries). Restricting `type` to the two values
+      // this app actually ever sends, and `data.actionUrl` to the
+      // shape those two send, closes the spam/phishing vector without
+      // needing a full sender-relationship check (friend_request's
+      // sender and the recipient aren't friends yet at send time, so
+      // "must already be an accepted friend" wouldn't even fit the
+      // legitimate case).
       match /notifications/{notificationId} {
         allow read, update, delete: if isOwner(userId);
-        allow create: if isSignedIn() && request.resource.data.uid == userId;
+        allow create: if isSignedIn() &&
+          request.resource.data.uid == userId &&
+          request.resource.data.type in ['friend_request', 'game_matched'] &&
+          request.resource.data.data.actionUrl.matches('^/(friends|online-game/.+)$');
       }
 
       // Per-user progress against the app's bundled static curriculum
@@ -346,13 +365,32 @@ service cloud.firestore {
     // logActivity call (writing into BOTH players' friends' feeds once
     // a game ends) would have been rejected. The writer is whichever
     // client's transaction detects game end first, so request.auth.uid
-    // is not necessarily the feed owner nor the activity's own userId -
-    // client-trusted the same way games/matchmaking_queue already are,
-    // since there's no Cloud Function to arbitrate this.
+    // is not necessarily the feed owner - but FriendService.logActivity
+    // always writes `userId: userId` as the activity's own actor (the
+    // one who did the thing being posted about), and only ever fans out
+    // to that actor's own accepted friends' feeds. Without a check tying
+    // the two together, any signed-in stranger (not just an accepted
+    // friend of feedOwnerUid) could `create` a doc here with completely
+    // attacker-controlled title/description/metadata and any claimed
+    // userId, which feedOwnerUid would see rendered in their own
+    // "Friends" activity feed as if a real friend posted it - a stored
+    // content-injection/spam vector into a collection the owner trusts.
+    // isAcceptedFriendOf() closes this the same way other cross-user
+    // writes in this file are narrowed: not to "nobody but the owner"
+    // (the actor genuinely isn't the feed owner here), but to "a real,
+    // accepted relationship with the feed owner" instead of "anyone
+    // signed in at all".
+    function isAcceptedFriendOf(ownerUid) {
+      return request.auth.uid == request.resource.data.userId &&
+        get(/databases/$(database)/documents/users/$(ownerUid)/friends/$(request.auth.uid)).data.status == 'accepted';
+    }
+
     match /activity_feed/{feedOwnerUid} {
       match /feed/{activityId} {
         allow read: if isOwner(feedOwnerUid);
-        allow create: if isSignedIn() && request.resource.data.userId is string;
+        allow create: if isSignedIn() &&
+          request.resource.data.userId is string &&
+          isAcceptedFriendOf(feedOwnerUid);
         allow update, delete: if false;
       }
     }
@@ -391,9 +429,33 @@ service cloud.firestore {
       // completeChallengeWithWinner writes BOTH the winner's and the
       // loser's streak doc in one transaction, so this can't be
       // owner-restricted - whichever participant's client runs the
-      // transaction must be able to write the other player's doc too.
-      // Still can't spoof whose streak it claims to be.
-      allow write: if isSignedIn() && request.resource.data.userId == userId;
+      // transaction must be able to write the other player's doc too,
+      // same client-trusted pattern as `users/{userId}`'s rating/stat
+      // fields. Unlike that doc's update rule, this used to have NO
+      // field restriction at all (a bare `write`, not scoped to
+      // specific fields) - any signed-in user could `set()` a
+      // stranger's streak doc to any shape at all with arbitrary extra
+      // fields, directly defacing (or inflating) the public
+      // getTopStreaks leaderboard with no relationship to that victim
+      // required whatsoever. completeChallengeWithWinner's own
+      // transaction.set() always writes exactly these 7 fields with
+      // these types, so this now requires the same shape rather than
+      // accepting anything.
+      allow write: if isSignedIn() &&
+        request.resource.data.userId == userId &&
+        request.resource.data.keys().hasOnly([
+          'userId', 'currentStreak', 'bestStreak',
+          'totalChallengesWon', 'totalChallengesLost',
+          'winRate', 'streakStartDate'
+        ]) &&
+        request.resource.data.currentStreak is int &&
+        request.resource.data.currentStreak >= 0 &&
+        request.resource.data.bestStreak is int &&
+        request.resource.data.bestStreak >= 0 &&
+        request.resource.data.totalChallengesWon is int &&
+        request.resource.data.totalChallengesWon >= 0 &&
+        request.resource.data.totalChallengesLost is int &&
+        request.resource.data.totalChallengesLost >= 0;
     }
 
     match /challenge_results/{resultId} {
