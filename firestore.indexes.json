@@ -1,6 +1,24 @@
 {
   "indexes": [
     {
+      "collectionGroup": "games",
+      "queryScope": "Collection",
+      "fields": [
+        {
+          "fieldPath": "type",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "status",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "createdAt",
+          "order": "DESCENDING"
+        }
+      ]
+    },
+    {
       "collectionGroup": "leaderboards",
       "queryScope": "Collection",
       "fields": [

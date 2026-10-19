@@ -240,7 +240,16 @@ service cloud.firestore {
         return isParticipant([resource.data.whitePlayerId, resource.data.blackPlayerId]);
       }
 
-      allow read: if isGameParticipant();
+      // Spectator mode: any signed-in user may read (and list, via
+      // liveGamesProvider's status/type query) a game that is currently
+      // "active" and an online PvP match - not a participant-only
+      // restriction here, since the whole point is letting a
+      // non-participant watch. A completed/matchmaking-status game, or
+      // a CPU game (whitePlayerId/blackPlayerId are the literal strings
+      // 'player'/'cpu' for those, not real uids, and there is nothing to
+      // watch on someone else's device anyway), stays participant-only.
+      allow read: if isGameParticipant() ||
+        (isSignedIn() && resource.data.type == 'online_pvp' && resource.data.status == 'active');
       allow create: if isSignedIn() &&
         request.auth.uid in [request.resource.data.whitePlayerId, request.resource.data.blackPlayerId];
       // startGame/updateTimeRemaining/recordActivity/_endGameWithResult
