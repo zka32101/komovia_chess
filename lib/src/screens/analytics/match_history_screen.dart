@@ -5,7 +5,7 @@ import '../../widgets/animations/chart_entrance_animation.dart';
 import 'pgn_import_screen.dart';
 
 /// Screen for displaying match history with filtering and pagination
-class MatchHistoryScreen extends ConsumerWidget {
+class MatchHistoryScreen extends ConsumerStatefulWidget {
   const MatchHistoryScreen({
     required this.playerId,
     required this.playerName,
@@ -15,7 +15,28 @@ class MatchHistoryScreen extends ConsumerWidget {
   final String playerName;
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<MatchHistoryScreen> createState() => _MatchHistoryScreenState();
+}
+
+class _MatchHistoryScreenState extends ConsumerState<MatchHistoryScreen> {
+  @override
+  void initState() {
+    super.initState();
+    // MatchHistoryNotifier starts in AsyncValue.loading() and only ever
+    // transitions out of it when loadHistory() is called - previously
+    // nothing called it on screen open, so this screen showed an infinite
+    // spinner until the user happened to press "リセット" (the only other
+    // caller of loadHistory, via resetFilters).
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      ref.read(matchHistoryProvider.notifier).loadHistory(widget.playerId);
+    });
+  }
+
+  String get playerId => widget.playerId;
+  String get playerName => widget.playerName;
+
+  @override
+  Widget build(BuildContext context) {
     final matchHistoryState = ref.watch(matchHistoryProvider);
 
     return Scaffold(
@@ -51,7 +72,10 @@ class MatchHistoryScreen extends ConsumerWidget {
               ),
               const SizedBox(height: 24),
               ElevatedButton.icon(
-                onPressed: () => ref.refresh(matchHistoryProvider),
+                onPressed: () {
+                  ref.refresh(matchHistoryProvider);
+                  ref.read(matchHistoryProvider.notifier).loadHistory(widget.playerId);
+                },
                 icon: const Icon(Icons.refresh),
                 label: const Text('再試行'),
               ),
