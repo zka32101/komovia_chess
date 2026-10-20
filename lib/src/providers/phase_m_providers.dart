@@ -86,14 +86,6 @@ class AnalyticsInvalidationNotifier extends StateNotifier<List<String>> {
   List<String> getInvalidationHistory() => state;
 }
 
-/// Batch analytics loading
-final batchPlayerAnalyticsProvider =
-    FutureProvider.family<Map<String, PlayerAnalyticsDashboard>, List<String>>(
-        (ref, userIds) async {
-  final service = ref.watch(analyticsDashboardServiceProvider);
-  return service.batchGetDashboards(userIds);
-});
-
 /// Analytics dashboard KPIs
 final dashboardKPIsProvider =
     FutureProvider.family<List<DashboardKPI>, String>((ref, userId) async {
