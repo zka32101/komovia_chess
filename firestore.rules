@@ -312,31 +312,29 @@ service cloud.firestore {
       allow read: if isOwner(userId) || isAdmin();
       // Previously had no value bound at all (only a field-shape check),
       // so any signed-in user could set() a stranger's doc to an
-      // arbitrary totalPrizeWinnings with no real tournament behind it.
-      // distributePrizes computes prizeAmount from a tournament's own
-      // prizePool, which is itself currently unbounded at tournament
-      // creation (a separate, lower-severity gap - closing it would need
-      // its own creation-time cap) - but bounding the per-write delta to
-      // a generous single-tournament-prize cap still rules out an
-      // attacker writing an arbitrary/overflow value with nothing real
-      // behind it, same "client-trusted but bounded" pattern already
-      // used for challenge_streaks/player_challenge_progress above.
+      // arbitrary totalPrizeWinnings/tournaments with no real tournament
+      // behind it. distributePrizes always *increments* both fields (by
+      // a positive prizeAmount, and by exactly 1 for `tournaments`), so
+      // the shape check now requires the same - tournaments must rise by
+      // exactly 1, and totalPrizeWinnings must rise (never fall) by a
+      // bounded amount per call. distributePrizes computes prizeAmount
+      // from a tournament's own prizePool, which is itself currently
+      // unbounded at tournament creation (a separate, lower-severity gap
+      // - closing it would need its own creation-time cap); prizePool
+      // also has no real-money backing (purely cosmetic, per
+      // distributePrizes' own doc comment), so the cap here is generous
+      // rather than tied to any specific currency limit.
       allow create: if isSignedIn() &&
         request.resource.data.keys().hasOnly(['totalPrizeWinnings', 'tournaments']) &&
         request.resource.data.totalPrizeWinnings is int &&
         request.resource.data.totalPrizeWinnings >= 0 &&
         request.resource.data.totalPrizeWinnings <= 1000000 &&
-        request.resource.data.tournaments is int &&
-        request.resource.data.tournaments >= 0 &&
-        request.resource.data.tournaments <= 1;
+        request.resource.data.tournaments == 1;
       allow update: if isSignedIn() &&
         onlyChanged(['totalPrizeWinnings', 'tournaments']) &&
-        request.resource.data.totalPrizeWinnings is int &&
-        request.resource.data.totalPrizeWinnings >= 0 &&
-        request.resource.data.totalPrizeWinnings - prevIntField('totalPrizeWinnings') <= 1000000 &&
-        request.resource.data.tournaments is int &&
-        request.resource.data.tournaments >= 0 &&
-        request.resource.data.tournaments - prevIntField('tournaments') <= 1;
+        request.resource.data.tournaments == prevIntField('tournaments') + 1 &&
+        (request.resource.data.totalPrizeWinnings - prevIntField('totalPrizeWinnings')) >= 0 &&
+        (request.resource.data.totalPrizeWinnings - prevIntField('totalPrizeWinnings')) <= 1000000;
     }
 
     // ============================================
