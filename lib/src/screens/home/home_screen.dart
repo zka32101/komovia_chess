@@ -17,6 +17,7 @@ import '../ranking/leaderboard_screen.dart';
 import '../learn/learn_hub_screen.dart';
 import '../online/live_games_screen.dart';
 import '../tournaments/tournaments_screen.dart';
+import '../clubs/clubs_screen.dart';
 
 class HomeScreen extends ConsumerStatefulWidget {
   const HomeScreen({Key? key}) : super(key: key);
@@ -233,6 +234,9 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                 // system itself (registration, standings, match results)
                 // being fully implemented.
                 const _TournamentsSection(),
+
+                // Clubs Section
+                const _ClubsSection(),
 
                 // Daily Challenge Section
                 const _DailyChallengeSection(),
@@ -549,6 +553,55 @@ class _TournamentsSection extends StatelessWidget {
                         const SizedBox(height: 4),
                         Text(
                           '開催中・参加予定のトーナメントを確認、新規登録もここから。',
+                          style: Theme.of(context).textTheme.bodySmall,
+                        ),
+                      ],
+                    ),
+                  ),
+                  const Icon(Icons.chevron_right),
+                ],
+              ),
+            ),
+          ),
+        ),
+      );
+}
+
+class _ClubsSection extends StatelessWidget {
+  const _ClubsSection();
+
+  @override
+  Widget build(BuildContext context) => Padding(
+        padding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
+        child: Card(
+          color: Theme.of(context).colorScheme.tertiaryContainer.withOpacity(0.4),
+          child: InkWell(
+            borderRadius: BorderRadius.circular(12),
+            onTap: () {
+              Navigator.of(context).push(
+                SmoothPageTransition(page: const ClubsScreen()),
+              );
+            },
+            child: Padding(
+              padding: const EdgeInsets.all(16),
+              child: Row(
+                children: [
+                  const Icon(Icons.groups_outlined, size: 32),
+                  const SizedBox(width: 16),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          'クラブ',
+                          style:
+                              Theme.of(context).textTheme.titleMedium?.copyWith(
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                        ),
+                        const SizedBox(height: 4),
+                        Text(
+                          '仲間を見つけて参加、クラブ内ランキングで競い合おう。',
                           style: Theme.of(context).textTheme.bodySmall,
                         ),
                       ],
