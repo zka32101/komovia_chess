@@ -92,6 +92,30 @@ function makeFakeFirestore(seedGames) {
         },
       };
     },
+    // Enough of the real Transaction API (get on either a doc ref or a
+    // query, update/delete queued and applied once the callback
+    // resolves) for respondToTakeback's own transaction to run against -
+    // no real isolation/retry semantics, same as this file's `batch()`.
+    async runTransaction(updateFunction) {
+      const ops = [];
+      const tx = {
+        async get(refOrQuery) {
+          return refOrQuery.get();
+        },
+        update(ref, patch) {
+          ops.push({ type: 'update', ref, patch });
+        },
+        delete(ref) {
+          ops.push({ type: 'delete', ref });
+        },
+      };
+      const result = await updateFunction(tx);
+      for (const op of ops) {
+        if (op.type === 'update') await op.ref.update(op.patch);
+        else await op.ref.delete();
+      }
+      return result;
+    },
   };
 
   return { db, games, moveSubdocs };

@@ -316,79 +316,91 @@ exports.respondToTakeback = functions
 
     try {
       const gameRef = db.collection("games").doc(gameId);
-      const gameDoc = await gameRef.get();
 
-      if (!gameDoc.exists) {
-        throw new functions.https.HttpsError("not-found", "Game not found");
-      }
+      // Transactional, like recordMove/handleTimeout: a plain read-then-
+      // batch-write here (as this used to be) could have a concurrent
+      // recordMove or handleTimeout commit a newer move/clock update or
+      // conclude the game entirely in the window between this function's
+      // own read and its batch commit - the stale batch would then
+      // silently clobber that newer state with a precomputed position
+      // based on data that's no longer current (reverting a just-played
+      // move, or reviving a game that just ended by timeout).
+      await db.runTransaction(async (transaction) => {
+        const gameDoc = await transaction.get(gameRef);
 
-      const game = gameDoc.data();
+        if (!gameDoc.exists) {
+          throw new functions.https.HttpsError("not-found", "Game not found");
+        }
 
-      if (game.status !== "active") {
-        throw new functions.https.HttpsError(
-          "failed-precondition",
-          "Game is not active"
+        const game = gameDoc.data();
+
+        if (game.status !== "active") {
+          throw new functions.https.HttpsError(
+            "failed-precondition",
+            "Game is not active"
+          );
+        }
+        if (
+          playerId !== game.whitePlayerId &&
+          playerId !== game.blackPlayerId
+        ) {
+          throw new functions.https.HttpsError(
+            "permission-denied",
+            "Not a participant in this game"
+          );
+        }
+        if (!game.takebackRequestedBy) {
+          throw new functions.https.HttpsError(
+            "failed-precondition",
+            "No takeback request pending"
+          );
+        }
+        if (game.takebackRequestedBy === playerId) {
+          throw new functions.https.HttpsError(
+            "permission-denied",
+            "Cannot accept your own takeback request"
+          );
+        }
+
+        const moves = game.moves || [];
+        if (moves.length === 0) {
+          throw new functions.https.HttpsError(
+            "failed-precondition",
+            "No move to undo"
+          );
+        }
+
+        const remainingMoves = moves.slice(0, -1);
+        const chess = replayMoves(remainingMoves);
+
+        // Remove the now-undone move's own subcollection doc too
+        // (recordMove's `moves` subcollection - gameMoveProvider/
+        // getGameMoves reads it for the move-history list), so that list
+        // doesn't show a move that no longer exists on the board. The
+        // read must happen here, before any write in the transaction -
+        // Firestore transactions require all reads before all writes.
+        const staleMoveDocs = await transaction.get(
+          gameRef.collection("moves").where("moveNumber", "==", moves.length)
         );
-      }
-      if (playerId !== game.whitePlayerId && playerId !== game.blackPlayerId) {
-        throw new functions.https.HttpsError(
-          "permission-denied",
-          "Not a participant in this game"
-        );
-      }
-      if (!game.takebackRequestedBy) {
-        throw new functions.https.HttpsError(
-          "failed-precondition",
-          "No takeback request pending"
-        );
-      }
-      if (game.takebackRequestedBy === playerId) {
-        throw new functions.https.HttpsError(
-          "permission-denied",
-          "Cannot accept your own takeback request"
-        );
-      }
 
-      const moves = game.moves || [];
-      if (moves.length === 0) {
-        throw new functions.https.HttpsError(
-          "failed-precondition",
-          "No move to undo"
-        );
-      }
-
-      const remainingMoves = moves.slice(0, -1);
-      const chess = replayMoves(remainingMoves);
-
-      const batch = db.batch();
-      batch.update(gameRef, {
-        currentFen: chess.fen(),
-        pgn: chess.pgn(),
-        moves: remainingMoves,
-        takebackRequestedBy: null,
-        // recordMove computes the next mover's elapsed thinking time as
-        // `now - lastMoveTimestamp`, so leaving this stale here would
-        // double-charge whoever moves next for the entire negotiation
-        // window (however long the takeback request sat pending) on top
-        // of the time already deducted for the now-undone move.
-        // Resetting it to now gives the next mover a fresh clock read,
-        // the same as any ordinary move would.
-        lastMoveTimestamp: admin.firestore.Timestamp.now(),
+        transaction.update(gameRef, {
+          currentFen: chess.fen(),
+          pgn: chess.pgn(),
+          moves: remainingMoves,
+          takebackRequestedBy: null,
+          // recordMove computes the next mover's elapsed thinking time as
+          // `now - lastMoveTimestamp`, so leaving this stale here would
+          // double-charge whoever moves next for the entire negotiation
+          // window (however long the takeback request sat pending) on top
+          // of the time already deducted for the now-undone move.
+          // Resetting it to now gives the next mover a fresh clock read,
+          // the same as any ordinary move would.
+          lastMoveTimestamp: admin.firestore.Timestamp.now(),
+        });
+        for (const doc of staleMoveDocs.docs) {
+          transaction.delete(doc.ref);
+        }
       });
-
-      // Remove the now-undone move's own subcollection doc too
-      // (recordMove's `moves` subcollection - gameMoveProvider/
-      // getGameMoves reads it for the move-history list), so that list
-      // doesn't show a move that no longer exists on the board.
-      const staleMoveDocs = await gameRef
-        .collection("moves")
-        .where("moveNumber", "==", moves.length)
-        .get();
-      for (const doc of staleMoveDocs.docs) {
-        batch.delete(doc.ref);
-      }
-
-      await batch.commit();
 
       console.log(`Takeback accepted in game ${gameId}`);
 
