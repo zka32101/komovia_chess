@@ -471,11 +471,32 @@ exports.handleTimeout = functions
             const freshGame = freshSnap.data();
             if (!freshGame || freshGame.status !== "active") return null;
 
+            // Recompute whose turn it is from this transaction's own
+            // read, not the outer scan's - recordMove can commit a move
+            // for this exact game in the gap between the scan above and
+            // this transaction's commit (this function runs for up to
+            // 540s over potentially many games), which would flip whose
+            // clock is actually running without changing the outer
+            // closure's now-stale isWhiteTurn/onMoveRemainingMs. Using
+            // those stale values here would credit the timeout to
+            // whichever side was on move when the scan ran, not when
+            // this transaction actually commits.
+            const freshMoveCount = freshGame.moves ? freshGame.moves.length : 0;
+            const freshIsWhiteTurn = freshMoveCount % 2 === 0;
+            const freshLastMoveTime = freshGame.lastMoveTimestamp
+              ? freshGame.lastMoveTimestamp.toMillis()
+              : freshGame.startedAt.toMillis();
+            const freshElapsedMs = Date.now() - freshLastMoveTime;
+            const freshOnMoveRemainingMs = freshIsWhiteTurn
+              ? freshGame.whiteTimeRemainingMs
+              : freshGame.blackTimeRemainingMs;
+            if (freshOnMoveRemainingMs - freshElapsedMs > 0) return null;
+
             const { winnerId } = handleGameTimeout(
               tx,
               doc.ref,
               freshGame,
-              isWhiteTurn ? "white" : "black"
+              freshIsWhiteTurn ? "white" : "black"
             );
             return winnerId;
           });

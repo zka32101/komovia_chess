@@ -192,13 +192,29 @@ class OnlineGameService {
   }
 
   /// Record player activity (for detecting timeouts)
+  ///
+  /// [playerId] is the caller's real Firebase uid (not the literal string
+  /// 'white'/'black') - the game doc is read first to resolve which side
+  /// that uid actually plays, since comparing uid == 'white' would always
+  /// be false and silently write to the wrong (black) activity field.
   Future<void> recordActivity(String gameId, String playerId) async {
     try {
-      final fieldName = playerId == 'white'
-          ? 'whiteLastActivityTimestamp'
-          : 'blackLastActivityTimestamp';
+      final docRef = _firestore.collection(_gamesCollection).doc(gameId);
+      final snapshot = await docRef.get();
+      final data = snapshot.data();
+      if (data == null) return;
 
-      await _firestore.collection(_gamesCollection).doc(gameId).update({
+      final String fieldName;
+      if (data['whitePlayerId'] == playerId) {
+        fieldName = 'whiteLastActivityTimestamp';
+      } else if (data['blackPlayerId'] == playerId) {
+        fieldName = 'blackLastActivityTimestamp';
+      } else {
+        _logger.w('recordActivity: $playerId is not a player in $gameId');
+        return;
+      }
+
+      await docRef.update({
         fieldName: FieldValue.serverTimestamp(),
       });
     } catch (e, st) {
