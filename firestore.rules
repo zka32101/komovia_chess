@@ -253,6 +253,26 @@ service cloud.firestore {
     }
 
     // ============================================
+    // Clubs Collection
+    // ============================================
+    // A lightweight social group (ClubService) — open-read/joinable, no
+    // per-club chat or matches. Creation requires memberUids to be exactly
+    // [creator]; join/leave are each restricted to appending/removing only
+    // the caller's own uid, same self-service idiom as tournaments'
+    // participantUids above.
+    match /clubs/{clubId} {
+      allow read: if isSignedIn();
+      allow create: if isSignedIn() &&
+        request.resource.data.createdBy == request.auth.uid &&
+        request.resource.data.memberUids == [request.auth.uid];
+      allow update: if isSignedIn() && onlyChanged(['memberUids']) && (
+        request.resource.data.memberUids == resource.data.memberUids.concat([request.auth.uid]) ||
+        request.resource.data.memberUids == resource.data.memberUids.removeAll([request.auth.uid])
+      );
+      allow delete: if isSignedIn() && resource.data.createdBy == request.auth.uid;
+    }
+
+    // ============================================
     // Prize Winnings (TournamentService.distributePrizes)
     // ============================================
     // Not nested under tournaments/{tournamentId} - keyed by userId alone,
