@@ -815,7 +815,22 @@ class OnlineGameService {
     }
   }
 
-  /// Parse time control string to milliseconds
+  /// Parse time control string to milliseconds.
+  ///
+  /// '1day'/'3day'/'7day' are correspondence-style controls (⑤ from the
+  /// feature survey this round) - a much larger time bank than the live
+  /// controls above, meant to let two players make a move every so often
+  /// over several days rather than sit through a live clock. They reuse
+  /// the exact same recordMove/handleTimeout clock machinery as every
+  /// other time control (whiteTimeRemainingMs/blackTimeRemainingMs only
+  /// ever tick down while it's that side's turn, same as a real chess
+  /// clock - see index.js's recordMove), so no new backend architecture
+  /// was needed. This is a real limitation worth being explicit about:
+  /// it's a single shared time bank for the whole game, not a per-move
+  /// allowance that replenishes after each move the way some other
+  /// correspondence chess implementations work - a player who makes
+  /// several fast moves early still draws down the same bank they'll
+  /// need later in the game.
   int _parseTimeControl(String timeControl) {
     switch (timeControl) {
       case '3min':
@@ -824,6 +839,12 @@ class OnlineGameService {
         return 5 * 60 * 1000;
       case '10min':
         return 10 * 60 * 1000;
+      case '1day':
+        return 1 * 24 * 60 * 60 * 1000;
+      case '3day':
+        return 3 * 24 * 60 * 60 * 1000;
+      case '7day':
+        return 7 * 24 * 60 * 60 * 1000;
       default:
         return 5 * 60 * 1000; // Default to 5 minutes
     }
