@@ -19,6 +19,7 @@ class UserPreferences {
     this.pieceStyle = 'default',
     this.boardStyle = 'default',
     this.analysisDepth = 12,
+    this.blindfoldMode = false,
     this.lastUpdated,
   });
 
@@ -45,6 +46,7 @@ class UserPreferences {
       pieceStyle: map['pieceStyle'] ?? 'default',
       boardStyle: map['boardStyle'] ?? 'default',
       analysisDepth: map['analysisDepth'] ?? 12,
+      blindfoldMode: map['blindfoldMode'] ?? false,
       lastUpdated: map['lastUpdated'] != null
           ? (map['lastUpdated'] as Timestamp).toDate()
           : null,
@@ -73,6 +75,11 @@ class UserPreferences {
   /// with no user-facing control at all. 8-20; default 12 is a modest
   /// depth that still returns quickly on typical mobile hardware.
   final int analysisDepth;
+
+  /// Hides piece glyphs on the board during CPU/online games (see
+  /// GameBoard.blindfold) - the player must track the position from
+  /// memory, same as playing blindfold chess over the board in person.
+  final bool blindfoldMode;
   final DateTime? lastUpdated;
 
   Map<String, dynamic> toMap() => {
@@ -89,6 +96,7 @@ class UserPreferences {
         'pieceStyle': pieceStyle,
         'boardStyle': boardStyle,
         'analysisDepth': analysisDepth,
+        'blindfoldMode': blindfoldMode,
         'lastUpdated': FieldValue.serverTimestamp(),
       };
 
@@ -106,6 +114,7 @@ class UserPreferences {
     String? pieceStyle,
     String? boardStyle,
     int? analysisDepth,
+    bool? blindfoldMode,
     DateTime? lastUpdated,
   }) =>
       UserPreferences(
@@ -122,6 +131,7 @@ class UserPreferences {
         pieceStyle: pieceStyle ?? this.pieceStyle,
         boardStyle: boardStyle ?? this.boardStyle,
         analysisDepth: analysisDepth ?? this.analysisDepth,
+        blindfoldMode: blindfoldMode ?? this.blindfoldMode,
         lastUpdated: lastUpdated ?? this.lastUpdated,
       );
 }
@@ -369,6 +379,25 @@ class UserPreferencesService {
     }
   }
 
+  // Update blindfold-mode preference
+  Future<void> setBlindfoldMode(bool enabled) async {
+    final user = _auth.currentUser;
+    if (user == null) throw Exception('No user logged in');
+
+    try {
+      await _firestore.collection('user_preferences').doc(user.uid).set(
+        {
+          'blindfoldMode': enabled,
+          'lastUpdated': FieldValue.serverTimestamp(),
+        },
+        SetOptions(merge: true),
+      );
+    } catch (e) {
+      print('Error updating blindfold mode: $e');
+      rethrow;
+    }
+  }
+
   // Reset to default preferences
   Future<void> resetToDefaults() async {
     final user = _auth.currentUser;
@@ -486,5 +515,15 @@ final analysisDepthProvider = StateProvider<int>((ref) {
     data: (prefs) => prefs.analysisDepth,
     loading: () => 12,
     error: (_, __) => 12,
+  );
+});
+
+// Blindfold-mode provider (state)
+final blindfoldModeProvider = StateProvider<bool>((ref) {
+  final preferences = ref.watch(userPreferencesProvider);
+  return preferences.when(
+    data: (prefs) => prefs.blindfoldMode,
+    loading: () => false,
+    error: (_, __) => false,
   );
 });

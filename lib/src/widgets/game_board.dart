@@ -19,6 +19,7 @@ class GameBoard extends StatefulWidget {
     this.showCoordinates = true,
     this.premoveColor,
     this.onPremove,
+    this.blindfold = false,
   }) : super(key: key);
   final chess_lib.Chess gameState;
   final Function(String, String, {String? promotion})? onMove;
@@ -30,6 +31,13 @@ class GameBoard extends StatefulWidget {
   final bool isPlayerTurn;
   final BoardTheme theme;
   final bool showCoordinates;
+
+  /// When true, piece glyphs are not drawn on the board at all - the
+  /// player must track the position from memory, same as playing
+  /// blindfold chess over the board in person. Square highlighting
+  /// (selection/legal-move dots) and tap handling are unaffected, so the
+  /// board is still fully playable, just not visually readable.
+  final bool blindfold;
 
   /// When set (and [isPlayerTurn] is false), lets the local player select
   /// and queue a move for their own [premoveColor] pieces during the
@@ -345,10 +353,11 @@ class _GameBoardState extends State<GameBoard> {
                       ),
                       size: Size(boardSize, boardSize),
                     ),
-                    for (var rank = 0; rank < 8; rank++)
-                      for (var file = 0; file < 8; file++)
-                        if (widget.gameState.get(_squareFromIndices(rank, file))
-                            case final piece?)
+                    if (!widget.blindfold)
+                      for (var rank = 0; rank < 8; rank++)
+                        for (var file = 0; file < 8; file++)
+                          if (widget.gameState.get(_squareFromIndices(rank, file))
+                              case final piece?)
                           Positioned(
                             left: file * squareSize,
                             top: rank * squareSize,

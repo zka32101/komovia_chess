@@ -158,6 +158,11 @@ class SettingsScreen extends ConsumerWidget {
                       preferences.analysisDepth,
                       preferencesService,
                     ),
+                    const Divider(height: 1),
+                    _buildBlindfoldModeOption(
+                      preferences.blindfoldMode,
+                      preferencesService,
+                    ),
                   ],
                 ),
 
@@ -551,6 +556,21 @@ class SettingsScreen extends ConsumerWidget {
               ),
             ),
           );
+        },
+      );
+
+  Widget _buildBlindfoldModeOption(
+    bool enabled,
+    UserPreferencesService service,
+  ) =>
+      SwitchListTile(
+        title: const Text('Blindfold Mode'),
+        subtitle: const Text(
+          'Hide piece graphics during games - play from memory',
+        ),
+        value: enabled,
+        onChanged: (value) {
+          service.setBlindfoldMode(value);
         },
       );
 

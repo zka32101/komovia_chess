@@ -98,6 +98,7 @@ class _CPUGameScreenState extends ConsumerState<CPUGameScreen> {
               gameState: gameState.gameState,
               theme: boardTheme,
               showCoordinates: showCoordinates,
+              blindfold: ref.watch(blindfoldModeProvider),
               onMove: (from, to, {promotion}) {
                 ref.read(cpuGameProvider.notifier).makePlayerMove(
                       from,
@@ -155,6 +156,7 @@ class _CPUGameScreenState extends ConsumerState<CPUGameScreen> {
                     gameState: gameState.gameState,
                     theme: boardTheme,
                     showCoordinates: showCoordinates,
+                    blindfold: ref.watch(blindfoldModeProvider),
                     onMove: (from, to, {promotion}) {
                       ref.read(cpuGameProvider.notifier).makePlayerMove(
                             from,
