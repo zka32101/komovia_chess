@@ -384,63 +384,6 @@ void main() {
       });
     });
 
-    group('updateTimeRemaining', () {
-      test('updates white time remaining', () async {
-        var game = {
-          'whiteTimeRemainingMs': 180000,
-        };
-
-        game['whiteTimeRemainingMs'] = 170000;
-
-        expect(game['whiteTimeRemainingMs'], 170000);
-      });
-
-      test('updates black time remaining', () async {
-        var game = {
-          'blackTimeRemainingMs': 180000,
-        };
-
-        game['blackTimeRemainingMs'] = 165000;
-
-        expect(game['blackTimeRemainingMs'], 165000);
-      });
-
-      test('detects white timeout', () async {
-        final game = {
-          'whiteTimeRemainingMs': 0,
-          'status': 'active',
-        };
-
-        final isTimeout = (game['whiteTimeRemainingMs'] as int) <= 0;
-        expect(isTimeout, true);
-      });
-
-      test('detects black timeout', () async {
-        final game = {
-          'blackTimeRemainingMs': 0,
-          'status': 'active',
-        };
-
-        final isTimeout = (game['blackTimeRemainingMs'] as int) <= 0;
-        expect(isTimeout, true);
-      });
-
-      test('ends game when timeout occurs', () async {
-        var game = {
-          'whiteTimeRemainingMs': 0,
-          'status': 'active',
-        };
-
-        if ((game['whiteTimeRemainingMs'] as int) <= 0) {
-          game['status'] = 'completed';
-          game['result'] = 'black_win';
-        }
-
-        expect(game['status'], 'completed');
-        expect(game['result'], 'black_win');
-      });
-    });
-
     group('recordActivity', () {
       test('updates white activity timestamp', () async {
         final now = DateTime.now();
