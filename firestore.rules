@@ -247,8 +247,23 @@ service cloud.firestore {
         // Bracket generation and result recording are both currently done
         // by the organizer (see tournament_service.dart — this app has no
         // PvpGame-backed per-match result flow yet, unlike sibling apps).
-        allow write: if isSignedIn() &&
-          get(/databases/$(database)/documents/tournaments/$(tournamentId)).data.createdBy == request.auth.uid;
+        // Previously this was a blanket `allow write` (covering create,
+        // update, AND delete) with no shape constraint at all - not a
+        // cross-user forgery hole (still organizer-only), but it let even
+        // a legitimate organizer's own buggy bracket-regeneration code
+        // silently wipe or rewrite match history (scores, player
+        // assignments, winner) with nothing to catch it. tournament_service.dart
+        // never actually deletes a match doc, so that's dropped entirely;
+        // create/update are now restricted to komovia_core's
+        // TournamentMatch.toJson() field shape.
+        allow create, update: if isSignedIn() &&
+          get(/databases/$(database)/documents/tournaments/$(tournamentId)).data.createdBy == request.auth.uid &&
+          request.resource.data.keys().hasOnly([
+            'id', 'tournamentId', 'player1Uid', 'player1DisplayName',
+            'player2Uid', 'player2DisplayName', 'round', 'winnerUid',
+            'status', 'gameId', 'scheduledAt', 'completedAt'
+          ]);
+        allow delete: if false;
       }
     }
 
@@ -557,8 +572,27 @@ service cloud.firestore {
       // Open read: getHeadToHeadStats queries by arbitrary winner/loser
       // pairs, not just the caller's own matches.
       allow read: if isSignedIn();
+      // Previously only checked winnerId/loserId membership with no
+      // shape constraint at all - a participant (still gated by that
+      // membership check; not a cross-user forgery hole) could write
+      // any other field with any value/type, visible to every signed-in
+      // user via the open read above and rendered by getHeadToHeadStats.
+      // ChallengeService.completeChallengeWithWinner's own
+      // transaction.set() always writes exactly these 8 fields with
+      // these types/values.
       allow create: if isSignedIn() &&
-        request.auth.uid in [request.resource.data.winnerId, request.resource.data.loserId];
+        request.auth.uid in [request.resource.data.winnerId, request.resource.data.loserId] &&
+        request.resource.data.keys().hasOnly([
+          'resultId', 'challengeId', 'winnerId', 'loserId',
+          'winnerRatingGain', 'loserRatingLoss', 'completedAt',
+          'gameMode', 'moveCount'
+        ]) &&
+        request.resource.data.winnerRatingGain is int &&
+        request.resource.data.loserRatingLoss is int &&
+        request.resource.data.moveCount is int &&
+        request.resource.data.moveCount >= 0 &&
+        request.resource.data.gameMode == 'challenge' &&
+        request.resource.data.completedAt is timestamp;
       allow update, delete: if false;
     }
 
