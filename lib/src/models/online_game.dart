@@ -489,11 +489,18 @@ class UserPresence {
       };
 
   /// Copy with modifications
+  ///
+  /// [clearCurrentGameId] mirrors the clearDrawOffer/clearTakebackRequest
+  /// flags on OnlineGame.copyWith elsewhere in this file - without it,
+  /// `currentGameId: null` could never actually clear the field, since
+  /// `null ?? this.currentGameId` always keeps the old value, leaving a
+  /// finished game's id stuck in presence docs indefinitely.
   UserPresence copyWith({
     bool? isOnline,
     DateTime? lastSeenAt,
     String? currentActivity,
     String? currentGameId,
+    bool clearCurrentGameId = false,
     String? connectionStatus,
     DeviceInfo? deviceInfo,
   }) =>
@@ -502,7 +509,8 @@ class UserPresence {
         isOnline: isOnline ?? this.isOnline,
         lastSeenAt: lastSeenAt ?? this.lastSeenAt,
         currentActivity: currentActivity ?? this.currentActivity,
-        currentGameId: currentGameId ?? this.currentGameId,
+        currentGameId:
+            clearCurrentGameId ? null : (currentGameId ?? this.currentGameId),
         connectionStatus: connectionStatus ?? this.connectionStatus,
         deviceInfo: deviceInfo ?? this.deviceInfo,
       );
