@@ -769,9 +769,22 @@ service cloud.firestore {
         // fields those two methods ever touch.
         allow create: if isSignedIn() &&
           request.resource.data.playerId == playerId;
+        // The cross-user branch previously had no bound at all on the new
+        // currentProgress value, so any signed-in user could call this
+        // with any other player's uid as {playerId} and jump
+        // currentProgress straight to targetProgress (or any larger
+        // number) plus isCompleted: true - completing or corrupting a
+        // stranger's seasonal challenge in one write. recordMetricProgress
+        // only ever increments currentProgress by a small per-event
+        // amount (1 per game/win/draw), so a bounded step matches every
+        // real caller and still rejects an attacker jumping straight to
+        // completion.
         allow update: if isOwner(playerId) ||
           (isSignedIn() &&
-           onlyChanged(['currentProgress', 'isCompleted', 'completedAt', 'updatedAt']));
+           onlyChanged(['currentProgress', 'isCompleted', 'completedAt', 'updatedAt']) &&
+           request.resource.data.currentProgress is int &&
+           request.resource.data.currentProgress >= resource.data.currentProgress &&
+           request.resource.data.currentProgress - resource.data.currentProgress <= 10);
         allow delete: if isOwner(playerId);
       }
     }
