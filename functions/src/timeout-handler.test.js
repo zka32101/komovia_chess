@@ -106,6 +106,22 @@ function makeFakeFirestore(seedUsers) {
         },
       };
     },
+    // Enough of the real Transaction API (get/set, writes applied once
+    // the callback resolves) for achievement-service.js's own
+    // check-then-unlock transaction to run against - checkAndUnlockAchievements
+    // is called by maybeUnlockAchievementsAfterTimeouts below.
+    async runTransaction(updateFunction) {
+      const ops = [];
+      const tx = {
+        async get(ref) { return ref.get(); },
+        set(ref, data) { ops.push({ ref, data }); },
+      };
+      const result = await updateFunction(tx);
+      for (const { ref, data } of ops) {
+        await ref.set(data);
+      }
+      return result;
+    },
   };
 
   return { db, users, userAchievements, games };
