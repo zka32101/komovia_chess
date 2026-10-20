@@ -158,11 +158,22 @@ class ChessEngineService {
   }
 
   /// Get move history as PGN
-  String getPgnMoves() => _chess.moves().toString();
+  ///
+  /// Previously called `_chess.moves()`, which is package:chess's legal
+  /// -move *generator* for the current position, not the played-move
+  /// history - `.pgn()` is the actual transcript getter (already used
+  /// correctly elsewhere, e.g. core_engine/chess_game.dart, utils/
+  /// pgn_builder.dart).
+  String getPgnMoves() => _chess.pgn();
 
-  /// Get detailed move information
+  /// Get detailed move information for every move actually played so far.
+  ///
+  /// Previously called `_chess.moves({'verbose': true})`, the same
+  /// legal-moves-for-current-position bug as getPgnMoves above -
+  /// `.getHistory({'verbose': true})` is package:chess's real played
+  /// -history getter.
   List<Map<String, dynamic>> getMoveHistory() =>
-      _chess.moves({'verbose': true}).cast<Map<String, dynamic>>().toList();
+      _chess.getHistory({'verbose': true}).cast<Map<String, dynamic>>().toList();
 
   /// Get best moves for CPU (simple evaluation)
   List<chess_lib.Move> getBestMoves({int depth = 2}) {

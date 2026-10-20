@@ -31,6 +31,17 @@ service cloud.firestore {
       return isSignedIn() && request.auth.uid in ids;
     }
 
+    // Reads an int field from the document as it stood before this write,
+    // defaulting to 0 both when the document doesn't exist yet (a create)
+    // and when the field itself wasn't an int before (defensive) - used to
+    // bound a counter's per-write delta on a `set()`-based collection
+    // (challenge_streaks), where there's no prior `update()` to diff
+    // against the way `onlyChanged` does.
+    function prevIntField(field) {
+      return resource != null && resource.data[field] is int
+        ? resource.data[field] : 0;
+    }
+
     // ============================================
     // Users Collection
     // ============================================
@@ -535,7 +546,13 @@ service cloud.firestore {
       // required whatsoever. completeChallengeWithWinner's own
       // transaction.set() always writes exactly these 7 fields with
       // these types, so this now requires the same shape rather than
-      // accepting anything.
+      // accepting anything. Shape alone still let a caller `set()` any
+      // other player's doc straight to an arbitrary large streak with no
+      // real challenge played, so the win/loss counters are additionally
+      // bounded to the +1-per-write delta completeChallengeWithWinner's
+      // own transaction always applies, and currentStreak may only
+      // advance by 1 (a win) or reset to 0 (a loss) - never jump to an
+      // arbitrary number.
       allow write: if isSignedIn() &&
         request.resource.data.userId == userId &&
         request.resource.data.keys().hasOnly([
@@ -550,7 +567,12 @@ service cloud.firestore {
         request.resource.data.totalChallengesWon is int &&
         request.resource.data.totalChallengesWon >= 0 &&
         request.resource.data.totalChallengesLost is int &&
-        request.resource.data.totalChallengesLost >= 0;
+        request.resource.data.totalChallengesLost >= 0 &&
+        request.resource.data.totalChallengesWon - prevIntField('totalChallengesWon') <= 1 &&
+        request.resource.data.totalChallengesLost - prevIntField('totalChallengesLost') <= 1 &&
+        (request.resource.data.currentStreak == 0 ||
+         request.resource.data.currentStreak == prevIntField('currentStreak') + 1) &&
+        request.resource.data.bestStreak >= prevIntField('bestStreak');
     }
 
     match /challenge_results/{resultId} {

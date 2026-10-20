@@ -1,6 +1,7 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:chess/chess.dart' as chess_lib;
 import '../models/online_game.dart';
 import '../services/matchmaking_service.dart';
 import '../services/online_game_service.dart';
@@ -385,7 +386,33 @@ class OnlineGameStateNotifier extends StateNotifier<OnlineGameState> {
     if (game == null) return;
     if (game.currentFen != _lastSyncedFen) {
       _lastSyncedFen = game.currentFen;
-      state.engine.loadFromFen(game.currentFen);
+      // loadFromFen alone (the previous implementation) clears the
+      // engine's local _moveHistory on every remote sync - the server is
+      // still authoritative for the actual game-ending decision, but the
+      // client's own canClaimDraw()/getDrawReasons() (threefold
+      // repetition specifically) depends on that local history, so the
+      // "claim draw by repetition" affordance would silently reset after
+      // every single opponent move and need 3 fresh repeats to
+      // reappear, even when the real position had already repeated
+      // earlier. Replaying the full move list instead keeps that local
+      // history intact across syncs.
+      final replayed = state.engine.loadFromFenAndMoves(
+        chess_lib.Chess.DEFAULT_POSITION,
+        game.moves
+            .map((m) => {
+                  'from': m.from,
+                  'to': m.to,
+                  if (m.promotion != null) 'promotion': m.promotion,
+                })
+            .toList(),
+      );
+      if (!replayed) {
+        // Replay failed (e.g. a move list this client can't reproduce,
+        // such as a future handicap/variant start position) - fall back
+        // to the FEN-only snapshot so the board still shows the correct
+        // current position, even though local move history is lost.
+        state.engine.loadFromFen(game.currentFen);
+      }
       state = state.copyWith();
     }
   }
