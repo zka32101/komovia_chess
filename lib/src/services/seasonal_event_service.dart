@@ -138,7 +138,13 @@ class SeasonalEventService {
       await _firestore.runTransaction((transaction) async {
         final doc = await transaction.get(participationRef);
 
-        if (doc.exists) {
+        // Previously only checked doc.exists, not whether this player had
+        // already withdrawn - calling withdrawFromEvent a second time for
+        // the same player/event (double-tap, a retried request after a
+        // flaky response) decremented currentParticipants again even
+        // though they'd already withdrawn once, permanently
+        // under-counting the event (and able to go negative).
+        if (doc.exists && doc.data()?['hasWithdrawn'] != true) {
           transaction.update(participationRef, {
             'hasWithdrawn': true,
             'withdrawnAt': FieldValue.serverTimestamp(),
