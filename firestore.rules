@@ -615,7 +615,21 @@ service cloud.firestore {
         request.resource.data.totalChallengesLost - prevIntField('totalChallengesLost') <= 1 &&
         (request.resource.data.currentStreak == 0 ||
          request.resource.data.currentStreak == prevIntField('currentStreak') + 1) &&
-        request.resource.data.bestStreak >= prevIntField('bestStreak');
+        request.resource.data.bestStreak >= prevIntField('bestStreak') &&
+        // winRate/streakStartDate had no type/range check at all - every
+        // other field here is validated, but these two were left open,
+        // so a legitimate participant (still gated by the checks above;
+        // this isn't a cross-user forgery hole) could otherwise write
+        // garbage like a string or a huge negative number into winRate,
+        // which getTopStreaks renders straight onto the public
+        // leaderboard. ChallengeService.completeChallengeWithWinner
+        // always writes winRate as wins/total (a 0-1 fraction) and
+        // streakStartDate as a real Timestamp (serverTimestamp() on
+        // first write, or the existing value preserved thereafter).
+        request.resource.data.winRate is number &&
+        request.resource.data.winRate >= 0 &&
+        request.resource.data.winRate <= 1 &&
+        request.resource.data.streakStartDate is timestamp;
     }
 
     match /challenge_results/{resultId} {

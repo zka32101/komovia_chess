@@ -43,8 +43,18 @@ async function getAllAchievementDefinitions(db) {
       };
     });
   } catch (error) {
+    // A real fetch failure (a transient Firestore outage, say, during the
+    // per-minute handleTimeout sweep) used to be swallowed here and
+    // silently treated the same as "the collection is legitimately empty
+    // because no definitions have been seeded yet" - falling back to
+    // BOOTSTRAP_DEFINITIONS either way with no distinguishing log,
+    // meaning a real outage could cause legitimately-earned achievements
+    // to go unevaluated with nothing to tell that apart from normal
+    // operation. Rethrowing lets checkAndUnlockAchievements' own
+    // surrounding try/catch (which already logs per-user and is already
+    // best-effort by design) log this as the fetch error it actually is.
     console.error("Error fetching achievement definitions:", error);
-    return BOOTSTRAP_DEFINITIONS;
+    throw error;
   }
 }
 
@@ -74,14 +84,24 @@ async function checkAndUnlockAchievements(db, userId) {
         .collection(userId)
         .doc(def.achievementId);
 
-      const unlockDoc = await unlockRef.get();
-      if (unlockDoc.exists) continue;
+      // Transactional, like recordMove/respondToTakeback: a plain
+      // read-then-write here (as this used to be) lets two near-
+      // simultaneous calls for the same user (e.g. a game ending and the
+      // per-minute handleTimeout sweep both unlocking the same
+      // achievement around the same moment) both pass the `exists` check
+      // before either writes, each re-stamping unlockedAt - harmless for
+      // a single achievement doc, but an unguarded race in exactly the
+      // class of bug this codebase has been tightening elsewhere.
+      await db.runTransaction(async (transaction) => {
+        const unlockDoc = await transaction.get(unlockRef);
+        if (unlockDoc.exists) return;
 
-      await unlockRef.set({
-        userId,
-        achievementId: def.achievementId,
-        unlockedAt: admin.firestore.FieldValue.serverTimestamp(),
-        progressPercentage: 100,
+        transaction.set(unlockRef, {
+          userId,
+          achievementId: def.achievementId,
+          unlockedAt: admin.firestore.FieldValue.serverTimestamp(),
+          progressPercentage: 100,
+        });
       });
     }
   } catch (error) {
