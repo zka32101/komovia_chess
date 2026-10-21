@@ -355,6 +355,47 @@ class FriendChallengeService {
     return challenges;
   }
 
+  /// Finds [userId]'s still-`accepted` friend challenge linked to
+  /// [gameId] (via `acceptChallenge`'s own `gameId` write), if any -
+  /// lets a just-finished online game report its result back to the
+  /// challenge that created it. Same both-sides query pattern as
+  /// [_queryBothSides] for the same firestore.rules reason (a query
+  /// must already constrain one of the two participant fields to the
+  /// caller's own uid), with an extra `gameId` equality filter.
+  Future<Challenge?> getChallengeByGameId(String userId, String gameId) async {
+    try {
+      final collection = _firestore
+          .collection('friend_challenges')
+          .doc('active')
+          .collection('list');
+
+      final results = await Future.wait([
+        collection
+            .where('challengerUserId', isEqualTo: userId)
+            .where('status', isEqualTo: 'accepted')
+            .where('gameId', isEqualTo: gameId)
+            .limit(1)
+            .get(),
+        collection
+            .where('challengeeUserId', isEqualTo: userId)
+            .where('status', isEqualTo: 'accepted')
+            .where('gameId', isEqualTo: gameId)
+            .limit(1)
+            .get(),
+      ]);
+
+      for (final snapshot in results) {
+        if (snapshot.docs.isNotEmpty) {
+          return Challenge.fromJson(snapshot.docs.first.data());
+        }
+      }
+      return null;
+    } catch (e) {
+      debugPrint('Error finding challenge by gameId: $e');
+      return null;
+    }
+  }
+
   /// Get user's challenge streak
   Future<ChallengeStreak> getUserStreak(String userId) async {
     if (_streakCache.containsKey(userId)) {
