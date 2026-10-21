@@ -199,24 +199,6 @@ class OnlineGameNotifier extends StateNotifier<AsyncValue<void>> {
     }
   }
 
-  /// Update time remaining
-  Future<void> updateTimeRemaining({
-    required String gameId,
-    required int whiteTimeMs,
-    required int blackTimeMs,
-  }) async {
-    try {
-      await _service.updateTimeRemaining(
-        gameId: gameId,
-        whiteTimeMs: whiteTimeMs,
-        blackTimeMs: blackTimeMs,
-      );
-    } catch (e, st) {
-      state = AsyncValue.error(e, st);
-      rethrow;
-    }
-  }
-
   /// Record player activity
   Future<void> recordActivity(String gameId, String playerId) async {
     try {

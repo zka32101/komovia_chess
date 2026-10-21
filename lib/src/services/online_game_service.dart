@@ -159,38 +159,6 @@ class OnlineGameService {
     }
   }
 
-  /// Update time remaining for both players
-  Future<void> updateTimeRemaining({
-    required String gameId,
-    required int whiteTimeMs,
-    required int blackTimeMs,
-  }) async {
-    try {
-      await _firestore.collection(_gamesCollection).doc(gameId).update({
-        'whiteTimeRemainingMs': whiteTimeMs,
-        'blackTimeRemainingMs': blackTimeMs,
-      });
-
-      // Check for timeout
-      if (whiteTimeMs <= 0) {
-        await _endGameWithResult(
-          gameId: gameId,
-          result: 'black_win',
-          resultReason: 'timeout',
-        );
-      } else if (blackTimeMs <= 0) {
-        await _endGameWithResult(
-          gameId: gameId,
-          result: 'white_win',
-          resultReason: 'timeout',
-        );
-      }
-    } catch (e, st) {
-      _logger.e('Failed to update time', error: e, stackTrace: st);
-      rethrow;
-    }
-  }
-
   /// Record player activity (for detecting timeouts)
   ///
   /// [playerId] is the caller's real Firebase uid (not the literal string
