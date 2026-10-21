@@ -15,6 +15,15 @@ final userFriendsProvider = FutureProvider<List<Friendship>>((ref) async {
   return ref.watch(friendServiceProvider).getFriends(user.uid);
 });
 
+/// Users the signed-in user has blocked - backs the "Blocked" tab's
+/// unblock action (FriendService.blockFriend/getBlockedUsers already
+/// existed with no UI reaching them at all).
+final blockedUsersProvider = FutureProvider<List<Friendship>>((ref) async {
+  final user = ref.watch(currentUserProvider).value;
+  if (user == null) return [];
+  return ref.watch(friendServiceProvider).getBlockedUsers(user.uid);
+});
+
 /// Friend requests the signed-in user has either received or sent and
 /// hasn't been resolved yet — see `Friendship.wasRequestedBy` to tell an
 /// incoming request (show accept/decline) from one the viewer sent
@@ -128,6 +137,7 @@ class FriendActionsNotifier extends StateNotifier<AsyncValue<void>> {
           );
       _ref.invalidate(userFriendsProvider);
       _ref.invalidate(pendingFriendRequestsProvider);
+      _ref.invalidate(blockedUsersProvider);
       state = const AsyncValue.data(null);
     } catch (e, st) {
       state = AsyncValue.error(e, st);
@@ -144,6 +154,9 @@ class FriendActionsNotifier extends StateNotifier<AsyncValue<void>> {
             currentUid: me.uid,
             friendUid: friend.friendUid,
           );
+      _ref.invalidate(userFriendsProvider);
+      _ref.invalidate(pendingFriendRequestsProvider);
+      _ref.invalidate(blockedUsersProvider);
       state = const AsyncValue.data(null);
     } catch (e, st) {
       state = AsyncValue.error(e, st);

@@ -20,7 +20,7 @@ class _FriendsScreenState extends ConsumerState<FriendsScreen> {
     final requestCount = pendingRequests.value?.length ?? 0;
 
     return DefaultTabController(
-      length: 4,
+      length: 5,
       child: Scaffold(
         appBar: AppBar(
           title: const Text('Friends'),
@@ -35,6 +35,7 @@ class _FriendsScreenState extends ConsumerState<FriendsScreen> {
                       : 'Requests'),
               const Tab(text: 'Add Friend'),
               const Tab(text: 'Activity'),
+              const Tab(text: 'Blocked'),
             ],
           ),
         ),
@@ -44,6 +45,7 @@ class _FriendsScreenState extends ConsumerState<FriendsScreen> {
             _RequestsTab(),
             _AddFriendTab(),
             _ActivityFeedTab(),
+            _BlockedUsersTab(),
           ],
         ),
       ),
@@ -109,10 +111,24 @@ class _FriendsListTab extends ConsumerWidget {
                       tooltip: 'Challenge',
                       onPressed: () => _sendChallenge(context, ref, friend),
                     ),
-                    IconButton(
-                      icon: const Icon(Icons.person_remove_outlined),
-                      tooltip: 'Remove friend',
-                      onPressed: () => _confirmRemove(context, ref, friend),
+                    PopupMenuButton<String>(
+                      onSelected: (value) {
+                        if (value == 'remove') {
+                          _confirmRemove(context, ref, friend);
+                        } else if (value == 'block') {
+                          _confirmBlock(context, ref, friend);
+                        }
+                      },
+                      itemBuilder: (context) => const [
+                        PopupMenuItem(
+                          value: 'remove',
+                          child: Text('Remove friend'),
+                        ),
+                        PopupMenuItem(
+                          value: 'block',
+                          child: Text('Block'),
+                        ),
+                      ],
                     ),
                   ],
                 ),
@@ -163,6 +179,77 @@ class _FriendsListTab extends ConsumerWidget {
           ),
         ],
       ),
+    );
+  }
+
+  void _confirmBlock(BuildContext context, WidgetRef ref, Friendship friend) {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Block User?'),
+        content: Text(
+          '${friend.displayName} will no longer be able to message, '
+          'challenge, or see you as a friend.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Cancel'),
+          ),
+          TextButton(
+            onPressed: () {
+              Navigator.pop(context);
+              ref.read(friendActionsProvider.notifier).blockFriend(friend);
+            },
+            child: const Text('Block'),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _BlockedUsersTab extends ConsumerWidget {
+  const _BlockedUsersTab();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final blocked = ref.watch(blockedUsersProvider);
+
+    return blocked.when(
+      loading: () => const Center(child: CircularProgressIndicator()),
+      error: (error, stack) => Center(child: Text('Error: $error')),
+      data: (list) {
+        if (list.isEmpty) {
+          return const Center(
+            child: Padding(
+              padding: EdgeInsets.all(24),
+              child: Text('No blocked users.'),
+            ),
+          );
+        }
+
+        return ListView.separated(
+          padding: const EdgeInsets.all(16),
+          itemCount: list.length,
+          separatorBuilder: (_, __) => const SizedBox(height: 8),
+          itemBuilder: (context, index) {
+            final friend = list[index];
+            return Card(
+              child: ListTile(
+                leading: const CircleAvatar(child: Icon(Icons.block)),
+                title: Text(friend.displayName),
+                trailing: TextButton(
+                  onPressed: () => ref
+                      .read(friendActionsProvider.notifier)
+                      .unblockFriend(friend),
+                  child: const Text('Unblock'),
+                ),
+              ),
+            );
+          },
+        );
+      },
     );
   }
 }
