@@ -67,69 +67,9 @@ function getExpectedScore(playerRating, opponentRating) {
   return 1.0 / (1.0 + Math.pow(10, exponent));
 }
 
-/**
- * Validate rating change (for anomaly detection)
- */
-function validateRatingChange(change, expectedChange) {
-  // Flag unusual rating changes (e.g., >80 points)
-  const diff = Math.abs(change - expectedChange);
-  return diff <= 80;
-}
-
-/**
- * Calculate win probability between two players
- */
-function getWinProbability(player1Rating, player2Rating) {
-  const player1Expected = getExpectedScore(player1Rating, player2Rating);
-  return {
-    player1: player1Expected,
-    player2: 1.0 - player1Expected,
-  };
-}
-
-/**
- * Estimate required rating for target win rate
- */
-function estimateRequiredRating(opponentRating, targetWinRate) {
-  // E = targetWinRate
-  // 1 / (1 + 10^((opponent - player) / 400)) = E
-  // Solving for player rating:
-  // player = opponent - 400 * log10((1 - E) / E)
-  
-  if (targetWinRate <= 0 || targetWinRate >= 1) {
-    return null;
-  }
-  
-  const logValue = Math.log10((1 - targetWinRate) / targetWinRate);
-  return opponentRating - D_CONSTANT * logValue;
-}
-
-/**
- * Detailed rating analysis for leaderboard/statistics
- */
-function analyzeRatingChange(whiteRating, blackRating, result, actualChange) {
-  const changes = calculateRatingChanges(whiteRating, blackRating, result);
-  const isWhiteWin = result === "white_win";
-  const playerChange = isWhiteWin ? changes.whiteChange : changes.blackChange;
-  
-  return {
-    result,
-    expectedChange: playerChange,
-    actualChange,
-    variance: actualChange - playerChange,
-    isUpset: (isWhiteWin && changes.whiteExpected < 0.3) ||
-             (!isWhiteWin && changes.whiteExpected > 0.7),
-    confidence: Math.abs(changes.whiteExpected - 0.5), // 0-0.5, higher = more certain
-  };
-}
-
 module.exports = {
   calculateRatingChanges,
   getExpectedScore,
-  validateRatingChange,
-  getWinProbability,
-  estimateRequiredRating,
-  analyzeRatingChange,
   K_FACTOR,
   D_CONSTANT,
 };
