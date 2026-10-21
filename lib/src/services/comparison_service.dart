@@ -45,7 +45,7 @@ class ComparisonService {
         .collection('player_matchups')
         .doc(matchupId)
         .snapshots()
-        .map((doc) {
+        .asyncMap((doc) {
       if (doc.exists) {
         return HeadToHeadStats.fromJson({
           ...doc.data()!,
@@ -53,19 +53,14 @@ class ComparisonService {
         });
       }
 
-      // Return default stats if document doesn't exist
-      return HeadToHeadStats(
-        player1Id: player1Id,
-        player2Id: player2Id,
-        player1Wins: 0,
-        player2Wins: 0,
-        draws: 0,
-        player1WinRate: 0,
-        player2WinRate: 0,
-        ratingDifference: 0,
-        lastMatch: DateTime.now(),
-        recentMatches: [],
-      );
+      // `player_matchups` is never actually written (saveHeadToHeadStats
+      // has no caller anywhere in the app - see firestore.rules' `allow
+      // write: if false` on this collection), so this doc can never
+      // exist: this stream used to permanently show all-zero stats for
+      // every pair of players. Falls back to the same real
+      // match-history-derived calculation getHeadToHeadStats already
+      // uses when the cached doc is missing.
+      return _calculateHeadToHeadStats(player1Id, player2Id);
     }).handleError((e) => throw Exception('Failed to watch H2H stats: $e'));
   }
 

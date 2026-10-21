@@ -3,11 +3,13 @@ import 'dart:math' show pow;
 
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:cloud_functions/cloud_functions.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:chess/chess.dart' as chess_lib;
 import 'package:logger/logger.dart';
 import '../models/online_game.dart';
 import '../models/match_record.dart';
 import 'achievement_service.dart';
+import 'challenge_service.dart';
 import 'friend_service.dart';
 import 'match_history_service.dart';
 import 'season_challenge_service.dart';
@@ -361,9 +363,64 @@ class OnlineGameService {
         playerId: game.blackPlayerId,
         playerResult: blackResult,
       ));
+
+      // Best-effort: if this game was created from a friend challenge
+      // (ChallengeActionsNotifier.acceptChallenge links the two via the
+      // challenge's own `gameId` field), report the result back so the
+      // challenge actually completes - previously nothing anywhere ever
+      // called FriendChallengeService.completeChallengeWithWinner, so an
+      // accepted challenge stayed stuck at status 'accepted' forever,
+      // and challenge_results/challenge_streaks never reflected a single
+      // real game.
+      if (result != 'draw' && winnerId != null) {
+        final loserId = winnerId == game.whitePlayerId
+            ? game.blackPlayerId
+            : game.whitePlayerId;
+        final winnerRatingDelta =
+            (winnerId == game.whitePlayerId ? whiteRatingDelta : blackRatingDelta)!;
+        final loserRatingDelta =
+            (winnerId == game.whitePlayerId ? blackRatingDelta : whiteRatingDelta)!;
+        unawaited(_completeLinkedFriendChallenge(
+          gameId: gameId,
+          winnerId: winnerId,
+          loserId: loserId,
+          winnerRatingGain: winnerRatingDelta,
+          loserRatingLoss: loserRatingDelta.abs(),
+          moveCount: game.moves.length,
+        ));
+      }
     } catch (e, st) {
       _logger.e('Failed to end game', error: e, stackTrace: st);
       rethrow;
+    }
+  }
+
+  Future<void> _completeLinkedFriendChallenge({
+    required String gameId,
+    required String winnerId,
+    required String loserId,
+    required int winnerRatingGain,
+    required int loserRatingLoss,
+    required int moveCount,
+  }) async {
+    try {
+      final uid = FirebaseAuth.instance.currentUser?.uid;
+      if (uid == null) return;
+
+      final challenge =
+          await FriendChallengeService().getChallengeByGameId(uid, gameId);
+      if (challenge == null) return;
+
+      await FriendChallengeService().completeChallengeWithWinner(
+        challengeId: challenge.challengeId,
+        winnerId: winnerId,
+        loserId: loserId,
+        winnerRatingGain: winnerRatingGain,
+        loserRatingLoss: loserRatingLoss,
+        moveCount: moveCount,
+      );
+    } catch (_) {
+      // Best-effort; never block the game from ending.
     }
   }
 
