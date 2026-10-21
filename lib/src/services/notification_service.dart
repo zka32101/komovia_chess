@@ -58,18 +58,29 @@ class AppNotification {
 /// Service for managing notifications
 class NotificationService {
   final List<AppNotification> _notifications = [];
-  final List<Function(AppNotification)> _listeners = [];
+  final List<VoidCallback> _listeners = [];
 
   /// Show a notification
   void show(AppNotification notification) {
     _notifications.add(notification);
-    _notifyListeners(notification);
+    _notifyListeners();
 
     // Auto-remove after duration if dismissible
     if (notification.dismissible) {
       Future.delayed(notification.duration, () {
-        _notifications.remove(notification);
+        dismiss(notification);
       });
+    }
+  }
+
+  /// Dismiss a single notification - unlike [clearAll], leaves every
+  /// other currently-shown notification untouched. Both NotificationOverlay's
+  /// own per-card auto-dismiss timer and [show]'s auto-remove timer above
+  /// call this, instead of [clearAll], so one notification timing out
+  /// never wipes other notifications still on screen.
+  void dismiss(AppNotification notification) {
+    if (_notifications.remove(notification)) {
+      _notifyListeners();
     }
   }
 
@@ -116,22 +127,29 @@ class NotificationService {
   /// Clear all notifications
   void clearAll() {
     _notifications.clear();
+    _notifyListeners();
   }
 
   /// Add listener for notifications
-  void addListener(Function(AppNotification) listener) {
+  void addListener(VoidCallback listener) {
     _listeners.add(listener);
   }
 
   /// Remove listener
-  void removeListener(Function(AppNotification) listener) {
+  void removeListener(VoidCallback listener) {
     _listeners.remove(listener);
   }
 
-  /// Notify all listeners
-  void _notifyListeners(AppNotification notification) {
+  /// Notify all listeners that the notification list changed. Previously
+  /// took the single `AppNotification` that triggered the change and
+  /// passed it on, but no listener ever used that argument for anything
+  /// beyond re-reading the whole list (see NotificationNotifier below) -
+  /// and [clearAll] had no notification to pass at all, which is exactly
+  /// why it never actually notified listeners before this fix, leaving
+  /// Riverpod's `state` holding already-cleared notifications.
+  void _notifyListeners() {
     for (final listener in _listeners) {
-      listener(notification);
+      listener();
     }
   }
 
@@ -145,7 +163,7 @@ final notificationServiceProvider = Provider((ref) => NotificationService());
 /// Notification state notifier
 class NotificationNotifier extends StateNotifier<List<AppNotification>> {
   NotificationNotifier(this._service) : super([]) {
-    _service.addListener((notification) {
+    _service.addListener(() {
       state = [..._service.getNotifications()];
     });
   }
@@ -158,6 +176,7 @@ class NotificationNotifier extends StateNotifier<List<AppNotification>> {
   void showError(String message,
           {String? actionLabel, VoidCallback? onAction}) =>
       _service.showError(message, actionLabel: actionLabel, onAction: onAction);
+  void dismiss(AppNotification notification) => _service.dismiss(notification);
   void clearAll() => _service.clearAll();
 }
 

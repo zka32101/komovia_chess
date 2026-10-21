@@ -24,7 +24,9 @@ class NotificationOverlay extends ConsumerWidget {
               child: _NotificationCard(
                 notification: notifications[i],
                 onDismiss: () {
-                  ref.read(notificationsProvider.notifier).clearAll();
+                  ref
+                      .read(notificationsProvider.notifier)
+                      .dismiss(notifications[i]);
                 },
               ),
             ),
