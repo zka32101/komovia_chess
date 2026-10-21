@@ -239,7 +239,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                           child: _buildTabButton(
                             label: 'Achievements',
                             isSelected: _selectedTab == 2,
-                            onTap: () => setState(() => _selectedTab = 2),
+                            onTap: _onSelectAchievementsTab,
                           ),
                         ),
                       ],
@@ -697,6 +697,18 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
           ],
         ),
       );
+
+  // userAchievementProgressProvider is a plain FutureProvider with no
+  // autoDispose - once built it never re-evaluates on its own, so without
+  // this it would silently show whatever progress existed the first time
+  // this tab was opened for the rest of the session, even after the user
+  // unlocked something new. Invalidating on every (re-)selection of this
+  // tab is the simplest fix that doesn't require this provider to depend
+  // on some other, broader "something changed" signal.
+  void _onSelectAchievementsTab() {
+    setState(() => _selectedTab = 2);
+    ref.invalidate(userAchievementProgressProvider);
+  }
 
   Widget _buildAchievementsTab() {
     final progressAsync = ref.watch(userAchievementProgressProvider);
