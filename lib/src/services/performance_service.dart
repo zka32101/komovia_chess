@@ -29,11 +29,18 @@ class PerformanceService {
       final fromDate = DateTime.now().subtract(Duration(days: days));
 
       // For now, fetch from match history and calculate
+      // `playedAt` is stored as an ISO8601 string (MatchRecord's
+      // generated toJson/fromJson), so it must be compared against a
+      // string here too - the same bug already fixed in
+      // match_history_service.dart's filterMatches.
       final snapshot = await _firestore
           .collection('match_history')
           .doc(playerId)
           .collection('matches')
-          .where('playedAt', isGreaterThanOrEqualTo: fromDate)
+          .where(
+            'playedAt',
+            isGreaterThanOrEqualTo: fromDate.toIso8601String(),
+          )
           .orderBy('playedAt', descending: true)
           .get();
 
@@ -90,7 +97,10 @@ class PerformanceService {
         .collection('match_history')
         .doc(playerId)
         .collection('matches')
-        .where('playedAt', isGreaterThanOrEqualTo: fromDate)
+        .where(
+          'playedAt',
+          isGreaterThanOrEqualTo: fromDate.toIso8601String(),
+        )
         .orderBy('playedAt', descending: true)
         .snapshots()
         .asyncMap((snapshot) async {
