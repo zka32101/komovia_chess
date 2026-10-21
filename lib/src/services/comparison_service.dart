@@ -1,3 +1,4 @@
+import 'dart:math' as math;
 import 'package:cloud_firestore/cloud_firestore.dart';
 import '../models/head_to_head_stats.dart';
 import '../models/match_record.dart';
@@ -143,44 +144,7 @@ class ComparisonService {
   /// Using ELO probability formula: P = 1 / (1 + 10^(-ratingDiff/400))
   double calculateWinProbability(int ratingDiff) {
     final exponent = -ratingDiff / 400.0;
-    return 1.0 / (1.0 + pow(10, exponent));
-  }
-
-  /// Get numeric power function (to avoid importing dart:math for just this)
-  double pow(double base, double exponent) {
-    // Using iterative approach for small exponents
-    if (exponent == 0) return 1;
-    if (exponent == 1) return base;
-
-    double result = 1;
-    final double absExp = exponent.abs();
-
-    for (int i = 0; i < absExp.toInt(); i++) {
-      result *= base;
-    }
-
-    // Handle fractional part
-    if (exponent - exponent.toInt() != 0) {
-      // Use approximation for fractional exponents
-      final double frac = exponent - exponent.toInt();
-      result *= _powFractional(base, frac);
-    }
-
-    if (exponent < 0) {
-      result = 1.0 / result;
-    }
-
-    return result;
-  }
-
-  /// Helper for fractional powers using binary exponentiation
-  double _powFractional(double base, double frac) {
-    // Simplified: use 10 iterations for approximation
-    double result = 1;
-    for (int i = 0; i < 10; i++) {
-      result = (result + base / result) / 2;
-    }
-    return result;
+    return 1.0 / (1.0 + math.pow(10, exponent));
   }
 
   /// Calculate H2H stats from match history

@@ -260,7 +260,14 @@ class PerformanceService {
       final matches =
           snapshot.docs.map((doc) => MatchRecord.fromJson(doc.data())).toList();
 
-      int currentStreak = 0;
+      // `matches` is ordered newest-first (orderBy playedAt descending), so
+      // the player's actual current streak is whatever run the FIRST match
+      // belongs to - it must be captured once and never touched again once
+      // that first run ends, or by the time the loop reaches the oldest
+      // match this would hold the length of the oldest run in the fetched
+      // window instead of the real current streak.
+      int runStreak = 0;
+      int? currentStreak;
       int longestWin = 0;
       int longestLoss = 0;
       bool? lastWasWin;
@@ -270,30 +277,30 @@ class PerformanceService {
 
         if (lastWasWin == null) {
           lastWasWin = isWin;
-          currentStreak = isWin ? 1 : -1;
+          runStreak = isWin ? 1 : -1;
         } else if (lastWasWin == isWin) {
-          currentStreak += isWin ? 1 : -1;
+          runStreak += isWin ? 1 : -1;
         } else {
           // Streak ended
           if (lastWasWin) {
-            longestWin =
-                longestWin > currentStreak ? longestWin : currentStreak;
+            longestWin = longestWin > runStreak ? longestWin : runStreak;
           } else {
-            longestLoss =
-                longestLoss < currentStreak ? longestLoss : currentStreak;
+            longestLoss = longestLoss < runStreak ? longestLoss : runStreak;
           }
 
+          currentStreak ??= runStreak;
           lastWasWin = isWin;
-          currentStreak = isWin ? 1 : -1;
+          runStreak = isWin ? 1 : -1;
         }
       }
 
-      // Update final streak
+      // Update final run
       if (lastWasWin == true) {
-        longestWin = longestWin > currentStreak ? longestWin : currentStreak;
+        longestWin = longestWin > runStreak ? longestWin : runStreak;
       } else {
-        longestLoss = longestLoss < currentStreak ? longestLoss : currentStreak;
+        longestLoss = longestLoss < runStreak ? longestLoss : runStreak;
       }
+      currentStreak ??= runStreak;
 
       return StreakInfo(
         current: currentStreak,
