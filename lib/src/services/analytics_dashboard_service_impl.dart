@@ -15,14 +15,18 @@ class AnalyticsDashboardService {
 
   /// Get comprehensive player analytics dashboard
   Future<PlayerAnalyticsDashboard> getPlayerDashboard(String userId) async {
-    final cacheKey = 'dashboard:$userId';
-    if (_cache.isQueryCached('analytics', filters: {'userId': userId})) {
-      final cached = _cache.getCachedDocument<PlayerAnalyticsDashboard>(
-        'analytics',
-        userId,
-      );
-      if (cached != null) return cached;
-    }
+    // Previously gated on isQueryCached('analytics', filters: {...}),
+    // which checks a 'firestore:$collection:<hash of filters>' key - but
+    // the dashboard below is actually stored via cacheDocument, keyed as
+    // 'doc:$collection:$docId'. Since nothing ever calls
+    // cacheQueryResults('analytics', ...), that gate was always false,
+    // so this recomputed all 4 sub-queries on every single call even
+    // immediately after caching the previous result. Checking the
+    // document cache directly (the same key scheme it's stored under)
+    // makes the cache actually hit.
+    final cached =
+        _cache.getCachedDocument<PlayerAnalyticsDashboard>('analytics', userId);
+    if (cached != null) return cached;
 
     final gameStats = await _getGameStats(userId);
     final streakInfo = await _getStreakInfo(userId);

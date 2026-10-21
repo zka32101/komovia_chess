@@ -231,9 +231,15 @@ class RankingService {
   }
 
   /// Get the global ranking filtered to a single shogi rank tier.
+  ///
+  /// [offset] mirrors [getGlobalRanking]'s pagination (previously missing
+  /// here entirely - nextPage()/previousPage() on the "by shogi rank" tab
+  /// always re-queried from rank #1 with just a bigger/smaller limit,
+  /// so paging never actually advanced through the list).
   Future<List<LeaderboardEntry>> getRankingByShogi(
     String shogiRank, {
     required int limit,
+    int offset = 0,
   }) async {
     try {
       final snapshot = await _firestore
@@ -242,13 +248,15 @@ class RankingService {
           .collection('players')
           .where('shogiRank', isEqualTo: shogiRank)
           .orderBy('rating', descending: true)
-          .limit(limit)
+          .limit(limit + offset)
           .get();
 
       return snapshot.docs
+          .skip(offset)
+          .toList()
           .asMap()
           .entries
-          .map((e) => _leaderboardEntryFromJson(e.value.data(), rank: e.key + 1))
+          .map((e) => _leaderboardEntryFromJson(e.value.data(), rank: offset + e.key + 1))
           .toList();
     } catch (e) {
       print('Error fetching shogi-rank ranking: $e');
@@ -257,8 +265,13 @@ class RankingService {
   }
 
   /// Get the ranking for a given month (defaults to the current month).
+  ///
+  /// [offset] mirrors [getGlobalRanking]'s pagination (same previously
+  /// -missing pagination bug as [getRankingByShogi] above, for the
+  /// "monthly" tab).
   Future<List<LeaderboardEntry>> getMonthlyRanking({
     required int limit,
+    int offset = 0,
     String? monthKey,
   }) async {
     try {
@@ -267,13 +280,15 @@ class RankingService {
           .doc('monthly')
           .collection(monthKey ?? _currentMonthKey())
           .orderBy('rating', descending: true)
-          .limit(limit)
+          .limit(limit + offset)
           .get();
 
       return snapshot.docs
+          .skip(offset)
+          .toList()
           .asMap()
           .entries
-          .map((e) => _leaderboardEntryFromJson(e.value.data(), rank: e.key + 1))
+          .map((e) => _leaderboardEntryFromJson(e.value.data(), rank: offset + e.key + 1))
           .toList();
     } catch (e) {
       print('Error fetching monthly ranking: $e');
