@@ -35,6 +35,17 @@ class HybridGameHistoryService implements GameHistoryService {
         _syncPendingGames();
       }
     });
+
+    // _isOnline otherwise starts false and only ever gets set from the
+    // listener above, which only fires on a FUTURE connectivity change -
+    // a freshly-started app with an already-active connection would be
+    // treated as fully offline (no cloud sync/load at all) until the OS
+    // happens to fire a change event. Seed it with the actual current
+    // state up front instead of waiting for one.
+    isOnline().then((online) {
+      _isOnline = online;
+      if (_isOnline) _syncPendingGames();
+    });
   }
 
   /// Check current connectivity status
