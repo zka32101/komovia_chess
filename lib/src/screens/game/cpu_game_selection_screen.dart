@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../../data/cpu_starting_positions.dart';
 import '../../services/ai_opponent_engine.dart';
 import '../../utils/animations.dart';
 import 'cpu_game_screen.dart';
@@ -13,6 +14,7 @@ class CPUGameSelectionScreen extends StatefulWidget {
 class _CPUGameSelectionScreenState extends State<CPUGameSelectionScreen> {
   late AIDifficulty _selectedDifficulty;
   bool _playerIsWhite = true;
+  CpuStartingPosition _selectedStartingPosition = CpuStartingPosition.opening;
 
   @override
   void initState() {
@@ -54,6 +56,17 @@ class _CPUGameSelectionScreenState extends State<CPUGameSelectionScreen> {
                   ),
                   const SizedBox(height: 16),
                   _buildColorOptions(),
+                  const SizedBox(height: 32),
+
+                  // Starting position section
+                  Text(
+                    '開始局面',
+                    style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                          fontWeight: FontWeight.bold,
+                        ),
+                  ),
+                  const SizedBox(height: 16),
+                  _buildStartingPositionOptions(),
                   const SizedBox(height: 48),
 
                   // Start button
@@ -254,12 +267,57 @@ class _CPUGameSelectionScreenState extends State<CPUGameSelectionScreen> {
         ),
       );
 
+  Widget _buildStartingPositionOptions() => Row(
+        children: CpuStartingPosition.values
+            .map(
+              (position) => Expanded(
+                child: Padding(
+                  padding: EdgeInsets.only(
+                    right: position != CpuStartingPosition.values.last ? 8 : 0,
+                  ),
+                  child: _buildStartingPositionCard(position),
+                ),
+              ),
+            )
+            .toList(),
+      );
+
+  Widget _buildStartingPositionCard(CpuStartingPosition position) {
+    final isSelected = _selectedStartingPosition == position;
+    return GestureDetector(
+      onTap: () => setState(() => _selectedStartingPosition = position),
+      child: Container(
+        padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 8),
+        decoration: BoxDecoration(
+          border: Border.all(
+            color: isSelected ? Colors.blue : Colors.grey.shade300,
+            width: isSelected ? 2 : 1,
+          ),
+          borderRadius: BorderRadius.circular(12),
+          color:
+              isSelected ? Colors.blue.withOpacity(0.05) : Colors.transparent,
+        ),
+        child: Center(
+          child: Text(
+            position.displayName,
+            textAlign: TextAlign.center,
+            style: TextStyle(
+              fontSize: 13,
+              fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
   void _startGame() {
     Navigator.of(context).push(
       SmoothPageTransition(
         page: CPUGameScreen(
           difficulty: _selectedDifficulty,
           playerIsWhite: _playerIsWhite,
+          startingFen: _selectedStartingPosition.fen,
         ),
       ),
     );

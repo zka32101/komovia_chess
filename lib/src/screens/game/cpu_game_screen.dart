@@ -19,9 +19,14 @@ class CPUGameScreen extends ConsumerStatefulWidget {
     Key? key,
     this.difficulty = AIDifficulty.medium,
     this.playerIsWhite = true,
+    this.startingFen,
   }) : super(key: key);
   final AIDifficulty difficulty;
   final bool playerIsWhite;
+
+  /// Begin the game from this position instead of the standard starting
+  /// array, when given (see CPUGameSelectionScreen's position picker).
+  final String? startingFen;
 
   @override
   ConsumerState<CPUGameScreen> createState() => _CPUGameScreenState();
@@ -40,6 +45,7 @@ class _CPUGameScreenState extends ConsumerState<CPUGameScreen> {
       ref.read(cpuGameProvider.notifier).initGame(
             difficulty: widget.difficulty,
             playerIsWhite: widget.playerIsWhite,
+            startingFen: widget.startingFen,
           );
     });
   }
