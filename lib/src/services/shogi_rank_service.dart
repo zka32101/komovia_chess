@@ -51,6 +51,48 @@ class ShogiRankService {
     }
   }
 
+  /// Every rank [calculateRank] can actually produce, ascending by rating.
+  /// Used to drive rank-tier leaderboard filtering (see
+  /// [ratingRangeForRank]) and the rank-picker UI - [calculateRank] only
+  /// ever returns one of these 14 values (kyu 20/15/10/5/3/1, dan 1-8), so
+  /// anything outside this list (e.g. "17級", "9級") can never match a
+  /// real player and must not be offered as a filter choice.
+  static const List<ShogiRank> allRanks = [
+    ShogiRank.kyu(20),
+    ShogiRank.kyu(15),
+    ShogiRank.kyu(10),
+    ShogiRank.kyu(5),
+    ShogiRank.kyu(3),
+    ShogiRank.kyu(1),
+    ShogiRank.dan(1),
+    ShogiRank.dan(2),
+    ShogiRank.dan(3),
+    ShogiRank.dan(4),
+    ShogiRank.dan(5),
+    ShogiRank.dan(6),
+    ShogiRank.dan(7),
+    ShogiRank.dan(8),
+  ];
+
+  /// The ELO rating range (inclusive `min`, exclusive `max`) that
+  /// produces [rank] via [calculateRank] - `min` is null for the
+  /// bottom-most rank (no lower bound) and `max` is null for the
+  /// top-most rank (no upper bound).
+  /// Derived directly from the same ladder [calculateRank] uses (rather
+  /// than the separate, non-monotonic [_getNextThreshold]/
+  /// [_getPreviousThreshold] tables below, which only approximate
+  /// progress-bar positions and don't define exact rank boundaries).
+  static (int? min, int? max) ratingRangeForRank(ShogiRank rank) {
+    const bounds = <int?>[
+      null, 400, 500, 600, 700, 800, 900, kyuThreshold, //
+      kyu5Threshold, kyu1Threshold, dan1Threshold, dan3Threshold, //
+      dan5Threshold, dan7Threshold, null,
+    ];
+    final index = allRanks.indexWhere((r) => r == rank);
+    if (index < 0) return (null, null);
+    return (bounds[index], bounds[index + 1]);
+  }
+
   /// 段位から表示用文字列を取得する
   /// 例: "3段", "5級"
   static String displayName(ShogiRank rank) => rank.when(

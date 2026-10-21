@@ -61,12 +61,22 @@ class MatchHistoryService {
           .doc(playerId)
           .collection('matches');
 
-      // Apply date range filters
+      // Apply date range filters. `playedAt` is stored as an ISO8601
+      // string (MatchRecord's generated toJson/fromJson), so it must be
+      // compared against a string here too - a raw DateTime never
+      // matches, which silently returned zero results for any date-range
+      // filter.
       if (fromDate != null) {
-        query = query.where('playedAt', isGreaterThanOrEqualTo: fromDate);
+        query = query.where(
+          'playedAt',
+          isGreaterThanOrEqualTo: fromDate.toIso8601String(),
+        );
       }
       if (toDate != null) {
-        query = query.where('playedAt', isLessThanOrEqualTo: toDate);
+        query = query.where(
+          'playedAt',
+          isLessThanOrEqualTo: toDate.toIso8601String(),
+        );
       }
 
       // Apply result filter

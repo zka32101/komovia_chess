@@ -1,6 +1,7 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:komovia_core/komovia_core.dart';
 import 'firestore_time.dart';
+import 'shogi_rank_service.dart';
 
 /// Builds a komovia_core [LeaderboardEntry] from a raw `users`/ranking
 /// Firestore doc. Distinct from [LeaderboardEntry.fromJson]: that factory
@@ -78,23 +79,43 @@ class RankingService {
     }
   }
 
-  /// Get the global ranking filtered to a single shogi rank tier.
+  /// Get the global ranking filtered to a single shogi rank tier
+  /// (identified by its display label, e.g. `'3段'`/`'5級'` - see
+  /// [ShogiRankService.displayName]/[ShogiRankService.allRanks]).
+  ///
+  /// Previously queried `rankings/global/players` filtered by a
+  /// `shogiRank` field - but nothing anywhere ever writes to that
+  /// collection, and `UserModel.shogiRank` is never set either, so this
+  /// always returned zero results. [ShogiRank] is a pure function of
+  /// `rating` ([ShogiRankService.calculateRank]), so it's queried here as
+  /// a rating range against the real `users` collection instead - the
+  /// same collection [getGlobalRanking] already uses.
   ///
   /// [offset] mirrors [getGlobalRanking]'s pagination (previously missing
   /// here entirely - nextPage()/previousPage() on the "by shogi rank" tab
   /// always re-queried from rank #1 with just a bigger/smaller limit,
   /// so paging never actually advanced through the list).
   Future<List<LeaderboardEntry>> getRankingByShogi(
-    String shogiRank, {
+    String shogiRankLabel, {
     required int limit,
     int offset = 0,
   }) async {
     try {
-      final snapshot = await _firestore
-          .collection('rankings')
-          .doc('global')
-          .collection('players')
-          .where('shogiRank', isEqualTo: shogiRank)
+      final rank = ShogiRankService.allRanks.firstWhere(
+        (r) => ShogiRankService.displayName(r) == shogiRankLabel,
+        orElse: () => throw ArgumentError('Unknown shogi rank: $shogiRankLabel'),
+      );
+      final (min, max) = ShogiRankService.ratingRangeForRank(rank);
+
+      Query<Map<String, dynamic>> query = _firestore.collection('users');
+      if (min != null) {
+        query = query.where('rating', isGreaterThanOrEqualTo: min);
+      }
+      if (max != null) {
+        query = query.where('rating', isLessThan: max);
+      }
+
+      final snapshot = await query
           .orderBy('rating', descending: true)
           .limit(limit + offset)
           .get();
@@ -104,7 +125,10 @@ class RankingService {
           .toList()
           .asMap()
           .entries
-          .map((e) => _leaderboardEntryFromJson(e.value.data(), rank: offset + e.key + 1))
+          .map((e) => _leaderboardEntryFromJson(
+                {...e.value.data(), 'userId': e.value.id},
+                rank: offset + e.key + 1,
+              ))
           .toList();
     } catch (e) {
       print('Error fetching shogi-rank ranking: $e');
