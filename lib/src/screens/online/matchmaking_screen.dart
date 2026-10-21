@@ -229,24 +229,58 @@ class _MatchmakingScreenState extends ConsumerState<MatchmakingScreen> {
 
   /// Build time control selector
   Widget _buildTimeControlSelector() {
-    final controls = ['3min', '5min', '10min'];
+    final liveControls = ['3min', '5min', '10min'];
+    // Correspondence controls (⑤ from this round's feature survey) - a
+    // much larger shared time bank per side (see
+    // OnlineGameService._parseTimeControl's own doc comment on how this
+    // differs from a true per-move-replenishing correspondence clock),
+    // for playing a move every so often over several days instead of
+    // live. Grouped separately from the live controls above and
+    // displayed with a day-aware label ('1day' -> '1 day') since they're
+    // matched against each other by timeControlType exactly the same way
+    // live controls are (MatchmakingService groups the queue by that
+    // field), so mixing a live-control seeker with a correspondence one
+    // would never pair them anyway.
+    final correspondenceControls = ['1day', '3day', '7day'];
 
-    return Row(
-      children: controls
-          .map((control) => Expanded(
-                child: Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 4),
-                  child: ChoiceChip(
-                    label: Text(control),
-                    selected: _selectedTimeControl == control,
-                    onSelected: (selected) {
-                      setState(() => _selectedTimeControl = control);
-                    },
-                  ),
-                ),
-              ))
-          .toList(),
+    Widget buildRow(List<String> controls) => Row(
+          children: controls
+              .map((control) => Expanded(
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 4),
+                      child: ChoiceChip(
+                        label: Text(_timeControlLabel(control)),
+                        selected: _selectedTimeControl == control,
+                        onSelected: (selected) {
+                          setState(() => _selectedTimeControl = control);
+                        },
+                      ),
+                    ),
+                  ))
+              .toList(),
+        );
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        buildRow(liveControls),
+        const SizedBox(height: 8),
+        Text(
+          'Correspondence',
+          style: TextStyle(fontSize: 12, color: Colors.grey.shade600),
+        ),
+        const SizedBox(height: 4),
+        buildRow(correspondenceControls),
+      ],
     );
+  }
+
+  String _timeControlLabel(String control) {
+    if (control.endsWith('day')) {
+      final days = control.substring(0, control.length - 3);
+      return '$days day${days == '1' ? '' : 's'}';
+    }
+    return control;
   }
 
   /// Build color selector

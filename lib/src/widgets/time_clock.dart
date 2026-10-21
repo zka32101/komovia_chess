@@ -82,11 +82,31 @@ class _TimeClockState extends State<TimeClock>
     super.dispose();
   }
 
-  /// Format time for display
+  /// Format time for display.
+  ///
+  /// Correspondence games (⑤ from this round's feature survey) use the
+  /// same clock fields as a live game, just with a much larger starting
+  /// value (days' worth of milliseconds) - previously this always
+  /// rendered as raw total minutes (e.g. "10080:00" for 7 days), since
+  /// nothing here ever accounted for a duration longer than an hour.
+  /// Days/hours are now shown for anything an hour or longer, falling
+  /// back to the existing mm:ss(.cs) display below that.
   String _formatTime(int ms) {
     if (ms < 0) ms = 0;
 
     final totalSeconds = ms ~/ 1000;
+
+    if (totalSeconds >= Duration.secondsPerDay) {
+      final days = totalSeconds ~/ Duration.secondsPerDay;
+      final hours = (totalSeconds % Duration.secondsPerDay) ~/ 3600;
+      return '${days}d ${hours.toString().padLeft(2, '0')}h';
+    }
+    if (totalSeconds >= 3600) {
+      final hours = totalSeconds ~/ 3600;
+      final minutes = (totalSeconds % 3600) ~/ 60;
+      return '${hours}h ${minutes.toString().padLeft(2, '0')}m';
+    }
+
     final minutes = totalSeconds ~/ 60;
     final seconds = totalSeconds % 60;
     final centiseconds = (ms % 1000) ~/ 10;
