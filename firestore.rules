@@ -246,10 +246,19 @@ service cloud.firestore {
         // participant themselves — restricted to the tournament organizer,
         // who is the one actually calling it (there is no per-match result
         // -reporting flow in this app yet, unlike sibling apps' PvpGame
-        // -backed tournaments).
-        allow update: if isOwner(participantUid) ||
-          (isSignedIn() &&
-           get(/databases/$(database)/documents/tournaments/$(tournamentId)).data.createdBy == request.auth.uid);
+        // -backed tournaments). This used to ALSO allow isOwner(participantUid)
+        // with no field restriction at all - but nothing in the app ever
+        // has a participant update their own doc after registering (only
+        // recordMatchResult's organizer-only transaction ever calls
+        // update() on this collection), so that branch was pure
+        // unguarded self-forgery: any participant could directly set
+        // their own wins/losses/points to whatever they liked and top
+        // getStandings' ranking, which orders purely by these
+        // self-reportable fields with no other validation. Dropped
+        // entirely rather than narrowed to specific fields, since no
+        // legitimate self-update case exists to carve out.
+        allow update: if isSignedIn() &&
+          get(/databases/$(database)/documents/tournaments/$(tournamentId)).data.createdBy == request.auth.uid;
         allow delete: if isOwner(participantUid);
       }
 
