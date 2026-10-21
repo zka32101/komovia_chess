@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:komovia_core/komovia_core.dart';
 import '../../models/online_game.dart';
 import '../../providers/auth_provider.dart';
 import '../../providers/online_game_provider.dart';
@@ -83,13 +84,23 @@ class _OnlineGameResultScreenState
           ? (game.whiteNewRating ?? game.whiteRating)
           : (game.blackNewRating ?? game.blackRating);
       final milestone = _crossedRatingMilestone(oldRating, newRating);
-      final milestoneText =
-          milestone != null ? ' Just crossed $milestone rating! 🎉' : '';
+
+      final statLines = <String>[
+        'Rating: $oldRating → $newRating',
+        if (milestone != null) '🎉 Just crossed $milestone rating!',
+      ];
 
       if (!mounted) return;
       await _shareService.shareGameGif(
         gifBytes: gifBytes,
-        caption: '$resultText$milestoneText on Komovia Chess #chess',
+        caption: buildShareCaption(
+          ShareableMoment(
+            appName: 'Komovia Chess',
+            headline: resultText,
+            statLines: statLines,
+            hashtag: '#chess',
+          ),
+        ),
       );
     } catch (e) {
       if (mounted) {

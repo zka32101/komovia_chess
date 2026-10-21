@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:komovia_core/komovia_core.dart';
 import '../../models/puzzle.dart';
 import '../../providers/puzzle_provider.dart';
 import '../../services/chess_engine_service.dart';
@@ -569,14 +570,19 @@ class _PuzzleSolvingScreenState extends ConsumerState<PuzzleSolvingScreen> {
         startingFen: puzzle.fen,
       );
 
-      final themeText =
-          puzzle.themes.isNotEmpty ? ' (${puzzle.themes.join(', ')})' : '';
-
       if (!mounted) return;
       await _shareService.shareGameGif(
         gifBytes: gifBytes,
-        caption: 'Solved a #${puzzle.rating} puzzle$themeText on '
-            'Komovia Chess #chess',
+        caption: buildShareCaption(
+          ShareableMoment(
+            appName: 'Komovia Chess',
+            headline: 'Solved a #${puzzle.rating} puzzle!',
+            statLines: [
+              if (puzzle.themes.isNotEmpty) 'Themes: ${puzzle.themes.join(', ')}',
+            ],
+            hashtag: '#chess',
+          ),
+        ),
       );
     } catch (e) {
       if (mounted) {

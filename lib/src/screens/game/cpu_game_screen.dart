@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:komovia_core/komovia_core.dart';
 import '../../models/cpu_game_state.dart';
 import '../../models/online_game.dart';
 import '../../services/ai_opponent_engine.dart';
@@ -371,8 +372,14 @@ class _CPUGameScreenState extends ConsumerState<CPUGameScreen> {
       if (!mounted) return;
       await _shareService.shareGameGif(
         gifBytes: gifBytes,
-        caption: '$resultText vs CPU (${widget.difficulty.displayName}) on '
-            'Komovia Chess #chess',
+        caption: buildShareCaption(
+          ShareableMoment(
+            appName: 'Komovia Chess',
+            headline: resultText,
+            statLines: ['vs CPU (${widget.difficulty.displayName})'],
+            hashtag: '#chess',
+          ),
+        ),
       );
     } catch (e) {
       if (mounted) {
