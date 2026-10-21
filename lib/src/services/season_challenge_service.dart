@@ -194,13 +194,27 @@ class SeasonChallengeService {
           });
         } else {
           final progress = PlayerChallengeProgress.fromJson(doc.data()!);
-          final newProgress = progress.currentProgress + progressAmount;
+          // recordMetricProgress has no notion of "already complete" and
+          // keeps calling this after every matching game/puzzle for the
+          // rest of the season - without capping, currentProgress grew
+          // unbounded past targetProgress (wrong progress bars/
+          // percentages anywhere this is rendered), and completedAt kept
+          // getting re-stamped to "now" on every later call instead of
+          // staying at the moment the challenge actually finished.
+          // int.clamp returns num, not int - leaving it unconverted would
+          // write a double to Firestore and break the next read's
+          // `json['currentProgress'] as int?` cast.
+          final newProgress =
+              (progress.currentProgress + progressAmount)
+                  .clamp(0, challenge.target)
+                  .toInt();
           final isCompleted = newProgress >= challenge.target;
+          final justCompleted = isCompleted && !progress.isCompleted;
 
           transaction.update(progressRef, {
             'currentProgress': newProgress,
             'isCompleted': isCompleted,
-            'completedAt': isCompleted ? FieldValue.serverTimestamp() : null,
+            if (justCompleted) 'completedAt': FieldValue.serverTimestamp(),
             'updatedAt': FieldValue.serverTimestamp(),
           });
         }
