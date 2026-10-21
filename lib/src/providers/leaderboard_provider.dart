@@ -109,7 +109,8 @@ class LeaderboardNotifier extends StateNotifier<LeaderboardState> {
 
       final entries = await rankingService.getRankingByShogi(
         shogiRank,
-        limit: pageSize * (page + 1),
+        limit: pageSize,
+        offset: page * pageSize,
       );
 
       final stats = await rankingService.getRankingStats();
@@ -138,7 +139,8 @@ class LeaderboardNotifier extends StateNotifier<LeaderboardState> {
       const pageSize = 50;
 
       final entries = await rankingService.getMonthlyRanking(
-        limit: pageSize * (page + 1),
+        limit: pageSize,
+        offset: page * pageSize,
         monthKey: monthKey,
       );
 
