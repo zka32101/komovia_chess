@@ -154,7 +154,16 @@ class PerformanceService {
     }
   }
 
-  /// Get performance by opponent rank
+  /// Get performance by opponent rating band (e.g. "<1200", "1200-1600",
+  /// ...).
+  ///
+  /// Previously bucketed by `match.opponentId` - the raw opponent uid,
+  /// not any rank/rating at all (the comment above the old line even
+  /// admitted "Would need rank from user collection") - so
+  /// PerformanceAnalyticsScreen's "レベル別パフォーマンス" ("performance by
+  /// level") chart showed one bar per distinct opponent uid instead of
+  /// per skill tier. `MatchRecord.opponentRatingBefore` is already stored
+  /// on every match, so no extra lookup is needed.
   Future<Map<String, int>> getPerformanceByRank(String playerId) async {
     try {
       final snapshot = await _firestore
@@ -167,8 +176,7 @@ class PerformanceService {
 
       for (final doc in snapshot.docs) {
         final match = MatchRecord.fromJson(doc.data());
-        final opponentRank =
-            match.opponentId; // Would need rank from user collection
+        final opponentRank = _ratingBand(match.opponentRatingBefore);
 
         if (!performanceByRank.containsKey(opponentRank)) {
           performanceByRank[opponentRank] = [];
@@ -314,5 +322,15 @@ class PerformanceService {
     } catch (e) {
       throw Exception('Failed to record daily progression: $e');
     }
+  }
+
+  /// Buckets a rating into a fixed, human-readable band for
+  /// [getPerformanceByRank].
+  String _ratingBand(int rating) {
+    if (rating < 1200) return '<1200';
+    if (rating < 1600) return '1200-1600';
+    if (rating < 2000) return '1600-2000';
+    if (rating < 2400) return '2000-2400';
+    return '2400+';
   }
 }
