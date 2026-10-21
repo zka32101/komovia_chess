@@ -12,6 +12,7 @@ import '../services/season_challenge_service.dart';
 import '../services/season_management_service.dart';
 import '../services/achievement_service.dart';
 import '../services/match_history_service.dart';
+import '../services/analytics_dashboard_service_impl.dart';
 import '../models/match_record.dart';
 
 
@@ -294,6 +295,15 @@ class CpuGameNotifier extends StateNotifier<CpuGameState> {
         if (playerResult == 'loss') 'losses': FieldValue.increment(1),
         if (playerResult == 'draw') 'draws': FieldValue.increment(1),
       });
+
+      // AnalyticsDashboardService.getPlayerDashboard caches its result
+      // for up to an hour, with no caller anywhere in the app ever
+      // invalidating it after a real game - AnalyticsDashboardScreen kept
+      // showing pre-game Win Rate/Streak/Trend numbers until that TTL
+      // happened to expire. Clearing it here means the dashboard's own
+      // provider.family just needs re-invalidating (its AppBar refresh
+      // button does this) to see fresh numbers immediately after a game.
+      AnalyticsDashboardService().invalidatePlayerAnalytics(user.uid);
 
       // Best-effort: record this match for Match History / comparison -
       // previously nothing anywhere ever called MatchHistoryService.

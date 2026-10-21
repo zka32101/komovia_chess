@@ -18,10 +18,17 @@ class AnalyticsDashboardScreen extends ConsumerWidget {
         title: const Text('Analytics'),
         elevation: 0,
         centerTitle: true,
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.refresh),
+            tooltip: 'Refresh',
+            onPressed: () => _refresh(ref),
+          ),
+        ],
       ),
       body: dashboardAsync.when(
         loading: () => const _LoadingState(),
-        error: (err, stack) => _ErrorState(error: err),
+        error: (err, stack) => _ErrorState(onRetry: () => _refresh(ref), error: err),
         data: (dashboard) => _DashboardContent(
           dashboard: dashboard,
           userId: userId,
@@ -29,6 +36,19 @@ class AnalyticsDashboardScreen extends ConsumerWidget {
         ),
       ),
     );
+  }
+
+  // AnalyticsDashboardService.getPlayerDashboard caches its result for up
+  // to an hour (CacheManagerService.defaultTtl) - re-running the provider
+  // alone would just re-hit that still-warm cache and return the same
+  // stale numbers, so the service-level cache for this user is cleared
+  // first. Previously nothing in the UI called either step at all: the
+  // AppBar had no refresh action, and the error state's "Retry" button
+  // was a no-op (its own comment claimed "handled by provider", which it
+  // wasn't).
+  void _refresh(WidgetRef ref) {
+    ref.read(analyticsDashboardServiceProvider).invalidatePlayerAnalytics(userId);
+    ref.invalidate(playerAnalyticsDashboardProvider(userId));
   }
 }
 
@@ -52,7 +72,8 @@ class _LoadingState extends StatelessWidget {
 }
 
 class _ErrorState extends StatelessWidget {
-  const _ErrorState({required this.error});
+  const _ErrorState({required this.onRetry, required this.error});
+  final VoidCallback onRetry;
   final Object error;
 
   @override
@@ -82,9 +103,7 @@ class _ErrorState extends StatelessWidget {
             ),
             const SizedBox(height: 24),
             ElevatedButton.icon(
-              onPressed: () {
-                // Retry logic handled by provider
-              },
+              onPressed: onRetry,
               icon: const Icon(Icons.refresh),
               label: const Text('Retry'),
             ),
