@@ -9,6 +9,7 @@ import 'package:logger/logger.dart';
 import '../models/online_game.dart';
 import '../models/match_record.dart';
 import 'achievement_service.dart';
+import 'analytics_dashboard_service_impl.dart';
 import 'challenge_service.dart';
 import 'friend_service.dart';
 import 'match_history_service.dart';
@@ -278,6 +279,14 @@ class OnlineGameService {
         if (blackResult == 'loss') 'losses': FieldValue.increment(1),
         if (blackResult == 'draw') 'draws': FieldValue.increment(1),
       });
+
+      // Same analytics-cache staleness this app's CPU games already fix
+      // (CpuGameNotifier._recordResult) - nothing invalidated either
+      // player's AnalyticsDashboardService cache after an online game
+      // either, so AnalyticsDashboardScreen kept showing pre-game numbers
+      // for up to an hour.
+      AnalyticsDashboardService().invalidatePlayerAnalytics(game.whitePlayerId);
+      AnalyticsDashboardService().invalidatePlayerAnalytics(game.blackPlayerId);
 
       // Best-effort: record this match for both players' Match History /
       // comparison screens - previously nothing anywhere ever called
