@@ -647,13 +647,13 @@ class BattlePassClaimState {
     bool? isLoading,
     int? lastClaimedLevel,
     bool? isPremiumUpgraded,
-    String? error,
+    Object? error = _unsetError,
   }) =>
       BattlePassClaimState(
         isLoading: isLoading ?? this.isLoading,
         lastClaimedLevel: lastClaimedLevel ?? this.lastClaimedLevel,
         isPremiumUpgraded: isPremiumUpgraded ?? this.isPremiumUpgraded,
-        error: error ?? this.error,
+        error: error == _unsetError ? this.error : error as String?,
       );
 }
 
@@ -670,12 +670,12 @@ class ChallengeCompleteState {
   ChallengeCompleteState copyWith({
     bool? isLoading,
     String? lastCompletedId,
-    String? error,
+    Object? error = _unsetError,
   }) =>
       ChallengeCompleteState(
         isLoading: isLoading ?? this.isLoading,
         lastCompletedId: lastCompletedId ?? this.lastCompletedId,
-        error: error ?? this.error,
+        error: error == _unsetError ? this.error : error as String?,
       );
 }
 
@@ -692,12 +692,21 @@ class EventParticipationState {
   EventParticipationState copyWith({
     bool? isLoading,
     List<String>? joinedEventIds,
-    String? error,
+    Object? error = _unsetError,
   }) =>
       EventParticipationState(
         isLoading: isLoading ?? this.isLoading,
         joinedEventIds: joinedEventIds ?? this.joinedEventIds,
-        error: error ?? this.error,
+        error: error == _unsetError ? this.error : error as String?,
       );
 }
+
+/// Sentinel used by [BattlePassClaimState.copyWith]/
+/// [ChallengeCompleteState.copyWith]/[EventParticipationState.copyWith] to
+/// distinguish "error not passed" from an explicit `error: null` - plain
+/// `error ?? this.error` could never actually clear a stale error back to
+/// null once set, so every notifier's "success" path (which always passes
+/// `error: null`) silently kept showing the previous failure's message
+/// forever.
+const Object _unsetError = Object();
 
