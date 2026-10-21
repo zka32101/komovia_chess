@@ -96,10 +96,14 @@ class FirebaseGameHistoryService implements GameHistoryService {
     try {
       _logger.i('Loading games between $start and $end');
 
+      // `playedAt` is stored as an ISO8601 string (GameRecord's
+      // generated toJson/fromJson), so it must be compared against a
+      // string here too - the same bug already fixed in
+      // match_history_service.dart's filterMatches.
       final snapshot = await _firestore
           .collection(_gamesCollection)
-          .where('playedAt', isGreaterThanOrEqualTo: start)
-          .where('playedAt', isLessThanOrEqualTo: end)
+          .where('playedAt', isGreaterThanOrEqualTo: start.toIso8601String())
+          .where('playedAt', isLessThanOrEqualTo: end.toIso8601String())
           .orderBy('playedAt', descending: true)
           .get();
 
