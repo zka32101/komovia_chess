@@ -7,8 +7,31 @@ class MatchHistoryService {
       : _firestore = firestore ?? FirebaseFirestore.instance;
   final FirebaseFirestore _firestore;
 
-  /// Get paginated match history for a player
+  /// Get paginated match history for a player.
+  ///
+  /// Discards the query's last document, so callers that need it for
+  /// further pagination (MatchHistoryNotifier.loadMore) should use
+  /// [getMatchHistoryPage] instead - kept as-is for callers (CSV export)
+  /// that only need the records themselves.
   Future<List<MatchRecord>> getMatchHistory(
+    String playerId, {
+    int limit = 50,
+    DocumentSnapshot? startAfter,
+  }) async {
+    final page = await getMatchHistoryPage(
+      playerId,
+      limit: limit,
+      startAfter: startAfter,
+    );
+    return page.matches;
+  }
+
+  /// Same as [getMatchHistory], but also returns the last document of
+  /// the page so the caller can pass it back as `startAfter` to fetch
+  /// the next page - previously nothing ever captured this, so
+  /// MatchHistoryNotifier.loadMore's `lastDocument` was always null and
+  /// every "load more" re-requested the very first page.
+  Future<MatchHistoryPage> getMatchHistoryPage(
     String playerId, {
     int limit = 50,
     DocumentSnapshot? startAfter,
@@ -26,10 +49,14 @@ class MatchHistoryService {
       }
 
       final snapshot = await query.get();
-      return snapshot.docs
+      final matches = snapshot.docs
           .map((doc) =>
               MatchRecord.fromJson(doc.data()! as Map<String, dynamic>))
           .toList();
+      return MatchHistoryPage(
+        matches: matches,
+        lastDocument: snapshot.docs.isEmpty ? null : snapshot.docs.last,
+      );
     } catch (e) {
       throw Exception('Failed to get match history: $e');
     }
@@ -257,4 +284,12 @@ class MatchHistoryService {
       throw Exception('Failed to get win rate: $e');
     }
   }
+}
+
+/// A single page of match history, plus the cursor needed to fetch the
+/// next one (see [MatchHistoryService.getMatchHistoryPage]).
+class MatchHistoryPage {
+  MatchHistoryPage({required this.matches, required this.lastDocument});
+  final List<MatchRecord> matches;
+  final DocumentSnapshot? lastDocument;
 }

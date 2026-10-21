@@ -166,6 +166,14 @@ class _ClubsScreenState extends ConsumerState<ClubsScreen> {
           ),
         ],
       ),
-    );
+      // showDialog resolves once the dialog is dismissed by any path
+      // (Cancel, Create's own pop, or tapping outside) - without this,
+      // a fresh pair of TextEditingControllers (and their underlying
+      // ChangeNotifier listener lists) was created and never disposed
+      // every time this dialog was opened.
+    ).then((_) {
+      nameController.dispose();
+      descriptionController.dispose();
+    });
   }
 }

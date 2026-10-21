@@ -48,12 +48,13 @@ class MatchHistoryNotifier
     state = const AsyncValue.loading();
 
     try {
-      final matches = await _service.getMatchHistory(playerId);
+      final page = await _service.getMatchHistoryPage(playerId);
       state = AsyncValue.data(
         MatchHistoryState(
-          matches: matches,
+          matches: page.matches,
           isLoading: false,
-          hasMore: matches.length >= 50, // Assuming 50 per page
+          lastDocument: page.lastDocument,
+          hasMore: page.matches.length >= 50, // Assuming 50 per page
         ),
       );
     } catch (e) {
@@ -68,12 +69,16 @@ class MatchHistoryNotifier
     if (currentState.value?.hasMore != true) return;
 
     try {
-      final moreMatches = await _service.getMatchHistory(
+      // lastDocument previously was never actually populated by either
+      // method in this file (only ever threaded through copyWith as
+      // whatever it already was, i.e. always null), so every "load more"
+      // silently re-requested the very first page instead of advancing.
+      final page = await _service.getMatchHistoryPage(
         playerId,
         startAfter: currentState.value?.lastDocument,
       );
 
-      if (moreMatches.isEmpty) {
+      if (page.matches.isEmpty) {
         // No more matches
         state = AsyncValue.data(
           currentState.value!.copyWith(hasMore: false),
@@ -82,13 +87,14 @@ class MatchHistoryNotifier
         // Add new matches
         final allMatches = [
           ...currentState.value!.matches,
-          ...moreMatches,
+          ...page.matches,
         ];
 
         state = AsyncValue.data(
           currentState.value!.copyWith(
             matches: allMatches,
-            hasMore: moreMatches.length >= 50,
+            lastDocument: page.lastDocument,
+            hasMore: page.matches.length >= 50,
           ),
         );
       }
