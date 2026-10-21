@@ -31,7 +31,12 @@ class FeatureGatingService {
   Future<bool> hasFeatureAccess(
       String featureName, String subscriptionTier) async {
     if (subscriptionTier == 'free') {
-      return FEATURE_TIERS[featureName]?.isEmpty ?? true;
+      // An unrecognized featureName (e.g. a typo) has no entry in
+      // FEATURE_TIERS at all, so the lookup is null - previously that
+      // fell through `?? true`, silently granting free-tier access to
+      // whatever was asked for instead of failing closed like every
+      // other unrecognized case here does.
+      return FEATURE_TIERS[featureName]?.isEmpty ?? false;
     }
     return FEATURE_TIERS[featureName]?.contains(subscriptionTier) ?? false;
   }
