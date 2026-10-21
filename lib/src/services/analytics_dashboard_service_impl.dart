@@ -2,6 +2,15 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import '../models/analytics_models.dart';
 import 'firestore_result_cache_service.dart';
 
+/// `users/{uid}/games` docs are written via `GameRecord.toJson()`
+/// (`FirebaseGameHistoryService.saveGame`), whose `playedAt` is
+/// `playedAt.toIso8601String()` - a string, not a Firestore `Timestamp`.
+/// Every `as Timestamp?` cast of that field here was always null, so
+/// `lastGameDate`/streak dates/the performance-trend chart's x-axis were
+/// always wrong or missing. Parses the real stored shape instead.
+DateTime? _parsePlayedAt(Object? value) =>
+    value is String ? DateTime.tryParse(value) : null;
+
 /// Comprehensive analytics dashboard service for player statistics.
 class AnalyticsDashboardService {
   factory AnalyticsDashboardService() => _instance;
@@ -79,7 +88,7 @@ class AnalyticsDashboardService {
       // `playedAt` (not `date`) - see GameRecord in models/game_history.dart.
       totalMoves += (data['totalMoves'] as int?) ?? 0;
 
-      final gameDate = (data['playedAt'] as Timestamp?)?.toDate();
+      final gameDate = _parsePlayedAt(data['playedAt']);
       if (gameDate != null &&
           (lastGameDate == null || gameDate.isAfter(lastGameDate))) {
         lastGameDate = gameDate;
@@ -135,7 +144,7 @@ class AnalyticsDashboardService {
     for (final game in games) {
       final data = game.data();
       final result = data['result'] as String?;
-      final playedAt = (data['playedAt'] as Timestamp?)?.toDate();
+      final playedAt = _parsePlayedAt(data['playedAt']);
 
       if (result == 'win') {
         runningWinStreak++;
@@ -190,7 +199,7 @@ class AnalyticsDashboardService {
         .collection('users')
         .doc(userId)
         .collection('games')
-        .where('playedAt', isGreaterThan: thirtyDaysAgo)
+        .where('playedAt', isGreaterThan: thirtyDaysAgo.toIso8601String())
         .orderBy('playedAt', descending: false);
 
     final snapshot = await gamesRef.get();
@@ -203,8 +212,7 @@ class AnalyticsDashboardService {
       // that were never written, so the chart's line is honestly flat
       // rather than silently wrong.
       metrics.add(PerformanceMetric(
-        timestamp: (data['playedAt'] as Timestamp?)?.toDate() ??
-            DateTime.now(),
+        timestamp: _parsePlayedAt(data['playedAt']) ?? DateTime.now(),
         accuracy: 0,
         rating: 0,
         gameCount: 1,

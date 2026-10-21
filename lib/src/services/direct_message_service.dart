@@ -79,10 +79,22 @@ class DirectMessageService {
       'sentAt': Timestamp.fromDate(now),
     });
 
+    // Must be sorted the same way threadIdFor sorts them (and the same
+    // way every previous write to this thread sorted them) - Firestore
+    // rules' update guard requires
+    // `request.resource.data.participantUids == resource.data.participantUids`,
+    // an exact array comparison including order. Writing [fromUid, toUid]
+    // in send order instead meant the thread's first reply (sent by the
+    // other participant) always flipped the order relative to what was
+    // already stored, so the merge-write was rejected with
+    // permission-denied every time - the second person in any thread
+    // could never actually reply.
+    final participantUids = [fromUid, toUid]..sort();
+
     batch.set(
       threadRef,
       {
-        'participantUids': [fromUid, toUid],
+        'participantUids': participantUids,
         'participantNames': {fromUid: fromDisplayName, toUid: toDisplayName},
         'lastMessage': trimmed,
         'lastMessageAt': Timestamp.fromDate(now),
