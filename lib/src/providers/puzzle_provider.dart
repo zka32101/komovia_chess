@@ -168,6 +168,34 @@ class PuzzleService {
     }
   }
 
+  // Record a finished Puzzle Rush run's score, keeping the user's best.
+  // Transactional (like recordPuzzleAttempt's stat update above) since
+  // "keep the higher of two values" can't be expressed as a
+  // FieldValue.increment sentinel.
+  Future<void> recordPuzzleRushScore(int score) async {
+    final user = _auth.currentUser;
+    if (user == null) throw Exception('No user logged in');
+
+    try {
+      final userRef = _firestore.collection('users').doc(user.uid);
+      await _firestore.runTransaction((transaction) async {
+        final userDoc = await transaction.get(userRef);
+        final previousBest =
+            (userDoc.data()?['puzzleRushBestScore'] as num?)?.toInt() ?? 0;
+        if (score > previousBest) {
+          transaction.set(
+            userRef,
+            {'puzzleRushBestScore': score},
+            SetOptions(merge: true),
+          );
+        }
+      });
+    } catch (e) {
+      print('Error recording Puzzle Rush score: $e');
+      rethrow;
+    }
+  }
+
   // Get user's puzzle statistics
   Future<Map<String, dynamic>> getUserPuzzleStats() async {
     final user = _auth.currentUser;
@@ -220,6 +248,26 @@ final puzzlesByRatingProvider =
     return puzzleService.getPuzzlesByRating(params.minRating, params.maxRating);
   },
 );
+
+// The signed-in user's best-ever Puzzle Rush score (0 if never played).
+final puzzleRushBestScoreProvider = StreamProvider<int>((ref) async* {
+  final firestore = FirebaseFirestore.instance;
+  final user = FirebaseAuth.instance.currentUser;
+
+  if (user == null) {
+    yield 0;
+    return;
+  }
+
+  try {
+    await for (final snapshot
+        in firestore.collection('users').doc(user.uid).snapshots()) {
+      yield (snapshot.data()?['puzzleRushBestScore'] as num?)?.toInt() ?? 0;
+    }
+  } catch (e) {
+    yield 0;
+  }
+});
 
 // Any user's puzzle rating by uid - unlike userPuzzleStatsProvider (which
 // only ever reads the signed-in user's own doc), for showing e.g. a

@@ -7,6 +7,7 @@ import '../../services/game_gif_service.dart';
 import '../../services/game_share_service.dart';
 import '../../widgets/game_board.dart';
 import '../../providers/user_preferences_provider.dart';
+import 'puzzle_rush_screen.dart';
 
 class PuzzleScreen extends ConsumerStatefulWidget {
   const PuzzleScreen({Key? key}) : super(key: key);
@@ -24,6 +25,19 @@ class _PuzzleScreenState extends ConsumerState<PuzzleScreen> {
           title: const Text('Puzzles'),
           centerTitle: true,
           elevation: 0,
+          actions: [
+            IconButton(
+              icon: const Icon(Icons.bolt),
+              tooltip: 'Puzzle Rush',
+              onPressed: () {
+                Navigator.of(context).push(
+                  MaterialPageRoute(
+                    builder: (_) => const PuzzleRushScreen(),
+                  ),
+                );
+              },
+            ),
+          ],
         ),
         body: SafeArea(
           child: Column(
