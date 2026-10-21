@@ -106,6 +106,24 @@ exports.recordMove = functions
 
         const game = gameDoc.data();
 
+        // Verify the caller is actually a participant in this game -
+        // without this, an authenticated stranger with no part in the
+        // game at all could still inject moves: below, isWhitePlayer is
+        // only ever compared against isWhiteTurn, and a non-participant
+        // always has isWhitePlayer === false, which passes that check
+        // undetected whenever it happens to be black's turn (isWhiteTurn
+        // === false too). respondToTakeback already has the equivalent
+        // participant check; recordMove was missing it.
+        if (
+          playerId !== game.whitePlayerId &&
+          playerId !== game.blackPlayerId
+        ) {
+          throw new functions.https.HttpsError(
+            "permission-denied",
+            "Player is not a participant in this game"
+          );
+        }
+
         // Verify game is active
         if (game.status !== "active") {
           throw new functions.https.HttpsError(
