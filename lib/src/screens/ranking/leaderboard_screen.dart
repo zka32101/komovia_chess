@@ -136,38 +136,21 @@ class _LeaderboardScreenState extends ConsumerState<LeaderboardScreen> {
         ),
       );
 
-  /// Show shogi rank filter dialog
+  /// Show shogi rank filter dialog.
+  ///
+  /// The selectable ranks are generated from
+  /// [ShogiRankService.allRanks]/[ShogiRankService.displayName] - these
+  /// are the only 14 values [ShogiRankService.calculateRank] can ever
+  /// actually produce from a rating, so every option here is guaranteed
+  /// to match real players. The previous hardcoded 28-entry list (every
+  /// kyu from 20 down to 1, plus every dan) offered many labels
+  /// (e.g. "17級", "9級") that calculateRank can never produce at all,
+  /// and used "初段" where [ShogiRankService.displayName] actually
+  /// prints "1段" - both meant most selections could never match anyone.
   void _showShogiRankFilter(BuildContext context) {
-    final ranks = [
-      '20級',
-      '19級',
-      '18級',
-      '17級',
-      '16級',
-      '15級',
-      '14級',
-      '13級',
-      '12級',
-      '11級',
-      '10級',
-      '9級',
-      '8級',
-      '7級',
-      '6級',
-      '5級',
-      '4級',
-      '3級',
-      '2級',
-      '1級',
-      '初段',
-      '2段',
-      '3段',
-      '4段',
-      '5段',
-      '6段',
-      '7段',
-      '8段',
-    ];
+    final ranks = ShogiRankService.allRanks
+        .map(ShogiRankService.displayName)
+        .toList();
 
     showDialog(
       context: context,
