@@ -24,14 +24,18 @@ class FriendChallengeService {
     required int wagerPoints,
   }) async {
     try {
-      final challengeId = DateTime.now().millisecondsSinceEpoch.toString();
-
-      await _firestore
+      // A Firestore auto-generated ID, not the previous
+      // DateTime.now().millisecondsSinceEpoch.toString() - two challenges
+      // created in the same millisecond (e.g. two rapid taps) would have
+      // collided on that id and one would silently overwrite the other.
+      final docRef = _firestore
           .collection('friend_challenges')
           .doc('active')
           .collection('list')
-          .doc(challengeId)
-          .set({
+          .doc();
+      final challengeId = docRef.id;
+
+      await docRef.set({
         'challengeId': challengeId,
         'challengerUserId': challengerUserId,
         'challengerUsername': challengerUsername,

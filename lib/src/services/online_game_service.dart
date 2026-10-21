@@ -143,7 +143,7 @@ class OnlineGameService {
   }) async {
     try {
       final callable = _functions.httpsCallable('recordMove');
-      await callable.call<Map<String, dynamic>>({
+      final response = await callable.call<Map<String, dynamic>>({
         'gameId': gameId,
         'from': from,
         'to': to,
@@ -152,6 +152,10 @@ class OnlineGameService {
       });
 
       _logger.i('Move recorded in game $gameId: $from$to');
+
+      if (response.data['concluded'] == true) {
+        unawaited(_handleServerConcludedGame(gameId));
+      }
     } on FirebaseFunctionsException catch (e, st) {
       _logger.e('Failed to record move: ${e.code} ${e.message}',
           error: e, stackTrace: st);
@@ -280,127 +284,216 @@ class OnlineGameService {
         if (blackResult == 'draw') 'draws': FieldValue.increment(1),
       });
 
-      // Same analytics-cache staleness this app's CPU games already fix
-      // (CpuGameNotifier._recordResult) - nothing invalidated either
-      // player's AnalyticsDashboardService cache after an online game
-      // either, so AnalyticsDashboardScreen kept showing pre-game numbers
-      // for up to an hour.
-      AnalyticsDashboardService().invalidatePlayerAnalytics(game.whitePlayerId);
-      AnalyticsDashboardService().invalidatePlayerAnalytics(game.blackPlayerId);
-
-      // Best-effort: record this match for both players' Match History /
-      // comparison screens - previously nothing anywhere ever called
-      // MatchHistoryService.recordMatch, so those screens always showed
-      // an empty history regardless of games played. One record per
-      // player, from that player's own perspective (opponent = the
-      // other side), using the ratings already just computed above
-      // rather than a second increment (recordMatch only writes the
-      // match_history entry itself - see its own doc comment).
-      final matchHistoryService = MatchHistoryService();
-      final movesUci = game.moves
-          .where((m) => m.from.isNotEmpty && m.to.isNotEmpty) // skip passes
-          .map((m) => {
-                'from': m.from,
-                'to': m.to,
-                'promotion': m.promotion,
-              })
-          .toList();
-      unawaited(matchHistoryService.recordMatch(
-        MatchRecord(
-          matchId: '${gameId}_white',
-          playerId: game.whitePlayerId,
-          opponentId: game.blackPlayerId,
-          opponentName: game.blackPlayerName,
-          playerRatingBefore: game.whiteRating,
-          playerRatingAfter: whiteNewRating,
-          opponentRatingBefore: game.blackRating,
-          opponentRatingAfter: blackNewRating,
-          result: whiteResult,
-          timeControl: game.timeControl,
-          playedAt: DateTime.now(),
-        ),
-        moves: movesUci,
-      ));
-      unawaited(matchHistoryService.recordMatch(
-        MatchRecord(
-          matchId: '${gameId}_black',
-          playerId: game.blackPlayerId,
-          opponentId: game.whitePlayerId,
-          opponentName: game.whitePlayerName,
-          playerRatingBefore: game.blackRating,
-          playerRatingAfter: blackNewRating,
-          opponentRatingBefore: game.whiteRating,
-          opponentRatingAfter: whiteNewRating,
-          result: blackResult,
-          timeControl: game.timeControl,
-          playedAt: DateTime.now(),
-        ),
-        moves: movesUci,
-      ));
-
-      _logger.i('Game completed: $gameId - $result ($resultReason)');
-
-      await _logGameEndActivity(
+      await _runPostGameSideEffects(
         gameId: gameId,
         game: game,
         result: result,
         resultReason: resultReason,
+        whiteNewRating: whiteNewRating,
+        blackNewRating: blackNewRating,
+        whiteRatingDelta: whiteRatingDelta,
+        blackRatingDelta: blackRatingDelta,
       );
-
-      // Best-effort: a win may have just satisfied an achievement
-      // (first_win/five_wins). Swallows its own errors internally and
-      // never blocks the game from ending.
-      final winnerId = result == 'white_win'
-          ? game.whitePlayerId
-          : result == 'black_win'
-              ? game.blackPlayerId
-              : null;
-      if (winnerId != null) {
-        unawaited(AchievementService().checkAndUnlockAchievements(winnerId));
-      }
-
-      // Best-effort: advance any active seasonal challenge tracking wins/
-      // draws/games-played for both players. Previously nothing in the
-      // app ever called into SeasonChallengeService from a real game
-      // ending, so no seasonal challenge could progress through actual
-      // play.
-      unawaited(_recordSeasonChallengeProgress(
-        playerId: game.whitePlayerId,
-        playerResult: whiteResult,
-      ));
-      unawaited(_recordSeasonChallengeProgress(
-        playerId: game.blackPlayerId,
-        playerResult: blackResult,
-      ));
-
-      // Best-effort: if this game was created from a friend challenge
-      // (ChallengeActionsNotifier.acceptChallenge links the two via the
-      // challenge's own `gameId` field), report the result back so the
-      // challenge actually completes - previously nothing anywhere ever
-      // called FriendChallengeService.completeChallengeWithWinner, so an
-      // accepted challenge stayed stuck at status 'accepted' forever,
-      // and challenge_results/challenge_streaks never reflected a single
-      // real game.
-      if (result != 'draw' && winnerId != null) {
-        final loserId = winnerId == game.whitePlayerId
-            ? game.blackPlayerId
-            : game.whitePlayerId;
-        final winnerRatingDelta =
-            (winnerId == game.whitePlayerId ? whiteRatingDelta : blackRatingDelta)!;
-        final loserRatingDelta =
-            (winnerId == game.whitePlayerId ? blackRatingDelta : whiteRatingDelta)!;
-        unawaited(_completeLinkedFriendChallenge(
-          gameId: gameId,
-          winnerId: winnerId,
-          loserId: loserId,
-          winnerRatingGain: winnerRatingDelta,
-          loserRatingLoss: loserRatingDelta.abs(),
-          moveCount: game.moves.length,
-        ));
-      }
     } catch (e, st) {
       _logger.e('Failed to end game', error: e, stackTrace: st);
       rethrow;
+    }
+  }
+
+  /// Runs the shared post-game side effects for a game the `recordMove`
+  /// Cloud Function just concluded server-side (checkmate/stalemate/
+  /// insufficient-material/draw) - the function already wrote the
+  /// game-ending update, the user doc rating/stat increments, and its
+  /// own achievement check, so this only needs to read the now-completed
+  /// game doc back and run the remaining best-effort bookkeeping.
+  /// Best-effort: never allowed to throw back into [recordMove].
+  Future<void> _handleServerConcludedGame(String gameId) async {
+    try {
+      final gameDoc =
+          await _firestore.collection(_gamesCollection).doc(gameId).get();
+      final data = gameDoc.data();
+      if (data == null) return;
+      final game = OnlineGame.fromJson(data);
+
+      final result = game.result;
+      final whiteNewRating = game.whiteNewRating;
+      final blackNewRating = game.blackNewRating;
+      final whiteRatingDelta = game.whiteRatingDelta;
+      final blackRatingDelta = game.blackRatingDelta;
+      if (result == null ||
+          whiteNewRating == null ||
+          blackNewRating == null ||
+          whiteRatingDelta == null ||
+          blackRatingDelta == null) {
+        return;
+      }
+
+      await _runPostGameSideEffects(
+        gameId: gameId,
+        game: game,
+        result: result,
+        resultReason: game.resultReason ?? 'checkmate',
+        whiteNewRating: whiteNewRating,
+        blackNewRating: blackNewRating,
+        whiteRatingDelta: whiteRatingDelta,
+        blackRatingDelta: blackRatingDelta,
+        skipAchievementCheck: true,
+      );
+    } catch (e, st) {
+      _logger.w('Failed to run post-game side effects for $gameId: $e',
+          error: e, stackTrace: st);
+    }
+  }
+
+  /// Shared post-game bookkeeping: match history, analytics-cache
+  /// invalidation, friend-activity logging, achievement check, seasonal
+  /// challenge progress, and linked friend-challenge completion.
+  ///
+  /// Called from two places: [_endGameWithResult] (resign/draw/abandon/
+  /// forfeit, where the Dart client itself just wrote the game-ending
+  /// update) and [recordMove] (checkmate/stalemate/insufficient-material/
+  /// draw detected server-side by the `recordMove` Cloud Function, which
+  /// already wrote the game-ending update and already ran its own
+  /// achievement check - [skipAchievementCheck] avoids double-unlocking
+  /// there). Previously only the first path existed, so a server-detected
+  /// checkmate - by far the most common way an online game actually ends -
+  /// never recorded match history, never invalidated analytics caches,
+  /// never advanced a seasonal challenge, and never completed a linked
+  /// friend challenge (which stayed stuck at status 'accepted' forever).
+  Future<void> _runPostGameSideEffects({
+    required String gameId,
+    required OnlineGame game,
+    required String result,
+    required String resultReason,
+    required int whiteNewRating,
+    required int blackNewRating,
+    required int whiteRatingDelta,
+    required int blackRatingDelta,
+    bool skipAchievementCheck = false,
+  }) async {
+    final String whiteResult =
+        result == 'white_win' ? 'win' : (result == 'draw' ? 'draw' : 'loss');
+    final String blackResult =
+        result == 'black_win' ? 'win' : (result == 'draw' ? 'draw' : 'loss');
+
+    // Same analytics-cache staleness this app's CPU games already fix
+    // (CpuGameNotifier._recordResult) - nothing invalidated either
+    // player's AnalyticsDashboardService cache after an online game
+    // either, so AnalyticsDashboardScreen kept showing pre-game numbers
+    // for up to an hour.
+    AnalyticsDashboardService().invalidatePlayerAnalytics(game.whitePlayerId);
+    AnalyticsDashboardService().invalidatePlayerAnalytics(game.blackPlayerId);
+
+    // Best-effort: record this match for both players' Match History /
+    // comparison screens - previously nothing anywhere ever called
+    // MatchHistoryService.recordMatch, so those screens always showed
+    // an empty history regardless of games played. One record per
+    // player, from that player's own perspective (opponent = the
+    // other side), using the ratings already just computed above
+    // rather than a second increment (recordMatch only writes the
+    // match_history entry itself - see its own doc comment).
+    final matchHistoryService = MatchHistoryService();
+    final movesUci = game.moves
+        .where((m) => m.from.isNotEmpty && m.to.isNotEmpty) // skip passes
+        .map((m) => {
+              'from': m.from,
+              'to': m.to,
+              'promotion': m.promotion,
+            })
+        .toList();
+    unawaited(matchHistoryService.recordMatch(
+      MatchRecord(
+        matchId: '${gameId}_white',
+        playerId: game.whitePlayerId,
+        opponentId: game.blackPlayerId,
+        opponentName: game.blackPlayerName,
+        playerRatingBefore: game.whiteRating,
+        playerRatingAfter: whiteNewRating,
+        opponentRatingBefore: game.blackRating,
+        opponentRatingAfter: blackNewRating,
+        result: whiteResult,
+        timeControl: game.timeControl,
+        playedAt: DateTime.now(),
+      ),
+      moves: movesUci,
+    ));
+    unawaited(matchHistoryService.recordMatch(
+      MatchRecord(
+        matchId: '${gameId}_black',
+        playerId: game.blackPlayerId,
+        opponentId: game.whitePlayerId,
+        opponentName: game.whitePlayerName,
+        playerRatingBefore: game.blackRating,
+        playerRatingAfter: blackNewRating,
+        opponentRatingBefore: game.whiteRating,
+        opponentRatingAfter: whiteNewRating,
+        result: blackResult,
+        timeControl: game.timeControl,
+        playedAt: DateTime.now(),
+      ),
+      moves: movesUci,
+    ));
+
+    _logger.i('Game completed: $gameId - $result ($resultReason)');
+
+    await _logGameEndActivity(
+      gameId: gameId,
+      game: game,
+      result: result,
+      resultReason: resultReason,
+    );
+
+    final winnerId = result == 'white_win'
+        ? game.whitePlayerId
+        : result == 'black_win'
+            ? game.blackPlayerId
+            : null;
+
+    // Best-effort: a win may have just satisfied an achievement
+    // (first_win/five_wins). Swallows its own errors internally and
+    // never blocks the game from ending.
+    if (!skipAchievementCheck && winnerId != null) {
+      unawaited(AchievementService().checkAndUnlockAchievements(winnerId));
+    }
+
+    // Best-effort: advance any active seasonal challenge tracking wins/
+    // draws/games-played for both players. Previously nothing in the
+    // app ever called into SeasonChallengeService from a real game
+    // ending, so no seasonal challenge could progress through actual
+    // play.
+    unawaited(_recordSeasonChallengeProgress(
+      playerId: game.whitePlayerId,
+      playerResult: whiteResult,
+    ));
+    unawaited(_recordSeasonChallengeProgress(
+      playerId: game.blackPlayerId,
+      playerResult: blackResult,
+    ));
+
+    // Best-effort: if this game was created from a friend challenge
+    // (ChallengeActionsNotifier.acceptChallenge links the two via the
+    // challenge's own `gameId` field), report the result back so the
+    // challenge actually completes - previously nothing anywhere ever
+    // called FriendChallengeService.completeChallengeWithWinner, so an
+    // accepted challenge stayed stuck at status 'accepted' forever,
+    // and challenge_results/challenge_streaks never reflected a single
+    // real game.
+    if (result != 'draw' && winnerId != null) {
+      final loserId = winnerId == game.whitePlayerId
+          ? game.blackPlayerId
+          : game.whitePlayerId;
+      final winnerRatingDelta =
+          winnerId == game.whitePlayerId ? whiteRatingDelta : blackRatingDelta;
+      final loserRatingDelta =
+          winnerId == game.whitePlayerId ? blackRatingDelta : whiteRatingDelta;
+      unawaited(_completeLinkedFriendChallenge(
+        gameId: gameId,
+        winnerId: winnerId,
+        loserId: loserId,
+        winnerRatingGain: winnerRatingDelta,
+        loserRatingLoss: loserRatingDelta.abs(),
+        moveCount: game.moves.length,
+      ));
     }
   }
 
