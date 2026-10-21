@@ -244,6 +244,7 @@ class _OnlineGameScreenState extends ConsumerState<OnlineGameScreen> {
           child: GameBoard(
             gameState: gameState,
             showCoordinates: showCoordinates,
+            blindfold: ref.watch(blindfoldModeProvider),
             // Online games don't support undo, so the real move history
             // (needed only to enable/disable the undo button) isn't wired
             // through - GameMove doesn't carry enough data to reconstruct
