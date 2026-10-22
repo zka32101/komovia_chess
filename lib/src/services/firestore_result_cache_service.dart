@@ -79,11 +79,24 @@ class FirestoreResultCacheService {
   }
 
   /// Invalidate specific document in cache.
+  ///
+  /// Only removes this one document's cache entry. Previously this also
+  /// called invalidateCollection(collection), which wipes every key
+  /// _trackDependency has ever recorded under that collection name -
+  /// but _queryDependencies is keyed by collection name only, not by
+  /// document id, so cacheDocument() for EVERY document in a collection
+  /// (e.g. every signed-in player's cached PlayerAnalyticsDashboard
+  /// under 'analytics') lands in the same bucket. One player finishing
+  /// a CPU game and calling AnalyticsDashboardService.invalidatePlayerAnalytics
+  /// would silently evict every other player's cached dashboard too,
+  /// defeating the cache's whole point. No caller of invalidateDocument
+  /// actually needs that collection-wide sweep today (confirmed via
+  /// grep - this method's only caller, 'analytics', never uses
+  /// cacheQueryResults/getCachedQueryResults), so this now only removes
+  /// the one document's own key.
   void invalidateDocument(String collection, String docId) {
     final key = 'doc:$collection:$docId';
     _cacheManager.remove(key);
-    // Also invalidate related query results
-    invalidateCollection(collection);
   }
 
   /// Clear all cache.
