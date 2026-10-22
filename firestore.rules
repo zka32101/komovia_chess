@@ -867,8 +867,21 @@ service cloud.firestore {
         // pattern as this app's other self-reported cross-user writes
         // (see users/{userId} above), narrowed to just the progress
         // fields those two methods ever touch.
+        // Bounded the same way as the update rule's cross-user branch
+        // below - previously this had no bound at all on the initial
+        // currentProgress value, so any signed-in user could `create`
+        // another player's progress doc directly with currentProgress
+        // already at or past targetProgress and isCompleted: true,
+        // instantly completing a stranger's challenge in one write (the
+        // same exploit class the update rule's delta-bound was written
+        // to close, left open on this sibling create path).
+        // recordMetricProgress only ever creates a fresh doc with
+        // currentProgress == 1, so this bound matches every real caller.
         allow create: if isSignedIn() &&
-          request.resource.data.playerId == playerId;
+          request.resource.data.playerId == playerId &&
+          request.resource.data.currentProgress is int &&
+          request.resource.data.currentProgress >= 0 &&
+          request.resource.data.currentProgress <= 10;
         // The cross-user branch previously had no bound at all on the new
         // currentProgress value, so any signed-in user could call this
         // with any other player's uid as {playerId} and jump

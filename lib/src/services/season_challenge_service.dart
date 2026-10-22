@@ -180,14 +180,24 @@ class SeasonChallengeService {
         final doc = await transaction.get(progressRef);
 
         if (!doc.exists) {
+          // Same cap as the update branch below - progressAmount could
+          // in principle exceed challenge.target on a single call (e.g.
+          // a future caller passing a batched amount), which without
+          // clamping would both write a currentProgress above
+          // targetProgress (wrong progress-bar percentages) and, since
+          // firestore.rules' create rule only checks playerId and has no
+          // bound on the initial value, is the one write path a client
+          // could otherwise use to directly create an already-completed
+          // challenge.
+          final initialProgress = progressAmount.clamp(0, challenge.target);
           transaction.set(progressRef, {
             'playerId': playerId,
             'challengeId': challengeId,
-            'currentProgress': progressAmount,
+            'currentProgress': initialProgress,
             'targetProgress': challenge.target,
-            'isCompleted': progressAmount >= challenge.target,
+            'isCompleted': initialProgress >= challenge.target,
             'startedAt': FieldValue.serverTimestamp(),
-            'completedAt': progressAmount >= challenge.target
+            'completedAt': initialProgress >= challenge.target
                 ? FieldValue.serverTimestamp()
                 : null,
             'updatedAt': FieldValue.serverTimestamp(),
