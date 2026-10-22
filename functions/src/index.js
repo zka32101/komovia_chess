@@ -593,28 +593,9 @@ exports.cleanupExpiredQueue = functions
     return cleanupExpiredQueues();
   });
 
-/**
- * Helper function: Convert time control string to milliseconds
- */
-function timeControlMs(timeControl) {
-  switch (timeControl) {
-    case "3min":
-      return 3 * 60 * 1000;
-    case "5min":
-      return 5 * 60 * 1000;
-    case "10min":
-      return 10 * 60 * 1000;
-    default:
-      return 5 * 60 * 1000;
-  }
-}
-
-// NOT `module.exports = {...}` - that would silently replace every
-// `exports.XXX = ...` Cloud Function assignment above (matchmakingWorker,
-// recordMove, handleTimeout, updateGameRatings, cleanupExpiredQueue) with
-// just this one helper, meaning `firebase deploy --only functions` would
-// never actually deploy any of them. Confirmed via this file's own
-// `exports.recordMove` becoming `undefined` once required - this was a
-// pre-existing bug that made every Cloud Function in this file dead on
-// deploy, discovered while testing the fixed `recordMove`.
-exports.timeControlMs = timeControlMs;
+// timeControlMs (a time-control-string -> duration helper) used to live
+// here but had zero callers anywhere in functions/ or lib/ - it was also
+// out of sync with the real, actually-used equivalent
+// (OnlineGameService._parseTimeControl, Dart side), which also handles
+// the three correspondence controls ("1day"/"3day"/"7day") this JS copy
+// never knew about. Deleted rather than fixed, since nothing calls it.

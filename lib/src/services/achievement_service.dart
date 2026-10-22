@@ -214,16 +214,31 @@ class AchievementService {
 
   Future<void> unlockAchievement(String userId, String achievementId) async {
     try {
-      await _firestore
+      final ref = _firestore
           .collection('achievements')
           .doc('user_achievements')
           .collection(userId)
-          .doc(achievementId)
-          .set({
-        'userId': userId,
-        'achievementId': achievementId,
-        'unlockedAt': FieldValue.serverTimestamp(),
-        'progressPercentage': 100,
+          .doc(achievementId);
+      // Re-checks existence inside the transaction rather than trusting
+      // checkAndUnlockAchievements' own earlier (non-transactional) read
+      // - this mirrors the fix already applied to the Cloud Functions
+      // side (functions/src/achievement-service.js) that never made it
+      // over to this Dart copy. checkAndUnlockAchievements runs
+      // fire-and-forget from both a CPU game win and an online game win;
+      // two near-simultaneous unlocks for the same user (e.g. finishing
+      // an online game right as a CPU game also concludes) could both
+      // see the achievement as not-yet-unlocked and both call set(),
+      // re-stamping unlockedAt with a later timestamp than the player's
+      // true first unlock.
+      await _firestore.runTransaction((transaction) async {
+        final doc = await transaction.get(ref);
+        if (doc.exists) return;
+        transaction.set(ref, {
+          'userId': userId,
+          'achievementId': achievementId,
+          'unlockedAt': FieldValue.serverTimestamp(),
+          'progressPercentage': 100,
+        });
       });
     } catch (e) {
       print('Error unlocking achievement: $e');
