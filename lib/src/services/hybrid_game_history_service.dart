@@ -1,3 +1,5 @@
+import 'dart:convert';
+
 import 'package:connectivity_plus/connectivity_plus.dart';
 import 'package:logger/logger.dart';
 import '../models/game_history.dart';
@@ -275,7 +277,14 @@ class HybridGameHistoryService implements GameHistoryService {
           'gameCount': games.length,
           'games': games.map((g) => g.toJson()).toList(),
         };
-        return json.toString();
+        // jsonEncode, not Map.toString() - the latter produces Dart's
+        // debug-print syntax ({key: value}, unquoted keys, single-quoted
+        // strings), not valid JSON, so a backup exported while offline
+        // silently produced a string importGamesFromBackup's jsonDecode
+        // could never parse back (see firebase_game_history_service.dart's
+        // exportGamesAsJson, the online path, which already does this
+        // correctly).
+        return jsonEncode(json);
       }
     } catch (e) {
       _logger.e('Error exporting games: $e');

@@ -246,30 +246,50 @@ class BattlePassService {
       await _firestore.runTransaction((transaction) async {
         final doc = await transaction.get(progressRef);
 
+        // Both the first-ever XP award (doc doesn't exist yet) and every
+        // later one apply the same level-up loop - previously the
+        // "create" branch just set currentExperience to the raw award
+        // with currentLevel hardcoded to 1, so a large enough first XP
+        // grant (or this app's own future-use seasonChallenge/
+        // achievement XP hooks once wired up) would leave a player's
+        // level stuck at 1 with currentExperience reading over 100% of
+        // experiencePerLevel, only self-correcting once enough
+        // *additional* XP arrived on a later call to pay down the
+        // backlog.
+        final progress = doc.exists
+            ? PlayerBattlePassProgress.fromJson(doc.data()!)
+            : PlayerBattlePassProgress(
+                playerId: playerId,
+                seasonId: seasonId,
+                currentLevel: 1,
+                currentExperience: 0,
+                hasPremiumPass: false,
+                claimedFreeRewards: const [],
+                claimedPremiumRewards: const [],
+                updatedAt: DateTime.now(),
+              );
+        int newExp = progress.currentExperience + experienceAmount;
+        int newLevel = progress.currentLevel;
+
+        // Level up if experience exceeds requirement
+        while (newExp >= battlePass.experiencePerLevel &&
+            newLevel < battlePass.maxLevel) {
+          newExp -= battlePass.experiencePerLevel;
+          newLevel++;
+        }
+
         if (!doc.exists) {
-          // Initialize new battle pass progress
           transaction.set(progressRef, {
             'playerId': playerId,
             'seasonId': seasonId,
-            'currentLevel': 1,
-            'currentExperience': experienceAmount,
+            'currentLevel': newLevel,
+            'currentExperience': newExp,
             'hasPremiumPass': false,
             'claimedFreeRewards': <int>[],
             'claimedPremiumRewards': <int>[],
             'updatedAt': FieldValue.serverTimestamp(),
           });
         } else {
-          final progress = PlayerBattlePassProgress.fromJson(doc.data()!);
-          int newExp = progress.currentExperience + experienceAmount;
-          int newLevel = progress.currentLevel;
-
-          // Level up if experience exceeds requirement
-          while (newExp >= battlePass.experiencePerLevel &&
-              newLevel < battlePass.maxLevel) {
-            newExp -= battlePass.experiencePerLevel;
-            newLevel++;
-          }
-
           transaction.update(progressRef, {
             'currentExperience': newExp,
             'currentLevel': newLevel,
