@@ -912,12 +912,17 @@ class OnlineGameService {
         : previousGame.blackPlayerName;
 
     try {
-      final notificationId = '${DateTime.now().millisecondsSinceEpoch}_rematch';
+      // Firestore auto-generated ID, not a millisecond timestamp - two
+      // rematch notifications to the same opponent in the same
+      // millisecond (e.g. a retried call after a transient failure)
+      // would otherwise collide and silently overwrite one notification,
+      // same bug class already fixed elsewhere in challenge_service.dart/
+      // friend_service.dart.
       await _firestore
           .collection('users')
           .doc(opponentId)
           .collection('notifications')
-          .doc(notificationId)
+          .doc()
           .set({
         'uid': opponentId,
         'type': 'game_matched',

@@ -302,6 +302,15 @@ describe('recordMove', () => {
       'rnbqkbnr/pppppppp/8/8/4P3/8/PPPP1PPP/RNBQKBNR b KQkq - 0 1',
     );
     expect(fake.games.get('game_1').moves).toHaveLength(1);
+    // Regression check for arrayUnion's variadic signature: each entry in
+    // `moves` must be the move record itself, not a one-element array
+    // wrapping it (admin.firestore.FieldValue.arrayUnion(...elements) is
+    // variadic, unlike the Dart client SDK's List-taking overload).
+    expect(fake.games.get('game_1').moves[0]).toMatchObject({
+      from: 'e2',
+      to: 'e4',
+      playerId: 'white_uid',
+    });
     expect(fake.moveSubdocs.get('game_1')).toHaveLength(1);
 
     // Mid-game: no stats recorded yet.

@@ -217,7 +217,15 @@ exports.recordMove = functions
         const updates = {
           currentFen: chess.fen(),
           pgn: chess.pgn(),
-          moves: admin.firestore.FieldValue.arrayUnion([moveRecord]),
+          // admin.firestore.FieldValue.arrayUnion is variadic
+          // (arrayUnion(...elements)), unlike the Dart client SDK's
+          // List-taking overload - wrapping moveRecord in an array here
+          // would union a single-element ARRAY onto `moves` instead of
+          // the move record itself, so every entry in `moves` after this
+          // ran would be `[{...}]` instead of `{...}` and
+          // OnlineGame.fromJson's `m as Map<String, dynamic>` would throw
+          // for every real online game.
+          moves: admin.firestore.FieldValue.arrayUnion(moveRecord),
           lastMoveTimestamp: nowTs,
           [onMoveRemainingField]: onMoveRemainingMs,
           [isWhitePlayer
