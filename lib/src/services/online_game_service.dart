@@ -207,48 +207,78 @@ class OnlineGameService {
     int? blackRatingDelta,
   }) async {
     try {
-      // Get current game to calculate new ratings if needed
-      final gameDoc =
-          await _firestore.collection(_gamesCollection).doc(gameId).get();
-      final game = OnlineGame.fromJson(gameDoc.data()!);
+      final gameRef = _firestore.collection(_gamesCollection).doc(gameId);
 
-      int whiteNewRating = game.whiteRating;
-      int blackNewRating = game.blackRating;
+      // Read the game and write the game-ending update inside one
+      // transaction, re-checking status == 'active' before writing -
+      // without this, two near-simultaneous calls (a double-tap on
+      // resign/claim-draw, a network retry, or two clients both racing
+      // to claim an abandonment forfeit) could each read the game while
+      // it was still 'active', then both write 'completed' and both
+      // increment each player's wins/losses/draws/gamesPlayed and
+      // overwrite onlineRating from a freshly (and differently)
+      // recomputed delta - permanent stat/rating corruption, not just a
+      // duplicate write. Matches the transactional re-check already used
+      // for this exact race in the Cloud Functions side (recordMove/
+      // handleTimeout/respondToTakeback).
+      late OnlineGame game;
+      late int resolvedWhiteDelta;
+      late int resolvedBlackDelta;
+      late int whiteNewRating;
+      late int blackNewRating;
+      var alreadyEnded = false;
 
-      // Calculate rating changes if not provided
-      if (whiteRatingDelta == null || blackRatingDelta == null) {
-        final ratingChange =
-            _calculateRatingChange(game.whiteRating, game.blackRating, result);
-        whiteRatingDelta = ratingChange['whiteChange']!;
-        blackRatingDelta = ratingChange['blackChange']!;
-      }
+      await _firestore.runTransaction((transaction) async {
+        final gameDoc = await transaction.get(gameRef);
+        game = OnlineGame.fromJson(gameDoc.data()!);
 
-      whiteNewRating = game.whiteRating + whiteRatingDelta;
-      blackNewRating = game.blackRating + blackRatingDelta;
+        if (game.status != 'active') {
+          alreadyEnded = true;
+          return;
+        }
 
-      // Update game with results. Also clears drawOfferedBy/
-      // takebackRequestedBy as part of this same write - acceptDraw used
-      // to do this as a separate, later .update() call, which could
-      // leave a completed game with a stale drawOfferedBy if the app
-      // died or the network dropped between the two writes (the
-      // draw-offer banner in online_game_screen.dart isn't gated on
-      // status == 'active', only on drawOfferedBy != null). Every path
-      // through here (resign/claimDraw/abandon/forfeit/acceptDraw/
-      // timeout) can equally leave either flag stale, so clearing both
-      // unconditionally here is simpler and safer than fixing each
-      // caller individually.
-      await _firestore.collection(_gamesCollection).doc(gameId).update({
-        'status': 'completed',
-        'endedAt': FieldValue.serverTimestamp(),
-        'result': result,
-        'resultReason': resultReason,
-        'whiteRatingDelta': whiteRatingDelta,
-        'blackRatingDelta': blackRatingDelta,
-        'whiteNewRating': whiteNewRating,
-        'blackNewRating': blackNewRating,
-        'drawOfferedBy': null,
-        'takebackRequestedBy': null,
+        resolvedWhiteDelta = whiteRatingDelta ??
+            _calculateRatingChange(game.whiteRating, game.blackRating, result)[
+                'whiteChange']!;
+        resolvedBlackDelta = blackRatingDelta ??
+            _calculateRatingChange(game.whiteRating, game.blackRating, result)[
+                'blackChange']!;
+
+        whiteNewRating = game.whiteRating + resolvedWhiteDelta;
+        blackNewRating = game.blackRating + resolvedBlackDelta;
+
+        // Also clears drawOfferedBy/takebackRequestedBy as part of this
+        // same write - acceptDraw used to do this as a separate, later
+        // .update() call, which could leave a completed game with a
+        // stale drawOfferedBy if the app died or the network dropped
+        // between the two writes (the draw-offer banner in
+        // online_game_screen.dart isn't gated on status == 'active',
+        // only on drawOfferedBy != null). Every path through here
+        // (resign/claimDraw/abandon/forfeit/acceptDraw/timeout) can
+        // equally leave either flag stale, so clearing both
+        // unconditionally here is simpler and safer than fixing each
+        // caller individually.
+        transaction.update(gameRef, {
+          'status': 'completed',
+          'endedAt': FieldValue.serverTimestamp(),
+          'result': result,
+          'resultReason': resultReason,
+          'whiteRatingDelta': resolvedWhiteDelta,
+          'blackRatingDelta': resolvedBlackDelta,
+          'whiteNewRating': whiteNewRating,
+          'blackNewRating': blackNewRating,
+          'drawOfferedBy': null,
+          'takebackRequestedBy': null,
+        });
       });
+
+      if (alreadyEnded) {
+        _logger.i(
+            'Game $gameId already ended; skipping duplicate end-game side effects');
+        return;
+      }
+      whiteRatingDelta = resolvedWhiteDelta;
+      blackRatingDelta = resolvedBlackDelta;
 
       // Persist the new rating to each player's own record - previously
       // the computed whiteNewRating/blackNewRating only ever landed on
