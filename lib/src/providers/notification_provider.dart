@@ -50,7 +50,20 @@ AppNotification notificationFromDoc(
     'id': doc.id,
     'uid': raw['uid'] ?? raw['userId'],
     'data': data.isEmpty ? null : data,
-    'createdAt': isoFromTimestamp(raw['createdAt']),
+    // Falls back to now() rather than passing null through - every
+    // notification write sets createdAt: FieldValue.serverTimestamp(),
+    // and on the writer's own device the first snapshot delivered for a
+    // newly-created doc has that field still pending (raw['createdAt']
+    // is null until the server round-trip resolves it). Without this
+    // fallback, AppNotification.fromJson's `DateTime.parse(json['createdAt']
+    // as String)` throws on that first snapshot - `null as String` is a
+    // type-cast error - which poisons the whole .map() over the
+    // snapshot's docs, so firebaseNotificationsProvider briefly reports
+    // AsyncError/empty for every notification in that batch, not just
+    // the new one, right when a friend-request/accept/rematch
+    // notification is created for the signed-in user's own open session.
+    'createdAt':
+        isoFromTimestamp(raw['createdAt']) ?? DateTime.now().toIso8601String(),
     'readAt': isoFromTimestamp(raw['readAt']),
   });
 }

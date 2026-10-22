@@ -175,15 +175,28 @@ class RankingService {
 
   /// Get this user's 1-based position in the global ranking, or null if
   /// they don't have a ranking entry yet.
+  ///
+  /// Previously this (and [getNearbyRankings]) read every single document
+  /// in `users` on every call just to answer "what rank is this one user"
+  /// - unlike getGlobalRanking/getRankingByShogi/getMonthlyRanking in this
+  /// same file, which already page with limit(). Rank is now derived from
+  /// a count() aggregate query (one user document's own rating field,
+  /// then a count of users with a strictly higher rating), which the
+  /// Firestore server computes without the client ever downloading the
+  /// matching documents.
   Future<int?> getUserRank(String uid) async {
     try {
-      final snapshot = await _firestore
+      final userDoc = await _firestore.collection('users').doc(uid).get();
+      final rating = userDoc.data()?['rating'] as num?;
+      if (rating == null) return null;
+
+      final higherRatedCount = await _firestore
           .collection('users')
-          .orderBy('rating', descending: true)
+          .where('rating', isGreaterThan: rating)
+          .count()
           .get();
 
-      final index = snapshot.docs.indexWhere((doc) => doc.id == uid);
-      return index >= 0 ? index + 1 : null;
+      return (higherRatedCount.count ?? 0) + 1;
     } catch (e) {
       print('Error fetching user rank: $e');
       return null;
@@ -192,32 +205,70 @@ class RankingService {
 
   /// Get the [proximityCount] players immediately above and below [uid] in
   /// the global ranking (inclusive of [uid] itself).
+  ///
+  /// Same full-collection-read problem as [getUserRank] previously had -
+  /// now fetches only the 2*proximityCount+1 documents actually needed:
+  /// one bounded range query for the closest-rated players above [uid]
+  /// and one for those below, plus the single rank count each side needs
+  /// to label its results.
   Future<List<LeaderboardEntry>> getNearbyRankings(
     String uid, {
     required int proximityCount,
   }) async {
     try {
-      final snapshot = await _firestore
+      final userDoc = await _firestore.collection('users').doc(uid).get();
+      final data = userDoc.data();
+      final rating = data?['rating'] as num?;
+      if (rating == null) return [];
+
+      final higherRatedCount = await _firestore
           .collection('users')
+          .where('rating', isGreaterThan: rating)
+          .count()
+          .get();
+      final selfRank = (higherRatedCount.count ?? 0) + 1;
+
+      // Ascending order starting just above `rating` lists the closest
+      // players above first, so the i-th result (0-based) is exactly
+      // selfRank - (i + 1).
+      final aboveSnapshot = await _firestore
+          .collection('users')
+          .where('rating', isGreaterThan: rating)
+          .orderBy('rating')
+          .limit(proximityCount)
+          .get();
+      // Descending order starting just below `rating` lists the closest
+      // players below first, so the i-th result is selfRank + (i + 1).
+      final belowSnapshot = await _firestore
+          .collection('users')
+          .where('rating', isLessThan: rating)
           .orderBy('rating', descending: true)
+          .limit(proximityCount)
           .get();
 
-      final docs = snapshot.docs;
-      final index = docs.indexWhere((doc) => doc.id == uid);
-      if (index < 0) return [];
+      final entries = <LeaderboardEntry>[];
+      final aboveDocs = aboveSnapshot.docs;
+      for (var i = aboveDocs.length - 1; i >= 0; i--) {
+        final doc = aboveDocs[i];
+        entries.add(_leaderboardEntryFromJson(
+          {...doc.data(), 'userId': doc.id},
+          rank: selfRank - (i + 1),
+        ));
+      }
+      entries.add(_leaderboardEntryFromJson(
+        {...?data, 'userId': uid},
+        rank: selfRank,
+      ));
+      final belowDocs = belowSnapshot.docs;
+      for (var i = 0; i < belowDocs.length; i++) {
+        final doc = belowDocs[i];
+        entries.add(_leaderboardEntryFromJson(
+          {...doc.data(), 'userId': doc.id},
+          rank: selfRank + (i + 1),
+        ));
+      }
 
-      final start = (index - proximityCount).clamp(0, docs.length);
-      final end = (index + proximityCount + 1).clamp(0, docs.length);
-
-      return docs
-          .sublist(start, end)
-          .asMap()
-          .entries
-          .map((e) => _leaderboardEntryFromJson(
-                {...e.value.data(), 'userId': e.value.id},
-                rank: start + e.key + 1,
-              ))
-          .toList();
+      return entries;
     } catch (e) {
       print('Error fetching nearby rankings: $e');
       return [];
