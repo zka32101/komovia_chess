@@ -297,15 +297,42 @@ class HybridGameHistoryService implements GameHistoryService {
     try {
       _logger.i('Importing games from backup');
 
-      int imported = 0;
+      // Previously the offline branch never parsed backupData or wrote
+      // anything at all - it just logged and returned 0, silently
+      // discarding whatever the caller tried to restore. And the online
+      // branch only ever wrote to _firebase, never to _local, so even an
+      // online restore left the local cache stale until the next real
+      // sync. Both branches now parse backupData once (same dialect
+      // importGamesFromJson's own jsonParse/GameRecord.fromJson uses)
+      // and save every game to _local directly, so a restore is visible
+      // immediately regardless of connectivity; when online, the games
+      // are also pushed to _firebase so the cloud copy isn't left behind.
+      final json = jsonParse(backupData) as Map<String, dynamic>;
+      final games = (json['games'] as List)
+          .map((g) => GameRecord.fromJson(g as Map<String, dynamic>))
+          .toList();
 
-      // Parse backup data and import to local
-      // Then sync to cloud if online
+      int imported = 0;
+      for (final game in games) {
+        try {
+          await _local.saveGame(game);
+          imported++;
+        } catch (e) {
+          _logger.w('Failed to import game ${game.gameId} locally: $e');
+        }
+      }
+
       if (_isOnline) {
-        imported = await _firebase.importGamesFromJson(backupData);
+        try {
+          await _firebase.importGamesFromJson(backupData);
+        } catch (e) {
+          // Best-effort: the local import above already succeeded, so a
+          // cloud-sync failure here shouldn't be reported as the whole
+          // import having failed.
+          _logger.w('Failed to also sync imported games to Firebase: $e');
+        }
       } else {
-        // Local import only, will sync when online
-        _logger.i('Offline: Games will be synced when online');
+        _logger.i('Offline: imported games will sync to Firebase when online');
       }
 
       return imported;
