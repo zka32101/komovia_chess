@@ -11,47 +11,6 @@ class SeasonManagementService {
   static const String _seasonsCollection = 'seasons';
   static const String _playerSeasonsCollection = 'player_seasons';
 
-  /// Create a new season
-  Future<Season> createSeason({
-    required String name,
-    required String description,
-    required int seasonNumber,
-    required DateTime startDate,
-    required DateTime endDate,
-    required String theme,
-    required int maxLevel,
-  }) async {
-    try {
-      final seasonId = _firestore.collection(_seasonsCollection).doc().id;
-      final now = DateTime.now();
-
-      final season = Season(
-        seasonId: seasonId,
-        name: name,
-        description: description,
-        seasonNumber: seasonNumber,
-        startDate: startDate,
-        endDate: endDate,
-        status: 'upcoming',
-        theme: theme,
-        maxLevel: maxLevel,
-        createdAt: now,
-        updatedAt: now,
-      );
-
-      await _firestore
-          .collection(_seasonsCollection)
-          .doc(seasonId)
-          .set(season.toJson());
-
-      _logger.i('Season created: $seasonId ($name)');
-      return season;
-    } catch (e, st) {
-      _logger.e('Failed to create season', error: e, stackTrace: st);
-      rethrow;
-    }
-  }
-
   /// Get current active season
   Future<Season?> getCurrentSeason() async {
     try {
@@ -93,37 +52,6 @@ class SeasonManagementService {
     }
   }
 
-  /// Activate a season (change from upcoming to active)
-  Future<void> activateSeason(String seasonId) async {
-    try {
-      await _firestore.collection(_seasonsCollection).doc(seasonId).update({
-        'status': 'active',
-        'updatedAt': FieldValue.serverTimestamp(),
-      });
-
-      _logger.i('Season activated: $seasonId');
-    } catch (e, st) {
-      _logger.e('Failed to activate season', error: e, stackTrace: st);
-      rethrow;
-    }
-  }
-
-  /// Complete a season (change from active to completed)
-  Future<void> completeSeason(String seasonId) async {
-    try {
-      await _firestore.collection(_seasonsCollection).doc(seasonId).update({
-        'status': 'completed',
-        'completedAt': FieldValue.serverTimestamp(),
-        'updatedAt': FieldValue.serverTimestamp(),
-      });
-
-      _logger.i('Season completed: $seasonId');
-    } catch (e, st) {
-      _logger.e('Failed to complete season', error: e, stackTrace: st);
-      rethrow;
-    }
-  }
-
   /// Get player's seasonal progress
   Future<PlayerSeasonProgress?> getPlayerSeasonProgress(
     String playerId,
@@ -145,50 +73,6 @@ class SeasonManagementService {
     } catch (e, st) {
       _logger.e('Failed to get player season progress',
           error: e, stackTrace: st);
-      rethrow;
-    }
-  }
-
-  /// Update player seasonal experience
-  Future<void> addSeasonalExperience({
-    required String playerId,
-    required String seasonId,
-    required int experienceAmount,
-  }) async {
-    try {
-      final progressRef = _firestore
-          .collection(_playerSeasonsCollection)
-          .doc(playerId)
-          .collection('seasons')
-          .doc(seasonId);
-
-      await _firestore.runTransaction((transaction) async {
-        final doc = await transaction.get(progressRef);
-
-        if (!doc.exists) {
-          // Initialize new season progress
-          transaction.set(progressRef, {
-            'playerId': playerId,
-            'seasonId': seasonId,
-            'currentLevel': 1,
-            'totalExperience': experienceAmount,
-            'seasonRating': 1200,
-            'startedAt': FieldValue.serverTimestamp(),
-            'updatedAt': FieldValue.serverTimestamp(),
-          });
-        } else {
-          // Update existing progress
-          transaction.update(progressRef, {
-            'totalExperience': FieldValue.increment(experienceAmount),
-            'updatedAt': FieldValue.serverTimestamp(),
-          });
-        }
-      });
-
-      _logger
-          .i('Added $experienceAmount exp to $playerId for season $seasonId');
-    } catch (e, st) {
-      _logger.e('Failed to add seasonal experience', error: e, stackTrace: st);
       rethrow;
     }
   }
