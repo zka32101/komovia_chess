@@ -414,7 +414,13 @@ class FriendService {
     Map<String, dynamic> metadata,
   ) async {
     try {
-      final activityId = DateTime.now().millisecondsSinceEpoch.toString();
+      // A Firestore auto-generated ID, not a millisecond timestamp - two
+      // calls to logActivity for the same user within the same
+      // millisecond (e.g. two quick game completions) would otherwise
+      // collide and silently overwrite one activity-feed entry per
+      // friend (same bug class already fixed for
+      // FriendChallengeService.sendChallenge's document id).
+      final activityId = _firestore.collection('activity_feed').doc().id;
       final friends = await getFriends(userId);
       final batch = _firestore.batch();
 
