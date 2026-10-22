@@ -135,13 +135,18 @@ class FriendService {
         'requestedBy': requestedBy,
       });
 
-      final notificationId = '${DateTime.now().millisecondsSinceEpoch}_request';
+      // Firestore auto-generated ID, not a millisecond timestamp - two
+      // friend requests to the same recipient in the same millisecond
+      // would otherwise collide and silently overwrite one notification
+      // (same bug class already fixed for sendChallenge/
+      // completeChallengeWithWinner/logActivity's document ids).
+      final notificationRef = _firestore
+          .collection('users')
+          .doc(friendUid)
+          .collection('notifications')
+          .doc();
       batch.set(
-          _firestore
-              .collection('users')
-              .doc(friendUid)
-              .collection('notifications')
-              .doc(notificationId),
+          notificationRef,
           {
             // 'uid'/no top-level 'actionUrl'/'priority' - this doc is read
             // back as a `package:komovia_core` `AppNotification`, whose
@@ -183,13 +188,14 @@ class FriendService {
       );
 
       final accepterName = await _lookupDisplayName(currentUid);
-      final notificationId = '${DateTime.now().millisecondsSinceEpoch}_accepted';
+      // Firestore auto-generated ID - same collision fix as above.
+      final acceptedNotificationRef = _firestore
+          .collection('users')
+          .doc(friendUid)
+          .collection('notifications')
+          .doc();
       batch.set(
-          _firestore
-              .collection('users')
-              .doc(friendUid)
-              .collection('notifications')
-              .doc(notificationId),
+          acceptedNotificationRef,
           {
             'uid': friendUid,
             'type': 'friend_request',
