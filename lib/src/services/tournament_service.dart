@@ -188,6 +188,35 @@ class TournamentService {
   Future<List<TournamentMatch>> generateBracket(String tournamentId) async {
     try {
       final tournamentRef = _firestore.collection(tournamentsCollection).doc(tournamentId);
+
+      // Atomically claim the tournament by flipping status from
+      // 'upcoming' to 'active' inside a transaction before generating
+      // anything - without this, an organizer re-tapping "Generate
+      // Bracket" (or a retried request), or two co-organizers doing so
+      // near-simultaneously, could each see the tournament as still
+      // 'upcoming' and each create a full, duplicate round-1 bracket.
+      // Firestore re-reads this transaction's reads at commit time, so
+      // only the first caller actually transitions the status; a second
+      // caller's transaction sees the now-'active' status and no-ops,
+      // even if its own initial read happened before the first commit.
+      var claimed = false;
+      await _firestore.runTransaction((transaction) async {
+        final doc = await transaction.get(tournamentRef);
+        final currentStatus = doc.data()?['status'] as String?;
+        if (currentStatus != null && currentStatus != 'upcoming') {
+          return;
+        }
+        transaction.update(tournamentRef, {'status': 'active'});
+        claimed = true;
+      });
+
+      if (!claimed) {
+        debugPrint(
+            'Tournament $tournamentId already had its bracket generated; '
+            'skipping duplicate generation');
+        return [];
+      }
+
       final participantsSnapshot =
           await tournamentRef.collection(participantsCollection).get();
 
@@ -226,8 +255,8 @@ class TournamentService {
         matches.add(match);
       }
 
-      batch.update(tournamentRef, {'status': 'active'});
-
+      // status is already 'active' - set transactionally above when this
+      // call claimed the tournament.
       await batch.commit();
       return matches;
     } catch (e) {
@@ -383,6 +412,33 @@ class TournamentService {
   /// 60/40 for a 2-participant field) and mark the tournament completed.
   Future<void> distributePrizes(String tournamentId) async {
     try {
+      final tournamentRef =
+          _firestore.collection(tournamentsCollection).doc(tournamentId);
+
+      // Atomically claim the tournament by flipping status to
+      // 'completed' before paying anyone out - without this, a
+      // double-tap, a retried request, or two co-organizers both
+      // calling this would each increment every top-3 finisher's
+      // user_rewards a second time, paying the same prize money out
+      // twice. Same claim-first pattern as generateBracket's status
+      // transition above.
+      var claimed = false;
+      await _firestore.runTransaction((transaction) async {
+        final doc = await transaction.get(tournamentRef);
+        if (doc.data()?['status'] == 'completed') {
+          return;
+        }
+        transaction.update(tournamentRef, {'status': 'completed'});
+        claimed = true;
+      });
+
+      if (!claimed) {
+        debugPrint(
+            'Tournament $tournamentId already had its prizes distributed; '
+            'skipping duplicate payout');
+        return;
+      }
+
       final standings = await getStandings(tournamentId);
       final extras = await getTournamentExtras(tournamentId);
       final prizePool = extras['prizePool'] as int;
@@ -398,11 +454,6 @@ class TournamentService {
           'tournaments': FieldValue.increment(1),
         }, SetOptions(merge: true));
       }
-
-      await _firestore
-          .collection(tournamentsCollection)
-          .doc(tournamentId)
-          .update({'status': 'completed'});
     } catch (e) {
       debugPrint('Error distributing prizes: $e');
       rethrow;
