@@ -148,7 +148,12 @@ class FriendChallengeService {
     required int moveCount,
   }) async {
     try {
-      final resultId = DateTime.now().millisecondsSinceEpoch.toString();
+      // A Firestore auto-generated ID, not a millisecond timestamp - two
+      // challenge completions landing in the same millisecond (plausible
+      // with concurrent game-conclusion paths) would otherwise collide
+      // and silently overwrite one result document (same bug class
+      // already fixed for FriendChallengeService.sendChallenge's id).
+      final resultId = _firestore.collection('challenge_results').doc().id;
       final winnerStreakRef =
           _firestore.collection('challenge_streaks').doc(winnerId);
       final loserStreakRef =
