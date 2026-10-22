@@ -85,6 +85,19 @@ dev_dependencies:
   build_runner: ^2.16.1
   freezed: ^4.0.1
   json_serializable: ^6.14.1
+  flutter_launcher_icons: ^0.13.1
+
+# `flutter pub run flutter_launcher_icons` regenerates every Android
+# mipmap-*/ic_launcher.png from assets/images/app_icon_master.png - those
+# files were hand-resized with Pillow in this sandbox (no Flutter SDK
+# available here to run the generator), so running it for real once
+# Flutter tooling exists will reproduce/refresh the same result rather
+# than introduce a new icon. No ios/ directory exists in this repo (the
+# app is Android-only), so no iOS icon set is configured.
+flutter_launcher_icons:
+  android: true
+  ios: false
+  image_path: assets/images/app_icon_master.png
 
 flutter:
   uses-material-design: true
