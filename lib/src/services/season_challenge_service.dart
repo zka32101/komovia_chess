@@ -390,8 +390,12 @@ class Challenge {
     if (metricType != null) return metricType;
     final text = objective.toLowerCase();
     if (text.contains('puzzle')) return GameplayMetric.solvePuzzles;
-    if (text.contains('draw')) return GameplayMetric.drawGames;
+    // 'win' is checked before 'draw' - an objective mentioning both (e.g.
+    // "Win or draw 10 games") previously fell through to drawGames since
+    // the 'draw' check ran first and short-circuited, silently
+    // misrouting progress tracking for any such challenge text.
     if (text.contains('win')) return GameplayMetric.winGames;
+    if (text.contains('draw')) return GameplayMetric.drawGames;
     if (text.contains('game') || text.contains('play')) {
       return GameplayMetric.playGames;
     }
