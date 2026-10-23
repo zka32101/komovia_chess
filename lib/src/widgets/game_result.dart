@@ -57,6 +57,13 @@ class GameResult extends StatelessWidget {
     }
   }
 
+  // Previously fell through to '' (no text at all) for every reason
+  // beyond these original 4 - callers across the app produce several
+  // more real values (cpu_game_provider.dart's 'draw_agreement' and,
+  // since this pass, 'insufficient_material'/'fifty_move_rule'/
+  // 'threefold_repetition'; online_game_service.dart's 'abandonment'/
+  // 'abandonment_forfeit'), so a result dialog for any of those showed
+  // the title/icon with a silently blank subtitle underneath.
   String _getMethodDescription() {
     switch (method) {
       case 'checkmate':
@@ -67,6 +74,17 @@ class GameResult extends StatelessWidget {
         return 'by Stalemate';
       case 'timeout':
         return 'by Timeout';
+      case 'draw_agreement':
+        return 'by Agreement';
+      case 'insufficient_material':
+        return 'by Insufficient Material';
+      case 'fifty_move_rule':
+        return 'by 50-Move Rule';
+      case 'threefold_repetition':
+        return 'by Threefold Repetition';
+      case 'abandonment':
+      case 'abandonment_forfeit':
+        return 'by Abandonment';
       default:
         return '';
     }

@@ -228,11 +228,16 @@ class CpuGameNotifier extends StateNotifier<CpuGameState> {
   }
 
   /// Helper: Check if game is over
-  bool _isGameOver() {
-    if (_chess.isCheckmate()) return true;
-    if (_chess.isStalemate()) return true;
-    return false;
-  }
+  ///
+  /// Previously only checked checkmate/stalemate, reimplementing a
+  /// narrower subset of what ChessEngineService.isGameOver() already
+  /// covers - a CPU game reaching a draw by insufficient material,
+  /// threefold repetition, or the 50-move rule (e.g. bare kings after
+  /// trading down) never actually ended: no result dialog, no history
+  /// recorded, with no legal path to end the game short of a checkmate/
+  /// stalemate that may never occur with insufficient material on the
+  /// board at all.
+  bool _isGameOver() => _chess.isGameOver();
 
   /// Helper: End the game and determine result
   void _endGame() {
@@ -244,6 +249,17 @@ class CpuGameNotifier extends StateNotifier<CpuGameState> {
       result = _chess.isWhiteTurn() ? 'black_win' : 'white_win';
     } else if (_chess.isStalemate()) {
       endReason = 'stalemate';
+      result = 'draw';
+    } else {
+      // Any other isGameOver() case is one of the draw reasons
+      // ChessEngineService.getDrawReasons()/DrawDetectionService already
+      // distinguish (insufficient material / threefold repetition /
+      // fifty-move rule) - the first one reported is used as the
+      // specific endReason so GameResult can show the real cause rather
+      // than a generic "Draw".
+      final drawReasons = _chess.getDrawReasons();
+      endReason =
+          drawReasons.isNotEmpty ? drawReasons.first : 'insufficient_material';
       result = 'draw';
     }
 
