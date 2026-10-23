@@ -536,11 +536,20 @@ class FirebaseAuthService {
 
       _logger.i('Deleting account for user: ${user.uid}');
 
+      // Delete the Firebase Auth user FIRST. user.delete() commonly
+      // throws requires-recent-login (or a transient network error) if
+      // the user hasn't re-authenticated recently - deleting the
+      // Firestore doc first (the previous order) meant that failure left
+      // the profile already gone while the Auth account (and the user's
+      // still-valid session) lived on, an unrecoverable broken state:
+      // getCurrentUser() would return null forever (no doc) yet the same
+      // email could never be re-registered (the Auth user still exists).
+      // Deleting Auth first means a failure here leaves the account
+      // exactly as it was before this call - nothing is destroyed yet.
+      await user.delete();
+
       // Delete user document from Firestore
       await _firestore.collection('users').doc(user.uid).delete();
-
-      // Delete Firebase Auth user
-      await user.delete();
 
       _logger.i('Account deleted successfully');
     } on FirebaseAuthException catch (e) {
