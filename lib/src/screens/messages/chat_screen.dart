@@ -68,6 +68,23 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
   @override
   Widget build(BuildContext context) {
     final messagesAsync = ref.watch(threadMessagesProvider(_threadId));
+    // markThreadRead previously only ran once, in initState - a friend
+    // sending further messages while this screen stayed open left
+    // unreadCount climbing in the background (sendMessage increments it
+    // on every new message, unconditionally), so the inbox/notification
+    // badge kept showing unread messages for a thread the user was
+    // actually looking at. Re-marking read on every new emission from
+    // the live messages stream (not every rebuild - ref.listen only
+    // fires on an actual state change) keeps it at zero while the
+    // screen is open.
+    ref.listen(threadMessagesProvider(_threadId), (previous, next) {
+      if (next.hasValue) {
+        ref.read(markThreadReadProvider)(
+          threadId: _threadId,
+          uid: widget.currentUid,
+        );
+      }
+    });
 
     return Scaffold(
       appBar: AppBar(title: Text(widget.friendDisplayName)),
