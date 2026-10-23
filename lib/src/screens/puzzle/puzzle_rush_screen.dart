@@ -131,7 +131,7 @@ class _PuzzleRushScreenState extends ConsumerState<PuzzleRushScreen> {
         return;
       }
       await Future.delayed(const Duration(milliseconds: 400));
-      if (!mounted) return;
+      if (!mounted || _finished) return;
       _advanceToNextPuzzle();
       return;
     }
@@ -144,8 +144,9 @@ class _PuzzleRushScreenState extends ConsumerState<PuzzleRushScreen> {
 
     if (_moveIndex >= puzzle.moves.length) {
       setState(() => _score++);
+      _resendScoreIfRunAlreadyEnded();
       await Future.delayed(const Duration(milliseconds: 250));
-      if (!mounted) return;
+      if (!mounted || _finished) return;
       _advanceToNextPuzzle();
       return;
     }
@@ -153,7 +154,7 @@ class _PuzzleRushScreenState extends ConsumerState<PuzzleRushScreen> {
     // Auto-play the opponent's reply, same as the regular puzzle screen.
     setState(() => _isPlayerTurn = false);
     await Future.delayed(const Duration(milliseconds: 350));
-    if (!mounted) return;
+    if (!mounted || _finished) return;
 
     setState(() {
       _chess.makeMoveUCI(puzzle.moves[_moveIndex]);
@@ -164,10 +165,28 @@ class _PuzzleRushScreenState extends ConsumerState<PuzzleRushScreen> {
 
     if (_moveIndex >= puzzle.moves.length) {
       setState(() => _score++);
+      _resendScoreIfRunAlreadyEnded();
       await Future.delayed(const Duration(milliseconds: 250));
-      if (!mounted) return;
+      if (!mounted || _finished) return;
       _advanceToNextPuzzle();
     }
+  }
+
+  /// If the countdown's `_endRun()` already persisted the run's score
+  /// while this exact correct-move resolution was still in flight (a
+  /// real race: _endRun()'s Timer.periodic can fire, read _score, and
+  /// persist it while _handleMove is suspended at one of its awaits
+  /// above), that persisted value is now stale by one point - re-send it
+  /// now that _score has just been incremented. recordPuzzleRushScore
+  /// only ever raises the stored best score, never lowers it, so calling
+  /// it again here is always safe, including when this ISN'T a race
+  /// (nothing to correct, the call is just a harmless no-op update).
+  void _resendScoreIfRunAlreadyEnded() {
+    if (!_finished) return;
+    ref
+        .read(puzzleServiceProvider)
+        .recordPuzzleRushScore(_score)
+        .catchError((_) {});
   }
 
   void _endRun() {
