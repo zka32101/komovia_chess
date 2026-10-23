@@ -281,8 +281,9 @@ class _LeaderboardScreenState extends ConsumerState<LeaderboardScreen> {
             ElevatedButton.icon(
               icon: const Icon(Icons.chevron_right),
               label: const Text('次へ'),
-              onPressed: () =>
-                  ref.read(leaderboardProvider.notifier).nextPage(),
+              onPressed: state.hasMore
+                  ? () => ref.read(leaderboardProvider.notifier).nextPage()
+                  : null,
             ),
           ],
         ),
