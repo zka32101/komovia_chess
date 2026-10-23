@@ -442,9 +442,24 @@ service cloud.firestore {
       // non-participant watch. A completed/matchmaking-status game, or
       // a CPU game (whitePlayerId/blackPlayerId are the literal strings
       // 'player'/'cpu' for those, not real uids, and there is nothing to
-      // watch on someone else's device anyway), stays participant-only.
+      // watch on someone else's device anyway), stays participant-only -
+      // except for a short window right after the game ends: without
+      // this, the instant a watched game's status flips away from
+      // 'active' (set by the ending participant's client, or by the
+      // recordMove/handleTimeout Cloud Functions), the already-open
+      // realtime listener every spectator holds stops matching this
+      // rule and Firestore kills it with permission-denied -
+      // SpectatorGameScreen's _buildGameOverBanner (meant to show the
+      // win/draw/loss result) could then never actually render; the
+      // spectator would just see a generic error instead. Allowing read
+      // for one hour past endedAt keeps the listener alive long enough
+      // for that banner to render, without granting indefinite public
+      // read access to old completed games.
       allow read: if isGameParticipant() ||
-        (isSignedIn() && resource.data.type == 'online_pvp' && resource.data.status == 'active');
+        (isSignedIn() && resource.data.type == 'online_pvp' &&
+          (resource.data.status == 'active' ||
+            (resource.data.endedAt != null &&
+              resource.data.endedAt > request.time - duration.value(1, 'h'))));
       allow create: if isSignedIn() &&
         request.auth.uid in [request.resource.data.whitePlayerId, request.resource.data.blackPlayerId];
       // startGame/recordActivity/_endGameWithResult (resign/draw/
