@@ -1147,21 +1147,29 @@ class OnlineGameService {
 
     // RatingCalculationService returns the new (clamped) rating rather
     // than a raw delta, so the delta here is derived from the
-    // difference - this also means a rating already at
-    // minRating/maxRating correctly reports a delta of 0 instead of
-    // over/under-shooting past the clamp.
+    // difference - against the CLAMPED starting rating, not the raw
+    // one. Subtracting the raw whiteRating (as an earlier version of
+    // this fix did) broke badly for a sub-floor rating: a brand-new
+    // player at onlineRating=0 who LOST would still have
+    // calculateNewRating(...) clamp its result back up to minRating
+    // (100) internally, so `100 - 0` produced a +100 delta for losing
+    // their very first game. Measuring the delta from clampedWhiteRating
+    // instead (`100 - 100 = 0` in that same scenario) keeps the delta
+    // consistent with what was actually fed into the ELO formula, and a
+    // rating already at minRating/maxRating still correctly reports a
+    // delta of 0 instead of over/under-shooting past the clamp.
     final whiteChange = RatingCalculationService.calculateNewRating(
           clampedWhiteRating,
           clampedBlackRating,
           whiteScore,
         ) -
-        whiteRating;
+        clampedWhiteRating;
     final blackChange = RatingCalculationService.calculateNewRating(
           clampedBlackRating,
           clampedWhiteRating,
           blackScore,
         ) -
-        blackRating;
+        clampedBlackRating;
 
     return {
       'whiteChange': whiteChange,
