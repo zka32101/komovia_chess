@@ -78,10 +78,9 @@ class ShogiRankService {
   /// produces [rank] via [calculateRank] - `min` is null for the
   /// bottom-most rank (no lower bound) and `max` is null for the
   /// top-most rank (no upper bound).
-  /// Derived directly from the same ladder [calculateRank] uses (rather
-  /// than the separate, non-monotonic [_getNextThreshold]/
-  /// [_getPreviousThreshold] tables below, which only approximate
-  /// progress-bar positions and don't define exact rank boundaries).
+  /// Derived directly from the same ladder [calculateRank] uses, so
+  /// there's one source of truth for rank boundaries (also used by
+  /// [progressToNextRank] below).
   static (int? min, int? max) ratingRangeForRank(ShogiRank rank) {
     const bounds = <int?>[
       null, 400, 500, 600, 700, 800, 900, kyuThreshold, //
@@ -146,108 +145,30 @@ class ShogiRankService {
 
   /// 進行度を計算する（0.0～1.0）
   /// 次の段位までの進捗を表します
+  ///
+  /// Previously relied on a separate, stale `_getNextThreshold`/
+  /// `_getPreviousThreshold` table that didn't match [calculateRank]'s
+  /// real boundaries, and only computed a nonzero result when
+  /// `calculateRank(eloRating + 100) == currentRank` - for any rank
+  /// exactly 100 ELO wide (8 of the 14 ranks: kyu15/10/5/3/1, dan1/2/3),
+  /// adding 100 always crosses into the next rank, so that condition was
+  /// never true and the progress bar stayed stuck at 0% for the
+  /// majority of the rank ladder. Now derives the current rank's own
+  /// real min/max boundaries from [ratingRangeForRank] - the same
+  /// table [calculateRank] itself is built on - so there's one source of
+  /// truth for rank boundaries instead of two that can drift apart.
   static double progressToNextRank(int eloRating, ShogiRank currentRank) {
-    final nextRank = calculateRank(eloRating + 100);
-
-    if (currentRank == nextRank) {
-      // 次の段位のしきい値を取得
-      final threshold = _getNextThreshold(currentRank);
-      final previousThreshold = _getPreviousThreshold(currentRank);
-
-      final range = threshold - previousThreshold;
-      final current = eloRating - previousThreshold;
-
-      return (current / range).clamp(0.0, 1.0);
-    }
-
-    return 0;
+    final (min, max) = ratingRangeForRank(currentRank);
+    // No upper bound (the top rank, dan8) - already maxed out.
+    if (max == null) return 1.0;
+    // No lower bound (the bottom rank, kyu20) - use 0 as the floor so
+    // progress still reads as a sensible fraction of the way to kyu15.
+    final lower = min ?? 0;
+    final range = max - lower;
+    if (range <= 0) return 0;
+    final current = eloRating - lower;
+    return (current / range).clamp(0.0, 1.0);
   }
-
-  static int _getNextThreshold(ShogiRank rank) => rank.when(
-        dan: (level) {
-          switch (level) {
-            case 1:
-              return dan1Threshold;
-            case 2:
-              return 1450;
-            case 3:
-              return dan3Threshold;
-            case 4:
-              return 1600;
-            case 5:
-              return 1700;
-            case 6:
-              return 1800;
-            case 7:
-              return dan7Threshold;
-            case 8:
-              return 2000;
-            default:
-              return 2000;
-          }
-        },
-        kyu: (level) {
-          switch (level) {
-            case 1:
-              return dan1Threshold;
-            case 3:
-              return kyu1Threshold;
-            case 5:
-              return kyu5Threshold;
-            case 10:
-              return 1050;
-            case 15:
-              return 650;
-            case 20:
-              return 500;
-            default:
-              return 1400;
-          }
-        },
-      );
-
-  static int _getPreviousThreshold(ShogiRank rank) => rank.when(
-        dan: (level) {
-          switch (level) {
-            case 1:
-              return 900;
-            case 2:
-              return 1000;
-            case 3:
-              return kyu1Threshold;
-            case 4:
-              return 1500;
-            case 5:
-              return dan1Threshold;
-            case 6:
-              return 1700;
-            case 7:
-              return 1800;
-            case 8:
-              return dan7Threshold;
-            default:
-              return 1900;
-          }
-        },
-        kyu: (level) {
-          switch (level) {
-            case 1:
-              return 750;
-            case 3:
-              return 900;
-            case 5:
-              return 1000;
-            case 10:
-              return 700;
-            case 15:
-              return 500;
-            case 20:
-              return 0;
-            default:
-              return 800;
-          }
-        },
-      );
 }
 
 /// 将棋の段位を表すクラス
