@@ -414,7 +414,6 @@ class OnlineGameStateNotifier extends StateNotifier<OnlineGameState> {
 
     try {
       final updatedFen = state.engine.getCurrentFen();
-      _lastSyncedFen = updatedFen;
       await _ref.read(onlineGameServiceProvider).recordMove(
             gameId: _gameId,
             moveNumber: game.moves.length + 1,
@@ -425,8 +424,21 @@ class OnlineGameStateNotifier extends StateNotifier<OnlineGameState> {
             updatedFen: updatedFen,
             updatedPgn: state.engine.getPgnMoves(),
           );
+      // Only mark the new FEN as synced once recordMove has actually
+      // committed - setting this beforehand (the previous order) meant
+      // that if recordMove threw, the Firestore doc never changed, so
+      // onlineGameStreamProvider never re-emitted and _onGameUpdate
+      // (which only resyncs when game.currentFen != _lastSyncedFen)
+      // never fired to repair the mismatch - the local engine stayed
+      // permanently desynced from the server with no way to recover
+      // short of leaving and reentering the screen.
+      _lastSyncedFen = updatedFen;
       state = state.copyWith(isSyncingMove: false);
     } catch (e) {
+      // Roll back the locally-applied move - it was never actually
+      // recorded server-side, so the local engine must not keep showing
+      // it as played.
+      state.engine.undoMove();
       state = state.copyWith(isSyncingMove: false, lastError: e.toString());
     }
   }
