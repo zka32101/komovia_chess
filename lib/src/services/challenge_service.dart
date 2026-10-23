@@ -159,7 +159,29 @@ class FriendChallengeService {
       final loserStreakRef =
           _firestore.collection('challenge_streaks').doc(loserId);
 
+      final challengeRef = _firestore
+          .collection('friend_challenges')
+          .doc('active')
+          .collection('list')
+          .doc(challengeId);
+
       await _firestore.runTransaction((transaction) async {
+        // Claim the challenge by its own status before touching any
+        // streak counters - the one current caller
+        // (OnlineGameService._completeLinkedFriendChallenge) happens to
+        // be protected indirectly since getChallengeByGameId only
+        // matches challenges still 'accepted', but this method itself had
+        // no such guard: a retry or a second call path for the same
+        // challengeId would double-write challenge_results and
+        // double-increment both players' streak counters with no way to
+        // detect it, unlike every other result-recording path in this
+        // codebase (OnlineGameService._endGameWithResult,
+        // TournamentService.recordMatchResult).
+        final challengeSnapshot = await transaction.get(challengeRef);
+        if (challengeSnapshot.data()?['status'] == 'completed') {
+          return;
+        }
+
         // Firestore transactions require every read before any write, so
         // the streak docs (which may not exist yet) are read here and
         // written with set(), never update() -- update() throws NOT_FOUND
@@ -186,17 +208,11 @@ class FriendChallengeService {
         final loserTotal = loserWon + loserLost;
 
         // Update challenge status
-        transaction.update(
-            _firestore
-                .collection('friend_challenges')
-                .doc('active')
-                .collection('list')
-                .doc(challengeId),
-            {
-              'status': 'completed',
-              'winnerId': winnerId,
-              'completedAt': FieldValue.serverTimestamp(),
-            });
+        transaction.update(challengeRef, {
+          'status': 'completed',
+          'winnerId': winnerId,
+          'completedAt': FieldValue.serverTimestamp(),
+        });
 
         // Record result
         transaction
