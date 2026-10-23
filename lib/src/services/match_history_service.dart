@@ -148,12 +148,18 @@ class MatchHistoryService {
       for (final match in matches) {
         final ratingChange = match.playerRatingAfter - match.playerRatingBefore;
         final durationStr = match.duration != null ? '${match.duration}s' : '-';
+        // A hardcoded '+' prefix doubled up with ratingChange's own sign on
+        // every loss (ratingChange is negative there), so a loss's cell
+        // literally read e.g. "+-15" in the exported CSV. Only a gain
+        // should show an explicit '+'; a loss already carries its own '-'.
+        final ratingChangeStr =
+            ratingChange >= 0 ? '+$ratingChange' : '$ratingChange';
 
         buffer.writeln(
           '${match.playedAt.toIso8601String()}'
           ',${match.opponentName}'
           ',${match.result}'
-          ',+$ratingChange'
+          ',$ratingChangeStr'
           ',${match.timeControl}'
           ',$durationStr',
         );
