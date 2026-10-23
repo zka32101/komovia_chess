@@ -278,48 +278,44 @@ class _GameBoardState extends State<GameBoard> {
       .map((move) => move.toAlgebraic)
       .toList();
 
-  // Not `const`: PieceType overrides hashCode/==, which Dart disallows for
-  // constant map keys.
-  static final Map<chess_lib.PieceType, int> _startingCounts = {
-    chess_lib.PieceType.PAWN: 8,
-    chess_lib.PieceType.KNIGHT: 2,
-    chess_lib.PieceType.BISHOP: 2,
-    chess_lib.PieceType.ROOK: 2,
-    chess_lib.PieceType.QUEEN: 1,
-  };
-
   List<chess_lib.Piece> _getWhiteCapturedPieces() =>
       _getCapturedPieces(chess_lib.Color.WHITE);
 
   List<chess_lib.Piece> _getBlackCapturedPieces() =>
       _getCapturedPieces(chess_lib.Color.BLACK);
 
+  /// Pieces of [color] that have been captured by the opponent so far.
+  ///
+  /// Previously inferred this from "how many of each piece type are
+  /// currently on the board vs. the starting count" - that diff breaks
+  /// as soon as any pawn promotes: pawn count drops (looking like a
+  /// captured pawn) while the promoted piece's type count rises above
+  /// its starting count (a negative "missing" value, silently dropped by
+  /// the loop), so a promoted-and-still-alive piece vanished from the
+  /// material count entirely while a phantom captured pawn appeared in
+  /// its place. Derived from `gameState.history` instead - each
+  /// recorded [chess_lib.State.move] already carries the real captured
+  /// piece type (`move.captured`, set by the `chess` package itself from
+  /// the actual board/en-passant state at the time of the move), so this
+  /// is correct regardless of promotions. Uses `gameState.history`
+  /// rather than `widget.moveHistory` since several call sites
+  /// (online_game_screen.dart) never pass the latter at all.
   List<chess_lib.Piece> _getCapturedPieces(chess_lib.Color color) {
     final captured = <chess_lib.Piece>[];
-    final onBoard = _countPieces(color);
+    final opponent = color == chess_lib.Color.WHITE
+        ? chess_lib.Color.BLACK
+        : chess_lib.Color.WHITE;
 
-    _startingCounts.forEach((type, startingCount) {
-      final missing = startingCount - (onBoard[type] ?? 0);
-      for (var i = 0; i < missing; i++) {
-        captured.add(chess_lib.Piece(type, color));
-      }
-    });
-
-    return captured;
-  }
-
-  Map<chess_lib.PieceType, int> _countPieces(chess_lib.Color color) {
-    final counts = <chess_lib.PieceType, int>{};
-    const files = ['a', 'b', 'c', 'd', 'e', 'f', 'g', 'h'];
-    for (final file in files) {
-      for (var rank = 1; rank <= 8; rank++) {
-        final piece = widget.gameState.get('$file$rank');
-        if (piece != null && piece.color == color) {
-          counts[piece.type] = (counts[piece.type] ?? 0) + 1;
-        }
+    for (final state in widget.gameState.history) {
+      final move = state.move;
+      // A capturing move is made BY the opponent (move.color == opponent)
+      // and takes one of [color]'s own pieces.
+      if (move.color == opponent && move.captured != null) {
+        captured.add(chess_lib.Piece(move.captured!, color));
       }
     }
-    return counts;
+
+    return captured;
   }
 
   Widget _buildBoard() => AspectRatio(
