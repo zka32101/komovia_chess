@@ -157,7 +157,14 @@ class CpuGameNotifier extends StateNotifier<CpuGameState> {
 
   /// Undo the last move
   void undoMove() {
-    if (state.moves.isEmpty || state.isGameOver) return;
+    // Also refuses while the AI's move is still in flight - without
+    // this, undoing mid-think reverts _chess's position out from under
+    // makeAIMove()'s pending async engine call, which later resolves
+    // and plays its (now-stale) best move against the reverted
+    // position, desyncing state.moves from _chess's actual position.
+    if (state.moves.isEmpty || state.isGameOver || state.isAIThinking) {
+      return;
+    }
 
     _chess.undoMove();
     if (state.moves.isNotEmpty) {
