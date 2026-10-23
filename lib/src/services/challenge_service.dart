@@ -9,7 +9,6 @@ class FriendChallengeService {
   static final FriendChallengeService _instance =
       FriendChallengeService._internal();
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
-  final Map<String, List<Challenge>> _challengesCache = {};
   final Map<String, ChallengeStreak> _streakCache = {};
 
   static FriendChallengeService get instance => _instance;
@@ -51,7 +50,6 @@ class FriendChallengeService {
         'completedAt': null,
       });
 
-      _challengesCache.remove(challengeeUserId);
 
       return Challenge(
         challengeId: challengeId,
@@ -91,7 +89,6 @@ class FriendChallengeService {
         'gameId': gameId,
       });
 
-      _challengesCache.clear();
     } catch (e) {
       debugPrint('Error accepting challenge: $e');
       rethrow;
@@ -111,7 +108,6 @@ class FriendChallengeService {
         'respondedAt': FieldValue.serverTimestamp(),
       });
 
-      _challengesCache.clear();
     } catch (e) {
       debugPrint('Error rejecting challenge: $e');
       rethrow;
@@ -131,7 +127,6 @@ class FriendChallengeService {
         'completedAt': FieldValue.serverTimestamp(),
       });
 
-      _challengesCache.clear();
     } catch (e) {
       debugPrint('Error cancelling challenge: $e');
       rethrow;
@@ -253,7 +248,6 @@ class FriendChallengeService {
         });
       });
 
-      _challengesCache.clear();
       _streakCache.remove(winnerId);
       _streakCache.remove(loserId);
     } catch (e) {
@@ -504,7 +498,6 @@ class FriendChallengeService {
 
   /// Clear cache
   void clearCache() {
-    _challengesCache.clear();
     _streakCache.clear();
   }
 }
