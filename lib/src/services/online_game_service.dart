@@ -1,5 +1,4 @@
 import 'dart:async' show unawaited;
-import 'dart:math' show pow;
 
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:cloud_functions/cloud_functions.dart';
@@ -13,6 +12,7 @@ import 'analytics_dashboard_service_impl.dart';
 import 'challenge_service.dart';
 import 'friend_service.dart';
 import 'match_history_service.dart';
+import 'rating_calculation_service.dart';
 import 'season_challenge_service.dart';
 import 'season_management_service.dart';
 
@@ -1099,18 +1099,18 @@ class OnlineGameService {
     }
   }
 
-  /// Calculate rating change based on ELO formula
+  /// Calculate rating change based on the ELO formula.
+  ///
+  /// Delegates to [RatingCalculationService], which had been written as
+  /// a fully-documented, tiered-K-factor (40/32/24 by rating band)
+  /// implementation but had zero callers anywhere in the app - this
+  /// method instead reimplemented the same ELO math independently with
+  /// a flat K=32 for every player regardless of rating, so every real
+  /// online game actually used the flat version while the tiered one
+  /// sat as an orphaned, never-exercised duplicate that had silently
+  /// drifted from what the app actually does.
   Map<String, int> _calculateRatingChange(
       int whiteRating, int blackRating, String result) {
-    const double K = 32; // K-factor (can be adjusted)
-    const double D = 400; // Rating difference divisor
-
-    // Calculate expected scores
-    final whiteExpected =
-        1.0 / (1.0 + pow(10, (blackRating - whiteRating) / D).toDouble());
-    final blackExpected = 1.0 - whiteExpected;
-
-    // Determine actual score
     late double whiteScore;
     late double blackScore;
 
@@ -1132,9 +1132,36 @@ class OnlineGameService {
         blackScore = 0.5;
     }
 
-    // Calculate rating changes
-    final whiteChange = (K * (whiteScore - whiteExpected)).round();
-    final blackChange = (K * (blackScore - blackExpected)).round();
+    // RatingCalculationService validates both ratings against its own
+    // [minRating, maxRating] range before computing anything -
+    // UserModel.onlineRating defaults to 0, below minRating (100), so a
+    // brand-new player's very first online game would otherwise throw
+    // RatingCalculationException from inside this transaction. Clamping
+    // the inputs here (the delta is still derived from the real,
+    // unclamped whiteRating/blackRating below) keeps that default
+    // usable instead of needing a data migration.
+    final clampedWhiteRating = whiteRating.clamp(
+        RatingCalculationService.minRating, RatingCalculationService.maxRating);
+    final clampedBlackRating = blackRating.clamp(
+        RatingCalculationService.minRating, RatingCalculationService.maxRating);
+
+    // RatingCalculationService returns the new (clamped) rating rather
+    // than a raw delta, so the delta here is derived from the
+    // difference - this also means a rating already at
+    // minRating/maxRating correctly reports a delta of 0 instead of
+    // over/under-shooting past the clamp.
+    final whiteChange = RatingCalculationService.calculateNewRating(
+          clampedWhiteRating,
+          clampedBlackRating,
+          whiteScore,
+        ) -
+        whiteRating;
+    final blackChange = RatingCalculationService.calculateNewRating(
+          clampedBlackRating,
+          clampedWhiteRating,
+          blackScore,
+        ) -
+        blackRating;
 
     return {
       'whiteChange': whiteChange,
