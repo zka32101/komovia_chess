@@ -285,6 +285,18 @@ class TournamentService {
       final loserRef = tournamentRef.collection(participantsCollection).doc(loserId);
 
       await _firestore.runTransaction((transaction) async {
+        // Claim the match by its own `status` before applying any
+        // win/loss deltas - without this, a double-tap on the "Who won?"
+        // dialog, a retried request, or an organizer re-recording an
+        // already-decided match would each re-increment the winner's
+        // wins/points and the loser's losses, corrupting getStandings and
+        // the prize split distributePrizes later reads as truth. Same
+        // claim-first pattern as generateBracket/distributePrizes above.
+        final matchDoc = await transaction.get(matchRef);
+        if (matchDoc.data()?['status'] == 'completed') {
+          return;
+        }
+
         final winnerDoc = await transaction.get(winnerRef);
         final loserDoc = await transaction.get(loserRef);
 
