@@ -98,70 +98,79 @@ class FriendService {
   /// still allowed (just refreshes addedAt).
   Future<bool> sendFriendRequest(String currentUid, String friendUid) async {
     try {
-      final existingStatus = await getFriendStatus(
-        currentUid: currentUid,
-        friendUid: friendUid,
-      );
-      if (existingStatus == 'accepted' || existingStatus == 'blocked') {
-        debugPrint(
-          'sendFriendRequest no-op: $friendUid is already $existingStatus for $currentUid',
-        );
-        return false;
-      }
-
       final now = DateTime.now().toIso8601String();
       final friendDisplayName = await _lookupDisplayName(friendUid);
       final currentDisplayName = await _lookupDisplayName(currentUid);
 
-      String requestedBy = currentUid;
-      if (existingStatus == 'pending') {
-        final existingData = (await _friendDoc(currentUid, friendUid).get()).data();
-        requestedBy = existingData?['requestedBy'] as String? ?? currentUid;
-      }
+      final currentRef = _friendDoc(currentUid, friendUid);
+      final friendRef = _friendDoc(friendUid, currentUid);
 
-      final batch = _firestore.batch();
-      batch.set(_friendDoc(currentUid, friendUid), {
-        'uid': friendUid,
-        'displayName': friendDisplayName,
-        'status': 'pending',
-        'addedAt': now,
-        'requestedBy': requestedBy,
+      // Transactional read-then-write: the previous version read
+      // existingStatus/requestedBy, then wrote in a separate batch - two
+      // near-simultaneous mutual requests (A->B and B->A) could each read
+      // "no relationship yet" before either commit, then each write their
+      // own uid as requestedBy, so whichever commit landed last silently
+      // decided who "requested" the friendship with no actual ordering
+      // guarantee. A transaction makes the read+decision+write atomic, so
+      // only the first request to actually commit sets requestedBy.
+      var sent = false;
+      await _firestore.runTransaction((transaction) async {
+        final currentDoc = await transaction.get(currentRef);
+        final existingStatus = currentDoc.data()?['status'] as String?;
+        if (existingStatus == 'accepted' || existingStatus == 'blocked') {
+          debugPrint(
+            'sendFriendRequest no-op: $friendUid is already $existingStatus for $currentUid',
+          );
+          return;
+        }
+
+        final requestedBy = existingStatus == 'pending'
+            ? (currentDoc.data()?['requestedBy'] as String? ?? currentUid)
+            : currentUid;
+
+        transaction.set(currentRef, {
+          'uid': friendUid,
+          'displayName': friendDisplayName,
+          'status': 'pending',
+          'addedAt': now,
+          'requestedBy': requestedBy,
+        });
+        transaction.set(friendRef, {
+          'uid': currentUid,
+          'displayName': currentDisplayName,
+          'status': 'pending',
+          'addedAt': now,
+          'requestedBy': requestedBy,
+        });
+
+        // Firestore auto-generated ID, not a millisecond timestamp - two
+        // friend requests to the same recipient in the same millisecond
+        // would otherwise collide and silently overwrite one notification
+        // (same bug class already fixed for sendChallenge/
+        // completeChallengeWithWinner/logActivity's document ids).
+        final notificationRef = _firestore
+            .collection('users')
+            .doc(friendUid)
+            .collection('notifications')
+            .doc();
+        transaction.set(
+            notificationRef,
+            {
+              // 'uid'/no top-level 'actionUrl'/'priority' - this doc is read
+              // back as a `package:komovia_core` `AppNotification`, whose
+              // extra fields live inside 'data' rather than at the top level.
+              'uid': friendUid,
+              'type': 'friend_request',
+              'title': 'Friend Request',
+              'body': '$currentDisplayName sent you a friend request',
+              'createdAt': FieldValue.serverTimestamp(),
+              'isRead': false,
+              'data': {'actionUrl': '/friends', 'priority': 'normal'},
+            });
+
+        sent = true;
       });
-      batch.set(_friendDoc(friendUid, currentUid), {
-        'uid': currentUid,
-        'displayName': currentDisplayName,
-        'status': 'pending',
-        'addedAt': now,
-        'requestedBy': requestedBy,
-      });
-
-      // Firestore auto-generated ID, not a millisecond timestamp - two
-      // friend requests to the same recipient in the same millisecond
-      // would otherwise collide and silently overwrite one notification
-      // (same bug class already fixed for sendChallenge/
-      // completeChallengeWithWinner/logActivity's document ids).
-      final notificationRef = _firestore
-          .collection('users')
-          .doc(friendUid)
-          .collection('notifications')
-          .doc();
-      batch.set(
-          notificationRef,
-          {
-            // 'uid'/no top-level 'actionUrl'/'priority' - this doc is read
-            // back as a `package:komovia_core` `AppNotification`, whose
-            // extra fields live inside 'data' rather than at the top level.
-            'uid': friendUid,
-            'type': 'friend_request',
-            'title': 'Friend Request',
-            'body': '$currentDisplayName sent you a friend request',
-            'createdAt': FieldValue.serverTimestamp(),
-            'isRead': false,
-            'data': {'actionUrl': '/friends', 'priority': 'normal'},
-          });
-
-      await batch.commit();
-      return true;
+      return sent;
     } catch (e) {
       debugPrint('Error sending friend request: $e');
       return false;
@@ -282,22 +291,39 @@ class FriendService {
   }) async {
     try {
       final ref = _friendDoc(currentUid, friendUid);
-      final existing = (await ref.get()).data();
-
-      await ref.set({
-        'uid': friendUid,
-        'displayName':
-            existing?['displayName'] as String? ?? await _lookupDisplayName(friendUid),
-        'status': 'blocked',
-        'addedAt': existing?['addedAt'] ?? DateTime.now().toIso8601String(),
-        'blockedBy': currentUid,
-      });
-
       final otherRef = _friendDoc(friendUid, currentUid);
-      final otherDoc = await otherRef.get();
-      if (otherDoc.exists && otherDoc.data()?['status'] != 'blocked') {
-        await otherRef.update({'status': 'blocked', 'blockedBy': currentUid});
-      }
+
+      // Display name lookup needs its own read if the caller's entry
+      // doesn't exist yet - done before the transaction since it targets a
+      // different document (users/{friendUid}) than the two friend-doc
+      // reads below.
+      final existingSnapshot = await ref.get();
+      final existing = existingSnapshot.data();
+      final displayName = existing?['displayName'] as String? ??
+          await _lookupDisplayName(friendUid);
+      final addedAt = existing?['addedAt'] ?? DateTime.now().toIso8601String();
+
+      // Both sides written in one transaction - the previous version
+      // awaited two separate writes, so a concurrent unblockFriend or
+      // acceptFriendRequest on the other side could land in between them,
+      // leaving the two sides' status fields inconsistent (e.g. this side
+      // 'blocked' while the other side was mid-flight back to 'accepted').
+      await _firestore.runTransaction((transaction) async {
+        final otherDoc = await transaction.get(otherRef);
+
+        transaction.set(ref, {
+          'uid': friendUid,
+          'displayName': displayName,
+          'status': 'blocked',
+          'addedAt': addedAt,
+          'blockedBy': currentUid,
+        });
+
+        if (otherDoc.exists && otherDoc.data()?['status'] != 'blocked') {
+          transaction
+              .update(otherRef, {'status': 'blocked', 'blockedBy': currentUid});
+        }
+      });
 
       return true;
     } catch (e) {
