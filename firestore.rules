@@ -31,6 +31,13 @@ service cloud.firestore {
       return isSignedIn() && request.auth.uid in ids;
     }
 
+    // The other party in a 2-person participant list (message_threads'
+    // participantUids is always exactly 2 fixed uids - see its own match
+    // block below).
+    function otherParticipant(ids, uid) {
+      return ids[0] == uid ? ids[1] : ids[0];
+    }
+
     // Reads an int field from the document as it stood before this write,
     // defaulting to 0 both when the document doesn't exist yet (a create)
     // and when the field itself wasn't an int before (defensive) - used to
@@ -750,10 +757,33 @@ service cloud.firestore {
         request.auth.uid in request.resource.data.participantUids &&
         request.resource.data.participantUids.size() == 2;
       // Sending a later message and marking the thread read both go
-      // through this same merge-set; only a participant can write, and
-      // the two participants themselves can never change.
+      // through this same merge-set. Previously any participant could
+      // write ANY field here as long as participantUids stayed fixed -
+      // with no constraint on lastMessage/lastSenderUid/lastMessageAt/
+      // unreadCount, a participant could forge a message preview that
+      // was never actually sent (spoofing MessageThreadsScreen's list),
+      // reset their own unreadCount to 0 without ever opening the thread,
+      // or inflate the other participant's unreadCount arbitrarily.
+      // Split into the two legitimate shapes DirectMessageService
+      // actually writes: marking read only ever touches the caller's own
+      // unreadCount entry (set to 0, the other party's left untouched),
+      // and sending a message only ever stamps the caller as
+      // lastSenderUid and increments the recipient's own unreadCount by
+      // exactly 1 (the sender's own stays put).
       allow update: if isParticipant(resource.data.participantUids) &&
-        request.resource.data.participantUids == resource.data.participantUids;
+        request.resource.data.participantUids == resource.data.participantUids &&
+        (
+          (onlyChanged(['unreadCount']) &&
+            request.resource.data.unreadCount[request.auth.uid] == 0 &&
+            request.resource.data.unreadCount[otherParticipant(resource.data.participantUids, request.auth.uid)] ==
+              resource.data.unreadCount[otherParticipant(resource.data.participantUids, request.auth.uid)])
+          ||
+          (onlyChanged(['lastMessage', 'lastSenderUid', 'lastMessageAt', 'unreadCount', 'participantNames']) &&
+            request.resource.data.lastSenderUid == request.auth.uid &&
+            request.resource.data.unreadCount[request.auth.uid] == resource.data.unreadCount[request.auth.uid] &&
+            request.resource.data.unreadCount[otherParticipant(resource.data.participantUids, request.auth.uid)] ==
+              resource.data.unreadCount[otherParticipant(resource.data.participantUids, request.auth.uid)] + 1)
+        );
       allow delete: if false;
 
       match /messages/{messageId} {
