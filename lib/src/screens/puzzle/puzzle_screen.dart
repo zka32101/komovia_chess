@@ -516,7 +516,17 @@ class _PuzzleSolvingScreenState extends ConsumerState<PuzzleSolvingScreen> {
     // Auto-play the opponent's reply.
     setState(() => _isPlayerTurn = false);
     await Future.delayed(const Duration(milliseconds: 500));
-    if (!mounted) return;
+    // The State object is reused across puzzles (_nextPuzzle just bumps
+    // _puzzleIndex/resets _loadedPuzzleId on the same State rather than
+    // pushing a new screen) - if the "Skip" button fires while this
+    // delay is in flight, _loadPuzzle has already reset _chess/_moveIndex
+    // to the NEXT puzzle by the time this resumes, so `mounted` alone
+    // doesn't catch it (the widget is still mounted, just showing a
+    // different puzzle now). Bailing here if _loadedPuzzleId no longer
+    // matches the puzzle this closure captured avoids playing the old
+    // puzzle's stale move/index into the new puzzle's freshly-loaded
+    // position.
+    if (!mounted || _loadedPuzzleId != puzzle.id) return;
 
     setState(() {
       _chess.makeMoveUCI(puzzle.moves[_moveIndex]);
