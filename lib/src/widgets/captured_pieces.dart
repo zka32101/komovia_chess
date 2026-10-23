@@ -42,10 +42,21 @@ class CapturedPieces extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    // whiteCapturedPieces/blackCapturedPieces (see GameBoardState.
+    // _getCapturedPieces) are each color's OWN pieces that are missing
+    // from the board - i.e. each side's losses, not what it captured
+    // from the opponent. whiteMaterial is therefore the value white has
+    // LOST (captured by black) and blackMaterial is what black has lost
+    // (captured by white) - so white is ahead when black has lost MORE
+    // material, not when whiteMaterial is bigger. The previous
+    // `isWhiteAdvantage = whiteMaterial > blackMaterial` had this
+    // backwards: capturing black's queen for free (blackMaterial=9,
+    // whiteMaterial=0) showed "-9" with the black-advantage styling,
+    // even though white was actually up a queen.
     final whiteMaterial = _calculateMaterialValue(whiteCapturedPieces);
     final blackMaterial = _calculateMaterialValue(blackCapturedPieces);
     final materialDifference = (whiteMaterial - blackMaterial).abs();
-    final isWhiteAdvantage = whiteMaterial > blackMaterial;
+    final isWhiteAdvantage = blackMaterial > whiteMaterial;
 
     return Column(
       children: [
