@@ -198,8 +198,11 @@ class OnlineGameService {
     }
   }
 
-  /// End game with specific result
-  Future<void> _endGameWithResult({
+  /// End game with specific result. Returns whether this call actually
+  /// ended the game (false if it was already ended by something else -
+  /// see [abandonGame], the only caller that needs to distinguish the
+  /// two rather than just logging and returning either way).
+  Future<bool> _endGameWithResult({
     required String gameId,
     required String result, // white_win, black_win, draw
     required String resultReason,
@@ -275,7 +278,7 @@ class OnlineGameService {
       if (alreadyEnded) {
         _logger.i(
             'Game $gameId already ended; skipping duplicate end-game side effects');
-        return;
+        return false;
       }
       whiteRatingDelta = resolvedWhiteDelta;
       blackRatingDelta = resolvedBlackDelta;
@@ -324,6 +327,7 @@ class OnlineGameService {
         whiteRatingDelta: whiteRatingDelta,
         blackRatingDelta: blackRatingDelta,
       );
+      return true;
     } catch (e, st) {
       _logger.e('Failed to end game', error: e, stackTrace: st);
       rethrow;
@@ -815,11 +819,22 @@ class OnlineGameService {
       // losses/onlineRating/gamesPlayed ever updated, no achievement
       // check ran, and no seasonal challenge progressed when a game
       // ended by abandonment.
-      await _endGameWithResult(
+      // Only stamp abandonedBy if this call is the one that actually
+      // ended the game - without this check, a game that already ended
+      // some other way moments earlier (timeout, the opponent's
+      // resignation) would still get abandonedBy overwritten here,
+      // leaving an abandonment banner/reason inconsistent with the
+      // game's real stored result/resultReason.
+      final didEnd = await _endGameWithResult(
         gameId: gameId,
         result: result,
         resultReason: 'abandonment',
       );
+      if (!didEnd) {
+        _logger.i(
+            'Game $gameId already ended by other means; not marking abandonedBy');
+        return;
+      }
       await _firestore.collection(_gamesCollection).doc(gameId).update({
         'abandonedBy': playerId,
       });
