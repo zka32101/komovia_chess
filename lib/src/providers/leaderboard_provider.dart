@@ -23,6 +23,7 @@ class LeaderboardState {
     this.shogiRankFilter,
     this.monthKeyFilter,
     this.lastRefreshed,
+    this.hasMore = true,
   });
   final List<LeaderboardEntry> entries;
   final RankingStats? stats;
@@ -35,6 +36,16 @@ class LeaderboardState {
   final String? monthKeyFilter; // Used when filter == LeaderboardFilter.monthly
   final DateTime? lastRefreshed;
 
+  /// Whether a further [LeaderboardNotifier.nextPage] call could return
+  /// any more entries - true until a page comes back with fewer than
+  /// the full page size. Previously nothing tracked this: nextPage()
+  /// unconditionally incremented currentPage with no bounds check, and
+  /// the UI's "次へ" button was always enabled (unlike "前へ", correctly
+  /// guarded by currentPage > 0) - clicking Next past the real last page
+  /// kept incrementing currentPage forever while silently showing an
+  /// empty list, with no indication the results had ended.
+  final bool hasMore;
+
   LeaderboardState copyWith({
     List<LeaderboardEntry>? entries,
     RankingStats? stats,
@@ -45,6 +56,7 @@ class LeaderboardState {
     String? shogiRankFilter,
     String? monthKeyFilter,
     DateTime? lastRefreshed,
+    bool? hasMore,
   }) =>
       LeaderboardState(
         entries: entries ?? this.entries,
@@ -56,6 +68,7 @@ class LeaderboardState {
         shogiRankFilter: shogiRankFilter ?? this.shogiRankFilter,
         monthKeyFilter: monthKeyFilter ?? this.monthKeyFilter,
         lastRefreshed: lastRefreshed ?? this.lastRefreshed,
+        hasMore: hasMore ?? this.hasMore,
       );
 }
 
@@ -92,6 +105,7 @@ class LeaderboardNotifier extends StateNotifier<LeaderboardState> {
         currentPage: page,
         filter: LeaderboardFilter.global,
         lastRefreshed: DateTime.now(),
+        hasMore: entries.length == pageSize,
       );
     } catch (e) {
       state = state.copyWith(
@@ -123,6 +137,7 @@ class LeaderboardNotifier extends StateNotifier<LeaderboardState> {
         filter: LeaderboardFilter.byShogi,
         shogiRankFilter: shogiRank,
         lastRefreshed: DateTime.now(),
+        hasMore: entries.length == pageSize,
       );
     } catch (e) {
       state = state.copyWith(
@@ -154,6 +169,7 @@ class LeaderboardNotifier extends StateNotifier<LeaderboardState> {
         filter: LeaderboardFilter.monthly,
         monthKeyFilter: monthKey,
         lastRefreshed: DateTime.now(),
+        hasMore: entries.length == pageSize,
       );
     } catch (e) {
       state = state.copyWith(
@@ -165,6 +181,7 @@ class LeaderboardNotifier extends StateNotifier<LeaderboardState> {
 
   /// Next page of rankings
   Future<void> nextPage() async {
+    if (!state.hasMore) return;
     final nextPage = state.currentPage + 1;
     switch (state.filter) {
       case LeaderboardFilter.global:
