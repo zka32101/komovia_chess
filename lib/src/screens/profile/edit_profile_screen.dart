@@ -54,6 +54,11 @@ class _EditProfileScreenState extends ConsumerState<EditProfileScreen> {
       await ref.read(authStateNotifierProvider.notifier).updateUserProfile(
             displayName: displayName,
             photoUrl: photoUrl.isEmpty ? null : photoUrl,
+            // Emptying the field and saving previously did nothing - both
+            // the Auth and Firestore writes only ever acted on a non-null
+            // photoUrl, so there was no way to actually clear a
+            // previously-set avatar.
+            clearPhotoUrl: photoUrl.isEmpty,
           );
       // currentUserProvider only re-fetches on an auth-state emission,
       // which a profile edit doesn't trigger - force it to pick up the

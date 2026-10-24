@@ -123,11 +123,13 @@ class AuthStateNotifier extends StateNotifier<AsyncValue<UserModel?>> {
   Future<void> updateUserProfile({
     String? displayName,
     String? photoUrl,
+    bool clearPhotoUrl = false,
   }) async {
     try {
       await _authService.updateUserProfile(
         displayName: displayName,
         photoUrl: photoUrl,
+        clearPhotoUrl: clearPhotoUrl,
       );
       // Refresh user data
       final user = await _authService.getCurrentUser();
