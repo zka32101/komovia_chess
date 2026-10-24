@@ -42,6 +42,30 @@ class StockfishEngineService {
   StreamSubscription<String>? _stdoutSub;
   bool _uciReady = false;
 
+  // Stockfish.stdout is a single broadcast stream over one physical engine
+  // process/search - getBestMove/evaluatePosition each used to attach their
+  // own listener and fire position/go independently, so two overlapping
+  // calls (e.g. GameReviewScreen firing evaluatePosition on every seek/
+  // autoplay tick, or a CPU move request landing while a review screen's
+  // analysis is still running) would have both listeners see both
+  // searches' output and could each resolve from the WRONG bestmove/score
+  // line - silently wrong analysis or AI moves, no error surfaced anywhere.
+  // Chaining every call through this queue guarantees only one
+  // position+go+listen sequence is ever in flight on the shared process.
+  Future<void> _queue = Future<void>.value();
+
+  Future<T> _runExclusive<T>(Future<T> Function() task) {
+    final resultCompleter = Completer<T>();
+    _queue = _queue.then((_) async {
+      try {
+        resultCompleter.complete(await task());
+      } catch (e, st) {
+        resultCompleter.completeError(e, st);
+      }
+    });
+    return resultCompleter.future;
+  }
+
   static StockfishEngineService get instance {
     _instance ??= StockfishEngineService._internal();
     return _instance!;
@@ -116,7 +140,14 @@ class StockfishEngineService {
     int? depth,
   }) async {
     await initialize();
+    return _runExclusive(() => _getBestMoveNow(fen, moveTimeMs, depth));
+  }
 
+  Future<String?> _getBestMoveNow(
+    String fen,
+    int? moveTimeMs,
+    int? depth,
+  ) async {
     final completer = Completer<String?>();
     StreamSubscription<String>? sub;
     sub = _stockfish!.stdout.listen((line) {
@@ -166,7 +197,14 @@ class StockfishEngineService {
   Future<int?> evaluatePosition(String fen,
       {int moveTimeMs = 500, int? depth}) async {
     await initialize();
+    return _runExclusive(() => _evaluatePositionNow(fen, moveTimeMs, depth));
+  }
 
+  Future<int?> _evaluatePositionNow(
+    String fen,
+    int moveTimeMs,
+    int? depth,
+  ) async {
     final completer = Completer<int?>();
     int? lastScore;
     StreamSubscription<String>? sub;
