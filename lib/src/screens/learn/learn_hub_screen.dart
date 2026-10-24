@@ -60,7 +60,10 @@ class LearnHubScreen extends ConsumerWidget {
                 ),
                 if (summary.started > 0)
                   Chip(
-                    label: Text('完了 ${summary.completed}/${summary.started}'),
+                    label: Text(summary.averageMastery > 0
+                        ? '完了 ${summary.completed}/${summary.started}'
+                            ' · 理解度 ${summary.averageMastery.toStringAsFixed(1)}'
+                        : '完了 ${summary.completed}/${summary.started}'),
                     avatar: const Icon(Icons.check_circle_outline, size: 18),
                   ),
               ],

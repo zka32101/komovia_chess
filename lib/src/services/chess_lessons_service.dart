@@ -92,6 +92,45 @@ class ChessLessonsService {
     return progress;
   }
 
+  /// Records the user's own 1-5 rating of how well they understood a
+  /// piece of content - selfAssessmentScore existed on the model from
+  /// the start but nothing ever wrote anything but its default 0 into
+  /// it, and nothing read it back; this is the first real writer.
+  /// Doesn't touch percentageComplete/status, so rating a lesson is
+  /// independent of marking it complete (a user could rate without
+  /// finishing, though the UI only offers this right after completing).
+  Future<UserLessonProgress> setSelfAssessmentScore({
+    required String userId,
+    required String contentType,
+    required String contentId,
+    required double score,
+  }) async {
+    final key = lessonKey(contentType, contentId);
+    final ref = _progressCollection(userId).doc(key);
+    final doc = await ref.get();
+    final existing =
+        doc.exists ? UserLessonProgress.fromJson(doc.data()!) : null;
+
+    final now = DateTime.now();
+    final clampedScore = score.clamp(1.0, 5.0);
+    final progress = UserLessonProgress(
+      id: key,
+      userId: userId,
+      lessonId: key,
+      status: existing?.status ?? LessonStatus.inProgress,
+      percentageComplete: existing?.percentageComplete ?? 0,
+      timesReviewed: existing?.timesReviewed ?? 1,
+      startedDate: existing?.startedDate ?? now,
+      completedDate: existing?.completedDate,
+      lastAccessedDate: now,
+      selfAssessmentScore: clampedScore,
+      notesAdded: existing?.notesAdded ?? const [],
+      interactionData: existing?.interactionData ?? const {},
+    );
+    await ref.set(progress.toJson());
+    return progress;
+  }
+
   /// All of [userId]'s lesson progress records, keyed by `lessonKey`.
   Future<List<UserLessonProgress>> getUserProgress(String userId) async {
     final snapshot = await _progressCollection(userId).get();
