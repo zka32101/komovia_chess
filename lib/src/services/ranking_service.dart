@@ -138,29 +138,57 @@ class RankingService {
 
   /// Get the ranking for a given month (defaults to the current month).
   ///
-  /// [offset] mirrors [getGlobalRanking]'s pagination (same previously
-  /// -missing pagination bug as [getRankingByShogi] above, for the
-  /// "monthly" tab).
+  /// Previously queried `rankings/monthly/{monthKey}` - but nothing
+  /// anywhere ever writes to that collection (firestore.rules hard-denies
+  /// client writes to it, clearly intended for a Cloud Function that was
+  /// never built), so this tab was a complete, silent dead end: the
+  /// query always succeeded and always returned zero documents. Same
+  /// root cause, and same fix, as [getRankingByShogi]'s own analogous
+  /// bug above - derive it live from the real `users` collection
+  /// instead. Only the CURRENT month can be approximated this way (an
+  /// explicit past [monthKey] returns empty rather than something
+  /// silently wrong, since a past month's actual historical ranking
+  /// can't be reconstructed from users' present-day ratings at all).
+  ///
+  /// [offset] mirrors [getGlobalRanking]'s pagination.
   Future<List<LeaderboardEntry>> getMonthlyRanking({
     required int limit,
     int offset = 0,
     String? monthKey,
   }) async {
+    final requestedMonth = monthKey ?? _currentMonthKey();
+    if (requestedMonth != _currentMonthKey()) return [];
+
     try {
+      final now = DateTime.now();
+      final monthStart = DateTime(now.year, now.month, 1);
+
+      // Firestore can't combine a range filter on `updatedAt` with an
+      // orderBy on a different field (`rating`) in one query - fetch a
+      // generously-sized page ordered by rating and filter to this
+      // month's active players client-side instead.
       final snapshot = await _firestore
-          .collection('rankings')
-          .doc('monthly')
-          .collection(monthKey ?? _currentMonthKey())
+          .collection('users')
           .orderBy('rating', descending: true)
-          .limit(limit + offset)
+          .limit((limit + offset) * 5 + 100)
           .get();
 
-      return snapshot.docs
+      final activeThisMonth = snapshot.docs.where((doc) {
+        final updatedAt =
+            dateTimeFromTimestampOrNull(doc.data()['updatedAt']);
+        return updatedAt != null && !updatedAt.isBefore(monthStart);
+      }).toList();
+
+      return activeThisMonth
           .skip(offset)
+          .take(limit)
           .toList()
           .asMap()
           .entries
-          .map((e) => _leaderboardEntryFromJson(e.value.data(), rank: offset + e.key + 1))
+          .map((e) => _leaderboardEntryFromJson(
+                {...e.value.data(), 'userId': e.value.id},
+                rank: offset + e.key + 1,
+              ))
           .toList();
     } catch (e) {
       print('Error fetching monthly ranking: $e');
