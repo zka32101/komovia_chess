@@ -94,6 +94,27 @@ class PaywallService {
     }
   }
 
+  /// KNOWN CLIENT-TRUST GAP (documented, not fixed here - see
+  /// firestore.rules' matching comment on users/{userId}): this writes
+  /// the entitlement directly from the client with no server-side purchase
+  /// receipt verification at all - there is no Cloud Function anywhere in
+  /// this app (checked functions/src/*.js) that calls the App Store Server
+  /// API / Play Developer API to confirm [purchaseDetails] was a real
+  /// purchase before granting it. Any signed-in user can currently write
+  /// 'premium'/'pro' + a far-future subscriptionExpiry (or isLifetime:
+  /// true) straight into their own users/{uid} doc and
+  /// feature_gating_service.dart will honor it immediately, since it only
+  /// ever reads these same fields back - a genuine monetization bypass,
+  /// not just an theoretical one. Closing it for real needs a receipt-
+  /// verifying Cloud Function (Admin SDK write, bypassing rules) plus a
+  /// firestore.rules change blocking these three fields from a normal
+  /// client write - deliberately not done in this pass, since it would
+  /// need App Store/Play credentials and Cloud Functions deploy/test
+  /// ability this sandbox doesn't have, and locking the fields down here
+  /// without that server-side replacement would break every real purchase
+  /// instead of fixing the bypass. Same documented-but-unfixed category as
+  /// this app's other self-reported purchase fields (see
+  /// firebase_auth_service.dart's account/profile writes).
   Future<void> _persistEntitlement(String tier) async {
     final user = _auth.currentUser;
     if (user == null) return;
