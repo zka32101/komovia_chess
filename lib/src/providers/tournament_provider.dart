@@ -19,8 +19,8 @@ final tournamentDetailsProvider =
   return ref.watch(tournamentServiceProvider).getTournament(tournamentId);
 });
 
-/// `entryFee`/`prizePool`/`timeControl` — chess-specific fields kept outside
-/// the shared `Tournament` model (see `tournament_service.dart`).
+/// `prizePool`/`timeControl` — chess-specific fields kept outside the
+/// shared `Tournament` model (see `tournament_service.dart`).
 final tournamentExtrasProvider =
     FutureProvider.family<Map<String, dynamic>, String>((ref, tournamentId) {
   return ref.watch(tournamentServiceProvider).getTournamentExtras(tournamentId);
@@ -78,7 +78,6 @@ class TournamentActionsNotifier extends StateNotifier<AsyncValue<void>> {
     required String description,
     required int maxParticipants,
     required String timeControl,
-    required int entryFee,
     required int prizePool,
     required DateTime startDate,
     required DateTime endDate,
@@ -101,7 +100,6 @@ class TournamentActionsNotifier extends StateNotifier<AsyncValue<void>> {
                 format: 'single_elimination',
                 maxParticipants: maxParticipants,
                 timeControl: timeControl,
-                entryFee: entryFee,
                 prizePool: prizePool,
                 createdBy: me.uid,
                 startDate: startDate,
