@@ -8,6 +8,7 @@ import 'package:logger/logger.dart';
 import '../models/online_game.dart';
 import '../models/match_record.dart';
 import 'achievement_service.dart';
+import 'battle_pass_service.dart';
 import 'analytics_dashboard_service_impl.dart';
 import 'challenge_service.dart';
 import 'friend_service.dart';
@@ -591,6 +592,17 @@ class OnlineGameService {
           metric: GameplayMetric.drawGames,
         );
       }
+
+      // Best-effort: BattlePassService.addBattlePassExperience was
+      // fully built (transaction, level-up loop, reward-claim UI
+      // already wired on the seasonal hub) but nothing anywhere ever
+      // called it - every player's battle pass level was permanently
+      // stuck at 1 regardless of how much they played.
+      await BattlePassService().addBattlePassExperience(
+        playerId: playerId,
+        seasonId: season.seasonId,
+        experienceAmount: playerResult == 'win' ? 50 : 20,
+      );
     } catch (_) {
       // Best-effort; never block the game from ending.
     }

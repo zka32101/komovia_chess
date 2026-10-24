@@ -1,4 +1,5 @@
 import 'dart:async' show unawaited;
+import 'package:flutter/foundation.dart' show debugPrint;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
@@ -9,6 +10,7 @@ import '../services/ai_opponent_engine.dart';
 import '../services/stockfish_engine_service.dart';
 import '../services/season_challenge_service.dart';
 import '../services/season_management_service.dart';
+import '../services/battle_pass_service.dart';
 import '../services/achievement_service.dart';
 import '../services/match_history_service.dart';
 import '../services/analytics_dashboard_service_impl.dart';
@@ -414,6 +416,21 @@ class CpuGameNotifier extends StateNotifier<CpuGameState> {
             seasonId: season.seasonId,
             metric: GameplayMetric.drawGames,
           );
+        }
+
+        // Best-effort: BattlePassService.addBattlePassExperience was
+        // fully built (transaction, level-up loop, reward-claim UI
+        // already wired on the seasonal hub) but nothing anywhere ever
+        // called it - every player's battle pass level was permanently
+        // stuck at 1 regardless of how much they played.
+        try {
+          await BattlePassService().addBattlePassExperience(
+            playerId: user.uid,
+            seasonId: season.seasonId,
+            experienceAmount: playerResult == 'win' ? 50 : 20,
+          );
+        } catch (e) {
+          debugPrint('Error awarding battle pass experience: $e');
         }
       }
 
