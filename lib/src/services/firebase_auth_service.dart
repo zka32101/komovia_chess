@@ -500,9 +500,16 @@ class FirebaseAuthService {
   }
 
   /// Update user profile
+  ///
+  /// [photoUrl] null means "leave unchanged" - there was previously no way
+  /// to actually clear a previously-set avatar at all, since both the Auth
+  /// and Firestore writes below were gated on `photoUrl != null`, so
+  /// EditProfileScreen's "clear the URL field and save" always silently
+  /// kept the old avatar forever. [clearPhotoUrl] makes that case explicit.
   Future<void> updateUserProfile({
     String? displayName,
     String? photoUrl,
+    bool clearPhotoUrl = false,
   }) async {
     try {
       final user = _auth.currentUser;
@@ -511,14 +518,19 @@ class FirebaseAuthService {
       _logger.i('Updating user profile for: ${user.uid}');
 
       await user.updateDisplayName(displayName ?? user.displayName);
-      if (photoUrl != null) {
+      if (clearPhotoUrl) {
+        await user.updatePhotoURL(null);
+      } else if (photoUrl != null) {
         await user.updatePhotoURL(photoUrl);
       }
 
       // Update Firestore
       await _firestore.collection('users').doc(user.uid).update({
         if (displayName != null) 'displayName': displayName,
-        if (photoUrl != null) 'photoUrl': photoUrl,
+        if (clearPhotoUrl)
+          'photoUrl': FieldValue.delete()
+        else if (photoUrl != null)
+          'photoUrl': photoUrl,
       });
 
       _logger.i('User profile updated');
