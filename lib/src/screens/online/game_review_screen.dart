@@ -18,10 +18,21 @@ class GameReviewScreen extends ConsumerStatefulWidget {
   const GameReviewScreen({
     required this.gameId,
     required this.game,
+    this.startingFen = _standardStartingFen,
     Key? key,
   }) : super(key: key);
   final String gameId;
   final OnlineGame game;
+
+  /// The position [game.moves] were actually played from. Defaults to
+  /// the standard starting array, correct for every real online game -
+  /// but CPU games can start from a custom position
+  /// (cpu_game_selection_screen.dart's startingFen), so
+  /// CpuGameScreen passes the real value through here rather than
+  /// letting this screen silently assume standard (same bug class
+  /// already fixed for DrawDetectionService/GameGifService - see
+  /// PR #124/#125).
+  final String startingFen;
 
   @override
   ConsumerState<GameReviewScreen> createState() => _GameReviewScreenState();
@@ -47,7 +58,7 @@ class _GameReviewScreenState extends ConsumerState<GameReviewScreen> {
     currentMoveIndex = -1; // Start before first move
     isAutoPlaying = false;
     autoPlaySpeed = 1000;
-    _chess.loadFromFenAndMoves(_standardStartingFen, const []);
+    _chess.loadFromFenAndMoves(widget.startingFen, const []);
     // Defer the first evaluation request until after the initial build, so
     // its setState call doesn't race the widget still being mounted.
     WidgetsBinding.instance.addPostFrameCallback((_) => _requestEvaluation());
@@ -57,7 +68,7 @@ class _GameReviewScreenState extends ConsumerState<GameReviewScreen> {
   /// a fresh Stockfish evaluation of the resulting position.
   void _updatePosition() {
     _chess.loadFromFenAndMoves(
-      _standardStartingFen,
+      widget.startingFen,
       _movesAsMaps.sublist(0, currentMoveIndex + 1),
     );
     _requestEvaluation();
@@ -106,6 +117,7 @@ class _GameReviewScreenState extends ConsumerState<GameReviewScreen> {
                     moves: widget.game.moves,
                     whitePlayerName: widget.game.whitePlayerName,
                     blackPlayerName: widget.game.blackPlayerName,
+                    startingFen: widget.startingFen,
                   ),
                 ),
               ),

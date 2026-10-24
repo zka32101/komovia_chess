@@ -11,11 +11,19 @@ class GameAnalysisScreen extends StatefulWidget {
     required this.moves,
     required this.whitePlayerName,
     required this.blackPlayerName,
+    this.startingFen,
     Key? key,
   }) : super(key: key);
   final List<GameMove> moves;
   final String whitePlayerName;
   final String blackPlayerName;
+
+  /// The position [moves] were actually played from - null defaults to
+  /// ChessAnalysisService.analyzeGame's own standard-array default,
+  /// correct for every real online game but not for a CPU game started
+  /// from a custom position (see GameReviewScreen's matching doc
+  /// comment).
+  final String? startingFen;
 
   @override
   State<GameAnalysisScreen> createState() => _GameAnalysisScreenState();
@@ -39,6 +47,7 @@ class _GameAnalysisScreenState extends State<GameAnalysisScreen> {
     try {
       final result = await _service.analyzeGame(
         widget.moves,
+        startingFen: widget.startingFen ?? standardStartingFen,
         onProgress: (done, total) {
           if (mounted) setState(() => _done = done);
         },
