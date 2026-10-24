@@ -1,20 +1,30 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../data/cpu_starting_positions.dart';
+import '../../providers/adaptive_difficulty_provider.dart';
+import '../../services/adaptive_difficulty_service.dart';
 import '../../services/ai_opponent_engine.dart';
 import '../../utils/animations.dart';
 import 'cpu_game_screen.dart';
 
-class CPUGameSelectionScreen extends StatefulWidget {
+class CPUGameSelectionScreen extends ConsumerStatefulWidget {
   const CPUGameSelectionScreen({Key? key}) : super(key: key);
 
   @override
-  State<CPUGameSelectionScreen> createState() => _CPUGameSelectionScreenState();
+  ConsumerState<CPUGameSelectionScreen> createState() =>
+      _CPUGameSelectionScreenState();
 }
 
-class _CPUGameSelectionScreenState extends State<CPUGameSelectionScreen> {
+class _CPUGameSelectionScreenState
+    extends ConsumerState<CPUGameSelectionScreen> {
   late AIDifficulty _selectedDifficulty;
   bool _playerIsWhite = true;
   CpuStartingPosition _selectedStartingPosition = CpuStartingPosition.opening;
+
+  /// Guards against re-applying the recommendation after the player has
+  /// already made their own choice (e.g. the provider resolves a moment
+  /// after they've already tapped a different difficulty card).
+  bool _appliedRecommendation = false;
 
   @override
   void initState() {
@@ -23,7 +33,18 @@ class _CPUGameSelectionScreenState extends State<CPUGameSelectionScreen> {
   }
 
   @override
-  Widget build(BuildContext context) => Scaffold(
+  Widget build(BuildContext context) {
+    final recommendationAsync = ref.watch(difficultyRecommendationProvider);
+    recommendationAsync.whenData((recommendation) {
+      if (_appliedRecommendation || recommendation == null) return;
+      if (recommendation.reason == 'default') return;
+      _appliedRecommendation = true;
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) setState(() => _selectedDifficulty = recommendation.difficulty);
+      });
+    });
+
+    return Scaffold(
         appBar: AppBar(
           title: const Text('Play vs Computer'),
           centerTitle: true,
@@ -43,6 +64,8 @@ class _CPUGameSelectionScreenState extends State<CPUGameSelectionScreen> {
                           fontWeight: FontWeight.bold,
                         ),
                   ),
+                  const SizedBox(height: 4),
+                  _buildRecommendationHint(recommendationAsync.value),
                   const SizedBox(height: 16),
                   _buildDifficultyOptions(),
                   const SizedBox(height: 32),
@@ -109,6 +132,31 @@ class _CPUGameSelectionScreenState extends State<CPUGameSelectionScreen> {
           ),
         ),
       );
+  }
+
+  Widget _buildRecommendationHint(DifficultyRecommendation? recommendation) {
+    if (recommendation == null || recommendation.reason == 'default') {
+      return const SizedBox.shrink();
+    }
+    final percent = (recommendation.recentWinRate * 100).toStringAsFixed(0);
+    final message = switch (recommendation.reason) {
+      'strong' => '直近${recommendation.gamesConsidered}局で勝率$percent% - '
+          '${recommendation.difficulty.displayName}をおすすめします',
+      'struggling' => '直近${recommendation.gamesConsidered}局で勝率$percent% - '
+          '${recommendation.difficulty.displayName}をおすすめします',
+      _ => '直近${recommendation.gamesConsidered}局の実績から'
+          '${recommendation.difficulty.displayName}が選択されています',
+    };
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 4),
+      child: Text(
+        message,
+        style: Theme.of(context).textTheme.bodySmall?.copyWith(
+              color: Colors.deepOrange.shade700,
+            ),
+      ),
+    );
+  }
 
   Widget _buildDifficultyOptions() => Column(
         children: [
