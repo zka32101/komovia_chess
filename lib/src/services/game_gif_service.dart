@@ -6,7 +6,11 @@ import 'package:image/image.dart' as img;
 import '../models/board_theme.dart';
 import 'chess_engine_service.dart';
 
-const _standardStartingFen =
+/// Exposed so callers that only have an optional/nullable starting FEN
+/// (e.g. [CpuGameState.startingFen]) can fall back to it explicitly
+/// instead of omitting the parameter and relying on [generateGif]'s own
+/// default to happen to match.
+const standardStartingFen =
     'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1';
 
 /// One played move, deliberately decoupled from both `chess_lib.Move`
@@ -36,7 +40,7 @@ class GameGifService {
   /// viewer has time to register the result before the GIF loops.
   Future<Uint8List> generateGif({
     required List<ReplayMove> moves,
-    String startingFen = _standardStartingFen,
+    String startingFen = standardStartingFen,
     BoardTheme theme = BoardThemeCatalog.classic,
     int frameSize = 480,
     int frameDurationMs = 700,
