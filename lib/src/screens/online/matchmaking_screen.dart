@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../models/online_game.dart';
 import '../../providers/auth_provider.dart';
 import '../../providers/online_game_provider.dart';
+import '../../providers/premium_provider.dart';
 import 'online_game_screen.dart';
 
 /// Screen for matchmaking queue management
@@ -380,6 +381,28 @@ class _MatchmakingScreenState extends ConsumerState<MatchmakingScreen> {
 
     auth.whenData((user) async {
       if (user != null) {
+        // FeatureGatingService's daily-limit system (DAILY_LIMITS
+        // ['daily_games']) was fully implemented but, like the puzzle
+        // side before it, had no caller anywhere - free-tier users
+        // could join unlimited online-game queues. Checked here only
+        // (the simplest, single "start a new game" entry point);
+        // accepting a direct challenge (challenges_screen.dart) isn't
+        // gated yet, left for a follow-up since it's a different flow.
+        final canStart =
+            await ref.read(canPerformActionProvider('daily_games').future);
+        if (!canStart) {
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(
+                content: Text(
+                  'Reached today\'s free online-game limit. Upgrade to Pro for unlimited games.',
+                ),
+              ),
+            );
+          }
+          return;
+        }
+
         try {
           setState(() => _isSearching = true);
 
@@ -394,6 +417,8 @@ class _MatchmakingScreenState extends ConsumerState<MatchmakingScreen> {
             timeControlType: _selectedTimeControl,
             color: _selectedColor,
           );
+
+          await ref.read(trackActionUsageProvider('daily_games').future);
 
           setState(() => _currentQueueId = entry.queueId);
           _startMatchingTimer(entry.queueId);
