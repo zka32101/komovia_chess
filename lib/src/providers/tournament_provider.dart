@@ -3,6 +3,7 @@ import 'package:komovia_core/komovia_core.dart';
 import '../models/phase_k_models.dart' show TournamentRanking;
 import '../services/tournament_service.dart';
 import 'auth_provider.dart';
+import 'rewards_provider.dart';
 
 final tournamentServiceProvider =
     Provider<TournamentService>((ref) => TournamentService.instance);
@@ -158,9 +159,18 @@ class TournamentActionsNotifier extends StateNotifier<AsyncValue<void>> {
   Future<void> finishTournament(String tournamentId) async {
     state = const AsyncValue.loading();
     try {
-      await _ref.read(tournamentServiceProvider).distributePrizes(tournamentId);
+      final service = _ref.read(tournamentServiceProvider);
+      // distributePrizes pays the top 3 standings - capture their uids
+      // first so userRewardsProvider can be invalidated for each winner
+      // (the service itself re-reads standings after payout, by which
+      // point the prize has already landed in Firestore).
+      final standings = await service.getStandings(tournamentId);
+      await service.distributePrizes(tournamentId);
       _ref.invalidate(activeTournamentsProvider);
       _ref.invalidate(tournamentDetailsProvider(tournamentId));
+      for (var i = 0; i < standings.length && i < 3; i++) {
+        _ref.invalidate(userRewardsProvider(standings[i].userId));
+      }
       state = const AsyncValue.data(null);
     } catch (e, st) {
       state = AsyncValue.error(e, st);
