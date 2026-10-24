@@ -5,6 +5,7 @@ import '../../models/online_game.dart';
 import '../../providers/auth_provider.dart';
 import '../../providers/online_game_provider.dart';
 import '../../providers/premium_provider.dart';
+import '../premium/premium_screen.dart';
 import 'online_game_screen.dart';
 
 /// Screen for matchmaking queue management
@@ -393,9 +394,18 @@ class _MatchmakingScreenState extends ConsumerState<MatchmakingScreen> {
         if (!canStart) {
           if (mounted) {
             ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(
-                content: Text(
+              SnackBar(
+                content: const Text(
                   'Reached today\'s free online-game limit. Upgrade to Pro for unlimited games.',
+                ),
+                // Direct conversion path right where the limit is hit,
+                // instead of leaving the player to find PremiumScreen
+                // on their own via Settings.
+                action: SnackBarAction(
+                  label: 'Upgrade',
+                  onPressed: () => Navigator.of(context).push(
+                    MaterialPageRoute(builder: (_) => const PremiumScreen()),
+                  ),
                 ),
               ),
             );

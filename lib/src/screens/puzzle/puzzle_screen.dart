@@ -9,6 +9,7 @@ import '../../services/game_gif_service.dart';
 import '../../services/game_share_service.dart';
 import '../../widgets/game_board.dart';
 import '../../providers/user_preferences_provider.dart';
+import '../premium/premium_screen.dart';
 import 'puzzle_rush_screen.dart';
 
 /// Checks this user's remaining free daily puzzle attempts
@@ -27,10 +28,20 @@ Future<void> _startPuzzle(
   final canStart =
       await ref.read(canPerformActionProvider('daily_puzzles').future);
   if (!canStart) {
+    if (!context.mounted) return;
     ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(
-        content: Text(
+      SnackBar(
+        content: const Text(
           'Reached today\'s free puzzle limit. Upgrade to Pro for unlimited puzzles.',
+        ),
+        // Previously a dead end - the player had to find PremiumScreen
+        // on their own (via Settings). A direct "Upgrade" action right
+        // where the limit is hit is the obvious conversion point.
+        action: SnackBarAction(
+          label: 'Upgrade',
+          onPressed: () => Navigator.of(context).push(
+            MaterialPageRoute(builder: (_) => const PremiumScreen()),
+          ),
         ),
       ),
     );
