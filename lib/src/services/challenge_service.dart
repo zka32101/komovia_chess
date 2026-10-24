@@ -328,21 +328,22 @@ class FriendChallengeService {
     }
   }
 
-  /// Get pending challenges
+  /// Get pending challenges - both incoming (userId is the challengee,
+  /// awaiting a response) and outgoing (userId is the challenger,
+  /// awaiting the other side). Previously only queried the incoming
+  /// side, so a user's own sent challenges never appeared anywhere and
+  /// their Cancel button in challenges_screen.dart was unreachable dead
+  /// code. See [getActiveChallenges]'s doc comment for why this queries
+  /// both sides separately instead of filtering a broader query
+  /// client-side.
   Future<List<Challenge>> getPendingChallenges(String userId) async {
     try {
-      final snapshot = await _firestore
-          .collection('friend_challenges')
-          .doc('active')
-          .collection('list')
-          .where('challengeeUserId', isEqualTo: userId)
-          .where('status', isEqualTo: 'pending')
-          .orderBy('createdAt', descending: true)
-          .get();
-
-      return snapshot.docs
-          .map((doc) => Challenge.fromJson(doc.data()))
-          .toList();
+      final challenges = await _queryBothSides(
+        userId,
+        status: 'pending',
+        orderByField: 'createdAt',
+      );
+      return challenges;
     } catch (e) {
       debugPrint('Error fetching pending challenges: $e');
       return [];
