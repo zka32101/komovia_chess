@@ -877,13 +877,35 @@ service cloud.firestore {
 
     match /seasonal_events/{eventId} {
       allow read: if isSignedIn();
-      allow write: if false;
+      // `seasonal_events` itself is curated/admin content (no
+      // createSeasonalEvent-style caller anywhere in the app), but
+      // participateInEvent/withdrawFromEvent each also update this
+      // document's own currentParticipants by exactly +-1 as part of the
+      // same transaction that writes the player's own participation doc
+      // above - cross-user like this app's other self-reported counters
+      // (e.g. spectatorCount in sibling apps), narrowed to just that one
+      // field and that one step size so a signed-in user can't otherwise
+      // touch this curated document.
+      allow update: if isSignedIn() &&
+        onlyChanged(['currentParticipants']) &&
+        (request.resource.data.currentParticipants ==
+            prevIntField('currentParticipants') + 1 ||
+         request.resource.data.currentParticipants ==
+            prevIntField('currentParticipants') - 1);
+      allow create, delete: if false;
     }
 
     match /player_event_progress/{playerId} {
       match /events/{eventId} {
         allow read: if isOwner(playerId);
-        allow write: if false;
+        // participateInEvent/withdrawFromEvent/updateEventScore all write
+        // only the signed-in player's own participation doc, never a
+        // stranger's - previously `allow write: if false` unconditionally,
+        // which would have rejected every one of those calls once a UI
+        // ever actually triggered them (SeasonalHubScreen's "Join Event"
+        // button was a no-op stub until now).
+        allow create, update: if isOwner(playerId);
+        allow delete: if false;
       }
     }
 

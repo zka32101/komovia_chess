@@ -35,6 +35,40 @@ class _SeasonalHubScreenState extends ConsumerState<SeasonalHubScreen>
   Widget build(BuildContext context) {
     final currentSeasonAsync = ref.watch(currentSeasonProvider);
 
+    // Surfaces join/withdraw failures as a snackbar and refreshes the
+    // joined event's own progress + the active-events list (its
+    // currentParticipants count changed) once a join actually commits -
+    // the notifier only tracks isLoading/joinedEventIds/error in its own
+    // state, it never touches these providers itself.
+    ref.listen<EventParticipationState>(eventParticipationNotifierProvider,
+        (previous, next) {
+      if (next.error != null && next.error != previous?.error) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Could not join event: ${next.error}')),
+        );
+        return;
+      }
+      final newlyJoined = next.joinedEventIds
+          .where((id) => previous?.joinedEventIds.contains(id) != true)
+          .toList();
+      if (newlyJoined.isEmpty) return;
+      for (final eventId in newlyJoined) {
+        ref.invalidate(
+          playerEventProgressProvider(
+            EventParticipationParams(
+              playerId: widget.playerId,
+              eventId: eventId,
+            ),
+          ),
+        );
+      }
+      currentSeasonAsync.whenData(
+        (season) => season != null
+            ? ref.invalidate(activeEventsProvider(season.seasonId))
+            : null,
+      );
+    });
+
     return currentSeasonAsync.when(
       data: (season) {
         if (season == null) {
@@ -332,16 +366,73 @@ class _SeasonalHubScreenState extends ConsumerState<SeasonalHubScreen>
               ],
             ),
             const SizedBox(height: 12),
-            if (isActive)
-              ElevatedButton(
-                onPressed: () {
-                  // Handle participation
-                },
-                child: const Text('Join Event'),
-              ),
+            if (isActive) _buildJoinButton(event),
           ],
         ),
       ),
+    );
+  }
+
+  // Previously the "Join Event" button was an empty onPressed stub - the
+  // backend (participateInEvent, already wired to
+  // eventParticipationNotifierProvider) was fully built but had zero
+  // callers anywhere in the app.
+  Widget _buildJoinButton(SeasonalEvent event) {
+    final progressAsync = ref.watch(
+      playerEventProgressProvider(
+        EventParticipationParams(
+          playerId: widget.playerId,
+          eventId: event.eventId,
+        ),
+      ),
+    );
+    final participationState = ref.watch(eventParticipationNotifierProvider);
+
+    return progressAsync.when(
+      data: (progress) {
+        final hasJoined = progress != null && !progress.hasWithdrawn;
+        if (hasJoined) {
+          return const Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(Icons.check_circle, color: Colors.green, size: 18),
+              SizedBox(width: 6),
+              Text('Joined'),
+            ],
+          );
+        }
+        return SizedBox(
+          width: double.infinity,
+          child: ElevatedButton(
+            onPressed: participationState.isLoading
+                ? null
+                : () => ref
+                    .read(eventParticipationNotifierProvider.notifier)
+                    .joinEvent(
+                      playerId: widget.playerId,
+                      eventId: event.eventId,
+                    ),
+            child: participationState.isLoading
+                ? const SizedBox(
+                    width: 18,
+                    height: 18,
+                    child: CircularProgressIndicator(strokeWidth: 2),
+                  )
+                : const Text('Join Event'),
+          ),
+        );
+      },
+      loading: () => const SizedBox(
+        height: 36,
+        child: Center(
+          child: SizedBox(
+            width: 18,
+            height: 18,
+            child: CircularProgressIndicator(strokeWidth: 2),
+          ),
+        ),
+      ),
+      error: (e, st) => const SizedBox.shrink(),
     );
   }
 }

@@ -82,38 +82,57 @@ class SeasonalEventService {
     required String eventId,
   }) async {
     try {
-      final event = await getEventDetails(eventId);
-      if (event == null) {
-        throw Exception('Event not found: $eventId');
-      }
-
       final participationRef = _firestore
           .collection(_playerEventCollection)
           .doc(playerId)
           .collection('events')
           .doc(eventId);
+      final eventRef = _firestore.collection(_eventsCollection).doc(eventId);
 
       await _firestore.runTransaction((transaction) async {
-        final doc = await transaction.get(participationRef);
-
-        if (!doc.exists) {
-          transaction.set(participationRef, {
-            'playerId': playerId,
-            'eventId': eventId,
-            'seasonId': event.seasonId,
-            'joinedAt': FieldValue.serverTimestamp(),
-            'currentScore': 0,
-            'rank': -1,
-            'hasWithdrawn': false,
-            'updatedAt': FieldValue.serverTimestamp(),
-          });
-
-          // Increment participant count
-          transaction.update(
-            _firestore.collection(_eventsCollection).doc(eventId),
-            {'currentParticipants': FieldValue.increment(1)},
-          );
+        // Previously read the event via getEventDetails() *before* the
+        // transaction even started, then never re-checked it inside - so
+        // two players joining a nearly-full event at the same moment could
+        // both pass a check made against a now-stale currentParticipants.
+        // Reading it here instead (one of this transaction's own reads,
+        // alongside participationRef below) makes the cap check and the
+        // increment atomic with each other.
+        final eventDoc = await transaction.get(eventRef);
+        if (!eventDoc.exists) {
+          throw Exception('Event not found: $eventId');
         }
+        final event = SeasonalEvent.fromJson(eventDoc.data()!);
+
+        final doc = await transaction.get(participationRef);
+        if (doc.exists) {
+          // Already joined (or previously withdrew and re-joined) -
+          // nothing to do, same idempotent-retry convention as this
+          // service's withdrawFromEvent.
+          return;
+        }
+
+        // Previously had no cap check at all - maxParticipants was purely
+        // decorative in the UI, and the event could accept unlimited
+        // joins past its own displayed capacity.
+        if (event.maxParticipants > 0 &&
+            event.currentParticipants >= event.maxParticipants) {
+          throw Exception('Event $eventId is full');
+        }
+
+        transaction.set(participationRef, {
+          'playerId': playerId,
+          'eventId': eventId,
+          'seasonId': event.seasonId,
+          'joinedAt': FieldValue.serverTimestamp(),
+          'currentScore': 0,
+          'rank': -1,
+          'hasWithdrawn': false,
+          'updatedAt': FieldValue.serverTimestamp(),
+        });
+
+        transaction.update(eventRef, {
+          'currentParticipants': FieldValue.increment(1),
+        });
       });
 
       _logger.i('Player $playerId joined event $eventId');
