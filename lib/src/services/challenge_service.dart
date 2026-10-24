@@ -13,6 +13,32 @@ class FriendChallengeService {
 
   static FriendChallengeService get instance => _instance;
 
+  /// Writes a notification doc under the recipient's own subcollection -
+  /// same shape/convention as `FriendService.sendFriendRequest`'s
+  /// notifications (read back as a `package:komovia_core`
+  /// `AppNotification`, extra fields inside `data` not at the top level).
+  Future<void> _notify({
+    required String recipientUid,
+    required String type,
+    required String title,
+    required String body,
+  }) async {
+    final notificationRef = _firestore
+        .collection('users')
+        .doc(recipientUid)
+        .collection('notifications')
+        .doc();
+    await notificationRef.set({
+      'uid': recipientUid,
+      'type': type,
+      'title': title,
+      'body': body,
+      'createdAt': FieldValue.serverTimestamp(),
+      'isRead': false,
+      'data': {'actionUrl': '/challenges', 'priority': 'normal'},
+    });
+  }
+
   /// Send challenge to friend
   Future<Challenge> sendChallenge({
     required String challengerUserId,
@@ -50,6 +76,21 @@ class FriendChallengeService {
         'completedAt': null,
       });
 
+      // Previously nothing ever told the challengee a challenge existed -
+      // pendingChallengesProvider is a one-shot FutureProvider (not a
+      // stream), so the only way to find out was to proactively reopen
+      // ChallengesScreen. Best-effort: a failed notification write
+      // shouldn't fail the challenge itself.
+      try {
+        await _notify(
+          recipientUid: challengeeUserId,
+          type: 'challenge_received',
+          title: 'New Challenge',
+          body: '$challengerUsername challenged you to a game',
+        );
+      } catch (e) {
+        debugPrint('Error notifying challengee: $e');
+      }
 
       return Challenge(
         challengeId: challengeId,
@@ -78,17 +119,34 @@ class FriendChallengeService {
     String gameId,
   ) async {
     try {
-      await _firestore
+      final challengeRef = _firestore
           .collection('friend_challenges')
           .doc('active')
           .collection('list')
-          .doc(challengeId)
-          .update({
+          .doc(challengeId);
+
+      final challengeDoc = await challengeRef.get();
+
+      await challengeRef.update({
         'status': 'accepted',
         'respondedAt': FieldValue.serverTimestamp(),
         'gameId': gameId,
       });
 
+      final data = challengeDoc.data();
+      if (data != null) {
+        try {
+          await _notify(
+            recipientUid: data['challengerUserId'] as String,
+            type: 'challenge_accepted',
+            title: 'Challenge Accepted',
+            body:
+                '${data['challengeeUsername']} accepted your challenge',
+          );
+        } catch (e) {
+          debugPrint('Error notifying challenger: $e');
+        }
+      }
     } catch (e) {
       debugPrint('Error accepting challenge: $e');
       rethrow;
@@ -98,16 +156,33 @@ class FriendChallengeService {
   /// Reject challenge
   Future<void> rejectChallenge(String challengeId) async {
     try {
-      await _firestore
+      final challengeRef = _firestore
           .collection('friend_challenges')
           .doc('active')
           .collection('list')
-          .doc(challengeId)
-          .update({
+          .doc(challengeId);
+
+      final challengeDoc = await challengeRef.get();
+
+      await challengeRef.update({
         'status': 'rejected',
         'respondedAt': FieldValue.serverTimestamp(),
       });
 
+      final data = challengeDoc.data();
+      if (data != null) {
+        try {
+          await _notify(
+            recipientUid: data['challengerUserId'] as String,
+            type: 'challenge_declined',
+            title: 'Challenge Declined',
+            body:
+                '${data['challengeeUsername']} declined your challenge',
+          );
+        } catch (e) {
+          debugPrint('Error notifying challenger: $e');
+        }
+      }
     } catch (e) {
       debugPrint('Error rejecting challenge: $e');
       rethrow;
