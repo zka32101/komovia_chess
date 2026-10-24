@@ -211,6 +211,14 @@ service cloud.firestore {
         allow read, write: if isOwner(userId);
       }
 
+      // Per-game phase-by-phase mistake/blunder counts, derived from a
+      // ChessAnalysisService run and aggregated into a WeaknessProfile
+      // (weakness_analysis_service.dart) - entirely private, never read
+      // by anyone but the owner.
+      match /weakness_analysis/{gameId} {
+        allow read, write: if isOwner(userId);
+      }
+
       // Free-tier daily action counters (feature_gating_service.dart),
       // keyed by date (e.g. 'daily_puzzles'/'daily_games' usage for
       // today). Had no rule at all before this, so every read/write fell

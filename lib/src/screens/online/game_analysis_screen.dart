@@ -1,17 +1,23 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../models/game_analysis.dart';
 import '../../models/online_game.dart';
+import '../../providers/auth_provider.dart';
+import '../../providers/weakness_analysis_provider.dart';
 import '../../services/chess_analysis_service.dart';
 
 /// Shows Stockfish-based per-move analysis for a finished game - see
 /// ChessAnalysisService's own doc comment for what "analysis" means here
 /// (engine eval classification, not an LLM feature).
-class GameAnalysisScreen extends StatefulWidget {
+class GameAnalysisScreen extends ConsumerStatefulWidget {
   const GameAnalysisScreen({
     required this.moves,
     required this.whitePlayerName,
     required this.blackPlayerName,
     this.startingFen,
+    this.gameId,
+    this.whitePlayerId,
+    this.blackPlayerId,
     Key? key,
   }) : super(key: key);
   final List<GameMove> moves;
@@ -25,11 +31,21 @@ class GameAnalysisScreen extends StatefulWidget {
   /// comment).
   final String? startingFen;
 
+  /// When provided alongside [whitePlayerId]/[blackPlayerId], the
+  /// resulting analysis is saved (best-effort) to the signed-in user's
+  /// weakness profile if they played in this game - see
+  /// WeaknessAnalysisService. Optional so this screen stays usable
+  /// without a real backing game (none of the three are known for a
+  /// one-off/offline review).
+  final String? gameId;
+  final String? whitePlayerId;
+  final String? blackPlayerId;
+
   @override
-  State<GameAnalysisScreen> createState() => _GameAnalysisScreenState();
+  ConsumerState<GameAnalysisScreen> createState() => _GameAnalysisScreenState();
 }
 
-class _GameAnalysisScreenState extends State<GameAnalysisScreen> {
+class _GameAnalysisScreenState extends ConsumerState<GameAnalysisScreen> {
   final _service = ChessAnalysisService();
   GameAnalysis? _result;
   int _done = 0;
@@ -53,9 +69,41 @@ class _GameAnalysisScreenState extends State<GameAnalysisScreen> {
         },
       );
       if (mounted) setState(() => _result = result);
+      await _recordWeaknessAnalysis(result);
     } catch (e) {
       if (mounted) setState(() => _error = e.toString());
     }
+  }
+
+  /// Best-effort: feeds this analysis into the signed-in user's
+  /// cross-game weakness profile (learn_hub_screen.dart's recommendation
+  /// card), if this screen was opened for a real game the current user
+  /// actually played in.
+  Future<void> _recordWeaknessAnalysis(GameAnalysis result) async {
+    final gameId = widget.gameId;
+    final whiteId = widget.whitePlayerId;
+    final blackId = widget.blackPlayerId;
+    if (gameId == null || whiteId == null || blackId == null) return;
+
+    final uid = ref.read(currentUserProvider).value?.uid;
+    if (uid == null) return;
+
+    final bool isWhitePlayer;
+    if (uid == whiteId) {
+      isWhitePlayer = true;
+    } else if (uid == blackId) {
+      isWhitePlayer = false;
+    } else {
+      return; // Spectator/analysis of someone else's game - nothing to record.
+    }
+
+    await ref.read(weaknessAnalysisServiceProvider).recordGameAnalysis(
+          uid: uid,
+          gameId: gameId,
+          analysis: result,
+          isWhitePlayer: isWhitePlayer,
+        );
+    ref.invalidate(weaknessProfileProvider);
   }
 
   @override
