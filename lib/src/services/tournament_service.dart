@@ -394,6 +394,8 @@ class TournamentService {
         tournamentCompleted = true;
         return;
       }
+      // (winners.length > 1 falls through to generating the next round
+      // below - tournamentCompleted stays false.)
 
       final nextRound = completedRound + 1;
       final now = DateTime.now();
@@ -431,6 +433,27 @@ class TournamentService {
     // unrelated event happens to re-trigger this check.
     if (nextRoundGenerated && !tournamentCompleted) {
       await _advanceRoundIfComplete(tournamentId, completedRound + 1);
+    }
+
+    // Previously a tournament whose bracket ran to completion on its own
+    // (the common case) could never actually pay its prizes: the only UI
+    // path to distributePrizes was an organizer button shown only while
+    // isActive, which this very status flip to 'completed' just hid, and
+    // distributePrizes' own idempotency guard also keyed off
+    // status == 'completed' - so even a direct call would have silently
+    // no-op'd ("already distributed") despite no payout ever happening.
+    // Best-effort: a transient failure here must not leave the bracket
+    // itself stuck or retried, since _advanceRoundIfComplete's own
+    // claim-first guard (lastAdvancedRound) has already committed.
+    if (tournamentCompleted) {
+      try {
+        await distributePrizes(tournamentId);
+      } catch (e) {
+        debugPrint(
+          'Tournament $tournamentId completed but prize distribution '
+          'failed - it can still be retried via the organizer UI: $e',
+        );
+      }
     }
   }
 
@@ -533,25 +556,37 @@ class TournamentService {
 
   /// Distribute prize money to the top 3 finishers (50/30/20 split, or
   /// 60/40 for a 2-participant field) and mark the tournament completed.
+  ///
+  /// Callable both as a manual organizer action (on an in-progress
+  /// tournament, or as a retry on one whose bracket already auto-completed
+  /// via [_advanceRoundIfComplete]) and automatically from
+  /// [_advanceRoundIfComplete] once a winner is determined.
   Future<void> distributePrizes(String tournamentId) async {
     try {
       final tournamentRef =
           _firestore.collection(tournamentsCollection).doc(tournamentId);
 
-      // Atomically claim the tournament by flipping status to
-      // 'completed' before paying anyone out - without this, a
-      // double-tap, a retried request, or two co-organizers both
-      // calling this would each increment every top-3 finisher's
-      // user_rewards a second time, paying the same prize money out
-      // twice. Same claim-first pattern as generateBracket's status
-      // transition above.
+      // Claim payout via a dedicated [prizesDistributedAt] field rather
+      // than status == 'completed' - the bracket auto-completing
+      // (_advanceRoundIfComplete) already sets status to 'completed' on
+      // its own, independently of whether prizes have ever been paid, so
+      // overloading that same value here previously made every
+      // auto-completed tournament's prizes permanently unpayable (this
+      // guard would always see 'completed' and skip, even on the very
+      // first real payout attempt). This field is this guard's own
+      // concern only; it's deliberately not surfaced on komovia_core's
+      // Tournament model, the same way entryFee/prizePool/timeControl
+      // aren't (see [getTournamentExtras]).
       var claimed = false;
       await _firestore.runTransaction((transaction) async {
         final doc = await transaction.get(tournamentRef);
-        if (doc.data()?['status'] == 'completed') {
+        if (doc.data()?['prizesDistributedAt'] != null) {
           return;
         }
-        transaction.update(tournamentRef, {'status': 'completed'});
+        transaction.update(tournamentRef, {
+          'status': 'completed',
+          'prizesDistributedAt': FieldValue.serverTimestamp(),
+        });
         claimed = true;
       });
 
