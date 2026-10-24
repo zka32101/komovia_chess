@@ -210,6 +210,17 @@ service cloud.firestore {
       match /lesson_progress/{lessonKey} {
         allow read, write: if isOwner(userId);
       }
+
+      // Free-tier daily action counters (feature_gating_service.dart),
+      // keyed by date (e.g. 'daily_puzzles'/'daily_games' usage for
+      // today). Had no rule at all before this, so every read/write fell
+      // through to the file's default-deny - getRemainingDailyAttempts'
+      // permission-denied was silently swallowed and returned 0 remaining
+      // attempts, so free-tier users were always told they'd hit today's
+      // puzzle/online-game limit, even on their very first attempt.
+      match /daily_limits/{dateKey} {
+        allow read, write: if isOwner(userId);
+      }
     }
 
     // ============================================
