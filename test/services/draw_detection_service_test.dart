@@ -16,6 +16,14 @@ String _fenAfter(List<Map<String, String>> moves) {
   return board.fen;
 }
 
+String _fenAfterFrom(String startingFen, List<Map<String, String>> moves) {
+  final board = chess_lib.Chess.fromFEN(startingFen);
+  for (final move in moves) {
+    board.move(move);
+  }
+  return board.fen;
+}
+
 void main() {
   group('DrawDetectionService', () {
     late ChessEngineService chess;
@@ -220,6 +228,60 @@ void main() {
         final isThreefold = DrawDetectionService.isThreefoldRepetition(
           moves,
           _fenAfter(moves),
+        );
+        expect(isThreefold, isFalse);
+      });
+
+      test(
+          'detects threefold repetition for a game started from a custom '
+          'FEN (startingFen)',
+          () {
+        // A king-and-rook endgame practice position, not the standard
+        // starting array - cpu_game_provider.dart's initGame({startingFen})
+        // supports exactly this. Without passing startingFen, replaying
+        // these moves from the default chess_lib.Chess() would make the
+        // very first move illegal (there's no rook on a1's home square
+        // in this position's context) and silently truncate the replay,
+        // so the repetition could never be detected.
+        const startingFen = '4k3/8/8/8/8/8/R7/4K3 w - - 0 1';
+        const moves = [
+          {'from': 'a2', 'to': 'a3'},
+          {'from': 'e8', 'to': 'd8'},
+          {'from': 'a3', 'to': 'a2'},
+          {'from': 'd8', 'to': 'e8'},
+          {'from': 'a2', 'to': 'a3'},
+          {'from': 'e8', 'to': 'd8'},
+          {'from': 'a3', 'to': 'a2'},
+          {'from': 'd8', 'to': 'e8'},
+        ];
+
+        final isThreefold = DrawDetectionService.isThreefoldRepetition(
+          moves,
+          _fenAfterFrom(startingFen, moves),
+          startingFen: startingFen,
+        );
+        expect(isThreefold, isTrue);
+      });
+
+      test(
+          'without startingFen, a custom-start repetition is NOT detected '
+          '(documents the previous behavior for games started standard)',
+          () {
+        const startingFen = '4k3/8/8/8/8/8/R7/4K3 w - - 0 1';
+        const moves = [
+          {'from': 'a2', 'to': 'a3'},
+          {'from': 'e8', 'to': 'd8'},
+          {'from': 'a3', 'to': 'a2'},
+          {'from': 'd8', 'to': 'e8'},
+          {'from': 'a2', 'to': 'a3'},
+          {'from': 'e8', 'to': 'd8'},
+          {'from': 'a3', 'to': 'a2'},
+          {'from': 'd8', 'to': 'e8'},
+        ];
+
+        final isThreefold = DrawDetectionService.isThreefoldRepetition(
+          moves,
+          _fenAfterFrom(startingFen, moves),
         );
         expect(isThreefold, isFalse);
       });

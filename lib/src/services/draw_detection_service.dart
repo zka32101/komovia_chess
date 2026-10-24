@@ -107,15 +107,30 @@ class DrawDetectionService {
     return parts.length >= 4 ? parts.sublist(0, 4).join(' ') : fen;
   }
 
-  /// Check if threefold repetition draw is applicable
+  /// Check if threefold repetition draw is applicable.
+  ///
+  /// [startingFen] is the position [moves] were played from - defaults
+  /// to the standard starting array for callers that always start
+  /// there (e.g. online games). Replaying from a brand-new
+  /// `chess_lib.Chess()` regardless of the game's real start (the
+  /// previous behavior) is wrong for any game started from a custom
+  /// position - cpu_game_provider.dart's `initGame({startingFen})`
+  /// supports curated midgame/endgame practice positions, and the
+  /// recorded moves are legal against that position, not the default
+  /// array, so replaying them from the wrong start made `chess.move()`
+  /// fail immediately and silently truncated positionHistory - making
+  /// threefold repetition effectively undetectable for any such game.
   static bool isThreefoldRepetition(
-      List<Map<String, dynamic>> moves, String currentFen) {
+      List<Map<String, dynamic>> moves, String currentFen,
+      {String? startingFen}) {
     try {
       if (moves.isEmpty) return false;
 
       // Count position occurrences by replaying game
       final positionHistory = <String>[];
-      final chess = chess_lib.Chess();
+      final chess = startingFen != null
+          ? chess_lib.Chess.fromFEN(startingFen)
+          : chess_lib.Chess();
       positionHistory.add(_positionKey(chess.fen));
 
       for (final moveData in moves) {
@@ -149,8 +164,9 @@ class DrawDetectionService {
   static List<String> getDrawReasons(
     chess_lib.Chess chess,
     String fen,
-    List<Map<String, dynamic>> moves,
-  ) {
+    List<Map<String, dynamic>> moves, {
+    String? startingFen,
+  }) {
     final reasons = <String>[];
 
     if (isStalemate(chess)) {
@@ -165,7 +181,7 @@ class DrawDetectionService {
       reasons.add('fifty_move_rule');
     }
 
-    if (isThreefoldRepetition(moves, fen)) {
+    if (isThreefoldRepetition(moves, fen, startingFen: startingFen)) {
       reasons.add('threefold_repetition');
     }
 
@@ -176,8 +192,9 @@ class DrawDetectionService {
   static bool canClaimDraw(
     chess_lib.Chess chess,
     String fen,
-    List<Map<String, dynamic>> moves,
-  ) {
+    List<Map<String, dynamic>> moves, {
+    String? startingFen,
+  }) {
     // Stalemate is automatic draw
     if (isStalemate(chess)) return true;
 
@@ -188,7 +205,9 @@ class DrawDetectionService {
     if (isFiftyMoveRuleDraw(fen)) return true;
 
     // Threefold repetition: draw can be claimed
-    if (isThreefoldRepetition(moves, fen)) return true;
+    if (isThreefoldRepetition(moves, fen, startingFen: startingFen)) {
+      return true;
+    }
 
     return false;
   }

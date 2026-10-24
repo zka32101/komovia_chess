@@ -6,9 +6,16 @@ import 'move_validation_service.dart';
 class ChessEngineService {
   ChessEngineService() {
     _chess = chess_lib.Chess();
+    _startingFen = _chess.fen;
   }
   late chess_lib.Chess _chess;
   final List<Map<String, dynamic>> _moveHistory = [];
+
+  /// The position this game actually started from - needed by
+  /// DrawDetectionService.isThreefoldRepetition to replay _moveHistory
+  /// correctly for a game started via initGame({fen: ...}) from a
+  /// custom position rather than the standard starting array.
+  late String _startingFen;
 
   /// The underlying chess_lib.Chess instance, for callers (e.g. Zobrist
   /// hashing) that need to operate on the raw position directly.
@@ -21,6 +28,8 @@ class ChessEngineService {
     } else {
       _chess = chess_lib.Chess();
     }
+    _startingFen = _chess.fen;
+    _moveHistory.clear();
   }
 
   /// Get current FEN string
@@ -131,19 +140,22 @@ class ChessEngineService {
     if (isCheckmate()) {
       return _chess.turn == chess_lib.Color.WHITE ? 'black_win' : 'white_win';
     } else if (DrawDetectionService.canClaimDraw(
-        _chess, _chess.fen, _moveHistory)) {
+        _chess, _chess.fen, _moveHistory,
+        startingFen: _startingFen)) {
       return 'draw';
     }
     return null;
   }
 
   /// Get draw reasons if game is a draw
-  List<String> getDrawReasons() =>
-      DrawDetectionService.getDrawReasons(_chess, _chess.fen, _moveHistory);
+  List<String> getDrawReasons() => DrawDetectionService.getDrawReasons(
+      _chess, _chess.fen, _moveHistory,
+      startingFen: _startingFen);
 
   /// Check if player can claim draw
-  bool canClaimDraw() =>
-      DrawDetectionService.canClaimDraw(_chess, _chess.fen, _moveHistory);
+  bool canClaimDraw() => DrawDetectionService.canClaimDraw(
+      _chess, _chess.fen, _moveHistory,
+      startingFen: _startingFen);
 
   /// Get whose turn it is (true = white, false = black)
   bool isWhiteTurn() => _chess.turn == chess_lib.Color.WHITE;
