@@ -161,12 +161,49 @@ class BattlePassProgressCard extends ConsumerWidget {
       ),
     );
 
+    // Surfaces claim success/failure as a snackbar, and refreshes the
+    // progress/claimed-rewards providers above so a successful claim is
+    // immediately reflected (the notifier only tracks loading/error/last
+    // claimed level in its own state, it does not touch these providers).
+    ref.listen<BattlePassClaimState>(battlePassClaimNotifierProvider,
+        (previous, next) {
+      if (next.error != null && next.error != previous?.error) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Claim failed: ${next.error}')),
+        );
+      } else if (next.lastClaimedLevel != null &&
+          next.lastClaimedLevel != previous?.lastClaimedLevel) {
+        ref.invalidate(
+          claimedBattlePassRewardsProvider(
+            BattlePassRewardsParams(
+              playerId: playerId,
+              seasonId: seasonId,
+              isPremium: false,
+            ),
+          ),
+        );
+        ref.invalidate(
+          claimedBattlePassRewardsProvider(
+            BattlePassRewardsParams(
+              playerId: playerId,
+              seasonId: seasonId,
+              isPremium: true,
+            ),
+          ),
+        );
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Reward claimed!')),
+        );
+      }
+    });
+
     return progressAsync.when(
       data: (progress) => currentBPAsync.when(
         data: (bp) => claimedFreeAsync.when(
           data: (freeRewards) => claimedPremiumAsync.when(
             data: (premiumRewards) => _buildBattlePassCard(
               context,
+              ref,
               progress,
               bp,
               freeRewards,
@@ -188,6 +225,7 @@ class BattlePassProgressCard extends ConsumerWidget {
 
   Widget _buildBattlePassCard(
     BuildContext context,
+    WidgetRef ref,
     PlayerBattlePassProgress? progress,
     BattlePass? bp,
     List<int> freeRewards,
@@ -203,6 +241,7 @@ class BattlePassProgressCard extends ConsumerWidget {
     }
 
     final progressPercent = (progress.currentLevel / bp.maxLevel * 100).toInt();
+    final claimState = ref.watch(battlePassClaimNotifierProvider);
 
     return Card(
       child: Padding(
@@ -289,8 +328,123 @@ class BattlePassProgressCard extends ConsumerWidget {
                 ),
               ],
             ),
+            const SizedBox(height: 16),
+            Text(
+              'Reward Tiers',
+              style: Theme.of(context).textTheme.titleSmall,
+            ),
+            const SizedBox(height: 8),
+            // Previously this card only showed aggregate claimed-reward
+            // counts - there was no way to actually see or claim an
+            // individual tier's reward anywhere in the app, even though
+            // the backend (claimBattlePassReward) fully supports it.
+            ...bp.tiers.map(
+              (tier) => _buildTierRow(
+                context,
+                ref,
+                tier: tier,
+                progress: progress,
+                freeClaimed: freeRewards.contains(tier.level),
+                premiumClaimed: premiumRewards.contains(tier.level),
+                isClaiming: claimState.isLoading,
+              ),
+            ),
           ],
         ),
+      ),
+    );
+  }
+
+  Widget _buildTierRow(
+    BuildContext context,
+    WidgetRef ref, {
+    required BattlePassTier tier,
+    required PlayerBattlePassProgress progress,
+    required bool freeClaimed,
+    required bool premiumClaimed,
+    required bool isClaiming,
+  }) {
+    final unlocked = progress.currentLevel >= tier.level;
+
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 6),
+      child: Row(
+        children: [
+          SizedBox(
+            width: 48,
+            child: Text(
+              'Lv ${tier.level}',
+              style: TextStyle(
+                fontWeight: FontWeight.bold,
+                color: unlocked ? null : Colors.grey,
+              ),
+            ),
+          ),
+          Expanded(
+            child: Text(
+              tier.name,
+              style: TextStyle(color: unlocked ? null : Colors.grey),
+            ),
+          ),
+          if (tier.freeRewards.isNotEmpty)
+            _buildClaimButton(
+              ref,
+              label: 'Free',
+              unlocked: unlocked,
+              claimed: freeClaimed,
+              isClaiming: isClaiming,
+              onClaim: () => ref
+                  .read(battlePassClaimNotifierProvider.notifier)
+                  .claimReward(
+                    playerId: playerId,
+                    seasonId: seasonId,
+                    level: tier.level,
+                    isPremium: false,
+                  ),
+            ),
+          if (tier.premiumRewards.isNotEmpty) ...[
+            const SizedBox(width: 8),
+            _buildClaimButton(
+              ref,
+              label: 'Premium',
+              unlocked: unlocked && progress.hasPremiumPass,
+              claimed: premiumClaimed,
+              isClaiming: isClaiming,
+              onClaim: () => ref
+                  .read(battlePassClaimNotifierProvider.notifier)
+                  .claimReward(
+                    playerId: playerId,
+                    seasonId: seasonId,
+                    level: tier.level,
+                    isPremium: true,
+                  ),
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+
+  Widget _buildClaimButton(
+    WidgetRef ref, {
+    required String label,
+    required bool unlocked,
+    required bool claimed,
+    required bool isClaiming,
+    required VoidCallback onClaim,
+  }) {
+    if (claimed) {
+      return const Icon(Icons.check_circle, color: Colors.green, size: 20);
+    }
+    return SizedBox(
+      height: 32,
+      child: OutlinedButton(
+        onPressed: unlocked && !isClaiming ? onClaim : null,
+        style: OutlinedButton.styleFrom(
+          padding: const EdgeInsets.symmetric(horizontal: 8),
+          textStyle: const TextStyle(fontSize: 11),
+        ),
+        child: Text('Claim $label'),
       ),
     );
   }

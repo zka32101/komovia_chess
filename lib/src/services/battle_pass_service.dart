@@ -133,6 +133,17 @@ class BattlePassService {
         if (doc.exists) {
           final progress = PlayerBattlePassProgress.fromJson(doc.data()!);
 
+          if (isPremium && !progress.hasPremiumPass) {
+            throw Exception(
+              'Cannot claim a premium reward without the premium pass',
+            );
+          }
+          if (progress.currentLevel < level) {
+            throw Exception(
+              'Cannot claim a reward for a level not yet reached',
+            );
+          }
+
           List<int> claimed;
           if (isPremium) {
             claimed = [...progress.claimedPremiumRewards];
