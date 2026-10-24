@@ -67,7 +67,7 @@ void main() {
     group('Daily limit tracking', () {
       test('free tier has daily puzzle limit', () async {
         final remaining = await featureGating.getRemainingDailyAttempts(
-          'puzzles',
+          'daily_puzzles',
           'free',
         );
         expect(remaining, 3); // Free tier daily limit
@@ -75,7 +75,7 @@ void main() {
 
       test('free tier has daily game limit', () async {
         final remaining = await featureGating.getRemainingDailyAttempts(
-          'games',
+          'daily_games',
           'free',
         );
         expect(remaining, 2); // Free tier daily limit
@@ -83,13 +83,13 @@ void main() {
 
       test('pro tier has unlimited attempts', () async {
         final puzzles = await featureGating.getRemainingDailyAttempts(
-          'puzzles',
+          'daily_puzzles',
           'pro',
         );
         expect(puzzles, 999); // Unlimited
 
         final games = await featureGating.getRemainingDailyAttempts(
-          'games',
+          'daily_games',
           'pro',
         );
         expect(games, 999); // Unlimited
@@ -97,13 +97,13 @@ void main() {
 
       test('premium tier has unlimited attempts', () async {
         final puzzles = await featureGating.getRemainingDailyAttempts(
-          'puzzles',
+          'daily_puzzles',
           'premium',
         );
         expect(puzzles, 999);
 
         final games = await featureGating.getRemainingDailyAttempts(
-          'games',
+          'daily_games',
           'premium',
         );
         expect(games, 999);
@@ -113,23 +113,23 @@ void main() {
     group('Action permission checking', () {
       test('free user can perform action with remaining attempts', () async {
         final canPerform =
-            await featureGating.canPerformAction('puzzles', 'free');
+            await featureGating.canPerformAction('daily_puzzles', 'free');
         expect(canPerform, true);
       });
 
       test('pro user can always perform action', () async {
         final canPerform =
-            await featureGating.canPerformAction('puzzles', 'pro');
+            await featureGating.canPerformAction('daily_puzzles', 'pro');
         expect(canPerform, true);
 
         final canPerformGames =
-            await featureGating.canPerformAction('games', 'pro');
+            await featureGating.canPerformAction('daily_games', 'pro');
         expect(canPerformGames, true);
       });
 
       test('premium user can always perform action', () async {
         final canPerform =
-            await featureGating.canPerformAction('puzzles', 'premium');
+            await featureGating.canPerformAction('daily_puzzles', 'premium');
         expect(canPerform, true);
       });
     });
@@ -172,8 +172,22 @@ void main() {
       });
 
       test('has correct daily limits', () {
-        expect(FeatureGatingService.DAILY_LIMITS['puzzles'], 3);
-        expect(FeatureGatingService.DAILY_LIMITS['games'], 2);
+        expect(FeatureGatingService.DAILY_LIMITS['daily_puzzles'], 3);
+        expect(FeatureGatingService.DAILY_LIMITS['daily_games'], 2);
+      });
+
+      // Regression test: premium_provider.dart's remainingAttemptsProvider
+      // is the only place that defines this system's action-name
+      // vocabulary, and it has always used 'daily_puzzles'/'daily_games' -
+      // DAILY_LIMITS previously used the bare 'puzzles'/'games' keys,
+      // which no real caller would ever pass, so every free-tier lookup
+      // silently fell through to 0 remaining attempts instead of 3/2.
+      test('daily limits are keyed by the action names real callers use',
+          () {
+        expect(FeatureGatingService.DAILY_LIMITS.containsKey('puzzles'),
+            isFalse);
+        expect(FeatureGatingService.DAILY_LIMITS.containsKey('games'),
+            isFalse);
       });
     });
 
