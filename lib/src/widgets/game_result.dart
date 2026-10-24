@@ -189,53 +189,66 @@ class GameResult extends StatelessWidget {
 
               const SizedBox(height: 32),
 
-              // Action buttons
+              // Action buttons - New Game is the single most-likely next
+              // action (a rematch), so it leads as the one filled/
+              // prominent button; Share/Analyze are secondary and
+              // de-emphasized (outlined, smaller) rather than visually
+              // competing with it one-for-one; Home is the least likely
+              // action right after a game ends, so it's last and plain.
+              // Previously all 4 buttons had equal visual weight in the
+              // same order every time, giving the player no hint about
+              // which action is actually the common path.
               if (isMobile)
                 Column(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    if (onShare != null)
-                      SizedBox(
-                        width: double.infinity,
-                        child: ElevatedButton.icon(
-                          onPressed: isSharing ? null : onShare,
-                          icon: isSharing
-                              ? const SizedBox(
-                                  width: 16,
-                                  height: 16,
-                                  child: CircularProgressIndicator(
-                                      strokeWidth: 2),
-                                )
-                              : const Icon(Icons.ios_share),
-                          label: Text(
-                              isSharing ? 'Creating GIF...' : 'Share on X'),
-                        ),
-                      ),
-                    if (onShare != null) const SizedBox(height: 8),
-                    if (onAnalyze != null)
-                      SizedBox(
-                        width: double.infinity,
-                        child: ElevatedButton.icon(
-                          onPressed: onAnalyze,
-                          icon: const Icon(Icons.analytics),
-                          label: const Text('Analyze Game'),
-                        ),
-                      ),
-                    const SizedBox(height: 8),
                     if (onNewGame != null)
                       SizedBox(
                         width: double.infinity,
-                        child: ElevatedButton.icon(
+                        child: FilledButton.icon(
                           onPressed: onNewGame,
                           icon: const Icon(Icons.refresh),
                           label: const Text('New Game'),
                         ),
                       ),
-                    const SizedBox(height: 8),
+                    if (onShare != null || onAnalyze != null)
+                      const SizedBox(height: 12),
+                    if (onShare != null || onAnalyze != null)
+                      Row(
+                        children: [
+                          if (onShare != null)
+                            Expanded(
+                              child: OutlinedButton.icon(
+                                onPressed: isSharing ? null : onShare,
+                                icon: isSharing
+                                    ? const SizedBox(
+                                        width: 16,
+                                        height: 16,
+                                        child: CircularProgressIndicator(
+                                            strokeWidth: 2),
+                                      )
+                                    : const Icon(Icons.ios_share, size: 18),
+                                label: Text(
+                                    isSharing ? 'Sharing...' : 'Share on X'),
+                              ),
+                            ),
+                          if (onShare != null && onAnalyze != null)
+                            const SizedBox(width: 8),
+                          if (onAnalyze != null)
+                            Expanded(
+                              child: OutlinedButton.icon(
+                                onPressed: onAnalyze,
+                                icon: const Icon(Icons.analytics, size: 18),
+                                label: const Text('Analyze'),
+                              ),
+                            ),
+                        ],
+                      ),
+                    if (onHome != null) const SizedBox(height: 8),
                     if (onHome != null)
                       SizedBox(
                         width: double.infinity,
-                        child: OutlinedButton.icon(
+                        child: TextButton.icon(
                           onPressed: onHome,
                           icon: const Icon(Icons.home),
                           label: const Text('Home'),
@@ -244,40 +257,52 @@ class GameResult extends StatelessWidget {
                   ],
                 )
               else
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                Column(
+                  mainAxisSize: MainAxisSize.min,
                   children: [
-                    if (onShare != null)
-                      ElevatedButton.icon(
-                        onPressed: isSharing ? null : onShare,
-                        icon: isSharing
-                            ? const SizedBox(
-                                width: 16,
-                                height: 16,
-                                child:
-                                    CircularProgressIndicator(strokeWidth: 2),
-                              )
-                            : const Icon(Icons.ios_share),
-                        label: Text(isSharing ? 'Creating GIF...' : 'Share on X'),
-                      ),
-                    if (onAnalyze != null)
-                      ElevatedButton.icon(
-                        onPressed: onAnalyze,
-                        icon: const Icon(Icons.analytics),
-                        label: const Text('Analyze'),
-                      ),
                     if (onNewGame != null)
-                      ElevatedButton.icon(
+                      FilledButton.icon(
                         onPressed: onNewGame,
                         icon: const Icon(Icons.refresh),
                         label: const Text('New Game'),
                       ),
-                    if (onHome != null)
-                      OutlinedButton.icon(
-                        onPressed: onHome,
-                        icon: const Icon(Icons.home),
-                        label: const Text('Home'),
-                      ),
+                    if (onNewGame != null) const SizedBox(height: 12),
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        if (onShare != null)
+                          OutlinedButton.icon(
+                            onPressed: isSharing ? null : onShare,
+                            icon: isSharing
+                                ? const SizedBox(
+                                    width: 16,
+                                    height: 16,
+                                    child: CircularProgressIndicator(
+                                        strokeWidth: 2),
+                                  )
+                                : const Icon(Icons.ios_share, size: 18),
+                            label: Text(
+                                isSharing ? 'Sharing...' : 'Share on X'),
+                          ),
+                        if (onShare != null && onAnalyze != null)
+                          const SizedBox(width: 12),
+                        if (onAnalyze != null)
+                          OutlinedButton.icon(
+                            onPressed: onAnalyze,
+                            icon: const Icon(Icons.analytics, size: 18),
+                            label: const Text('Analyze'),
+                          ),
+                        if (onHome != null &&
+                            (onShare != null || onAnalyze != null))
+                          const SizedBox(width: 12),
+                        if (onHome != null)
+                          TextButton.icon(
+                            onPressed: onHome,
+                            icon: const Icon(Icons.home),
+                            label: const Text('Home'),
+                          ),
+                      ],
+                    ),
                   ],
                 ),
             ],
