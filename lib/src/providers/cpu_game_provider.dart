@@ -54,6 +54,15 @@ class CpuGameNotifier extends StateNotifier<CpuGameState> {
   }) {
     _chess.initGame(fen: startingFen);
     _aiEngine = AIOpponentEngine(_chess, difficulty);
+    // cpuGameProvider has no autoDispose, so this notifier (and
+    // _stockfishFailed) persists for the whole app session, not just
+    // one game - without resetting it here, a single transient
+    // Stockfish error (e.g. a one-off init race) would permanently
+    // downgrade every future CPU game this session to the much weaker
+    // pure-Dart fallback engine, regardless of difficulty, forever.
+    // Starting a fresh game is the natural point to give Stockfish
+    // another chance.
+    _stockfishFailed = false;
 
     state = CpuGameState(
       gameState: _chess.rawChess,
