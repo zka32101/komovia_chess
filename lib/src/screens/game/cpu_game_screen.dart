@@ -9,6 +9,7 @@ import '../../services/game_share_service.dart';
 import '../../widgets/game_board.dart';
 import '../../widgets/game_result.dart';
 import '../../widgets/move_history.dart';
+import '../../widgets/game/one_tap_weakness_button.dart';
 import '../../providers/cpu_game_provider.dart';
 import '../../providers/board_theme_provider.dart';
 import '../../providers/user_preferences_provider.dart';
@@ -324,20 +325,47 @@ class _CPUGameScreenState extends ConsumerState<CPUGameScreen> {
       );
 
   Widget _buildGameOverScreen(CpuGameState gameState) => Center(
-        child: GameResult(
-          result: gameState.result ?? 'draw',
-          method: gameState.endReason ?? 'unknown',
-          moves: (gameState.moves.length / 2).ceil(),
-          duration: gameState.gameDuration,
-          onNewGame: () {
-            ref.read(cpuGameProvider.notifier).reset();
-          },
-          onHome: () {
-            Navigator.of(context).pop();
-          },
-          onAnalyze: () => _openAnalysis(gameState),
-          onShare: () => _shareGameGif(gameState),
-          isSharing: _isSharing,
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            GameResult(
+              result: gameState.result ?? 'draw',
+              method: gameState.endReason ?? 'unknown',
+              moves: (gameState.moves.length / 2).ceil(),
+              duration: gameState.gameDuration,
+              onNewGame: () {
+                ref.read(cpuGameProvider.notifier).reset();
+              },
+              onHome: () {
+                Navigator.of(context).pop();
+              },
+              onAnalyze: () => _openAnalysis(gameState),
+              onShare: () => _shareGameGif(gameState),
+              isSharing: _isSharing,
+            ),
+            if (gameState.moves.isNotEmpty) ...[
+              const SizedBox(height: 12),
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 24),
+                child: OneTapWeaknessButton(
+                  moves: gameState.moves
+                      .map((m) => GameMove(
+                            moveNumber: 0,
+                            from: m.fromAlgebraic,
+                            to: m.toAlgebraic,
+                            promotion: m.promotion?.name,
+                            timestamp: gameState.startTime,
+                            playerId: 'unused',
+                          ))
+                      .toList(),
+                  gameId: 'cpu-${gameState.startTime.millisecondsSinceEpoch}',
+                  whitePlayerId: widget.playerIsWhite ? 'player' : 'cpu',
+                  blackPlayerId: widget.playerIsWhite ? 'cpu' : 'player',
+                  startingFen: gameState.startingFen,
+                ),
+              ),
+            ],
+          ],
         ),
       );
 

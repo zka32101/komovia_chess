@@ -6,6 +6,7 @@ import '../../providers/auth_provider.dart';
 import '../../providers/online_game_provider.dart';
 import '../../services/game_gif_service.dart';
 import '../../services/game_share_service.dart';
+import '../../widgets/game/one_tap_weakness_button.dart';
 import 'game_review_screen.dart';
 import 'online_game_screen.dart';
 
@@ -414,6 +415,13 @@ class _OnlineGameResultScreenState
                 'Review Game',
                 style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
               ),
+            ),
+            const SizedBox(height: 12),
+            OneTapWeaknessButton(
+              moves: game.moves,
+              gameId: game.gameId,
+              whitePlayerId: game.whitePlayerId,
+              blackPlayerId: game.blackPlayerId,
             ),
             const SizedBox(height: 12),
           ],

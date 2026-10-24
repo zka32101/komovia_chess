@@ -88,10 +88,16 @@ class _GameAnalysisScreenState extends ConsumerState<GameAnalysisScreen> {
     final uid = ref.read(currentUserProvider).value?.uid;
     if (uid == null) return;
 
+    // CpuGameScreen's synthetic OnlineGame (see its _showGameReview) uses
+    // the literal sentinel 'player'/'cpu' instead of a real uid for its
+    // two sides, since there's no second real account in a CPU game -
+    // without this branch, every CPU game's analysis silently failed to
+    // match either id and was never recorded at all, unlike real online
+    // games.
     final bool isWhitePlayer;
-    if (uid == whiteId) {
+    if (uid == whiteId || whiteId == 'player') {
       isWhitePlayer = true;
-    } else if (uid == blackId) {
+    } else if (uid == blackId || blackId == 'player') {
       isWhitePlayer = false;
     } else {
       return; // Spectator/analysis of someone else's game - nothing to record.
