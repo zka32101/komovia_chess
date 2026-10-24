@@ -360,7 +360,10 @@ class _CPUGameScreenState extends ConsumerState<CPUGameScreen> {
               ))
           .toList();
 
-      final gifBytes = await _gifService.generateGif(moves: moves);
+      final gifBytes = await _gifService.generateGif(
+        moves: moves,
+        startingFen: gameState.startingFen ?? standardStartingFen,
+      );
 
       final resultText = switch (gameState.result) {
         'white_win' => widget.playerIsWhite ? 'I won! ♟️' : 'CPU won this one',
