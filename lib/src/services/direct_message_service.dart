@@ -101,12 +101,18 @@ class DirectMessageService {
                   ?.cast<String, dynamic>() ??
               const {};
 
-      transaction.set(messageRef, {
-        'fromUid': fromUid,
-        'content': trimmed,
-        'sentAt': Timestamp.fromDate(now),
-      });
-
+      // The thread document must be written BEFORE the message - the
+      // messages/{messageId} create rule's threadParticipants() does
+      // get(message_threads/{threadId}) to check the caller is a real
+      // participant, and a transaction's rule evaluation for each write
+      // only sees the effects of writes already applied earlier in that
+      // same transaction. With the message written first (the previous
+      // order here), the very first message of a brand-new thread always
+      // saw a nonexistent thread doc - threadParticipants() returned null
+      // and isParticipant(null) denied the whole transaction - so
+      // starting a new conversation with someone never messaged before
+      // failed with permission-denied every time; only replying in an
+      // already-existing thread worked.
       transaction.set(
         threadRef,
         {
@@ -130,6 +136,12 @@ class DirectMessageService {
         },
         SetOptions(merge: true),
       );
+
+      transaction.set(messageRef, {
+        'fromUid': fromUid,
+        'content': trimmed,
+        'sentAt': Timestamp.fromDate(now),
+      });
     });
   }
 
