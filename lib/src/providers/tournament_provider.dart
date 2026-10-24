@@ -67,6 +67,54 @@ class TournamentActionsNotifier extends StateNotifier<AsyncValue<void>> {
     }
   }
 
+  /// Creates a new tournament with the current user as its organizer.
+  /// Previously nothing in the app ever called
+  /// TournamentService.createTournament - there was no UI to create a
+  /// tournament at all, only to join/organize-after-the-fact one that
+  /// already existed.
+  Future<Tournament?> createTournament({
+    required String name,
+    required String description,
+    required int maxParticipants,
+    required String timeControl,
+    required int entryFee,
+    required int prizePool,
+    required DateTime startDate,
+    required DateTime endDate,
+  }) async {
+    final me = _ref.read(currentUserProvider).value;
+    if (me == null) return null;
+
+    state = const AsyncValue.loading();
+    try {
+      final tournament =
+          await _ref.read(tournamentServiceProvider).createTournament(
+                name: name,
+                description: description,
+                // round_robin/swiss formats exist on the Tournament model
+                // but generateBracket/_advanceRoundIfComplete only ever
+                // implement single-elimination pairing - not offering the
+                // other two as a choice here rather than creating a
+                // tournament whose bracket logic doesn't match its stated
+                // format.
+                format: 'single_elimination',
+                maxParticipants: maxParticipants,
+                timeControl: timeControl,
+                entryFee: entryFee,
+                prizePool: prizePool,
+                createdBy: me.uid,
+                startDate: startDate,
+                endDate: endDate,
+              );
+      _ref.invalidate(activeTournamentsProvider);
+      state = const AsyncValue.data(null);
+      return tournament;
+    } catch (e, st) {
+      state = AsyncValue.error(e, st);
+      return null;
+    }
+  }
+
   /// Organizer-only (enforced by firestore.rules): generate round 1 and
   /// move the tournament to 'active'.
   Future<void> startTournament(String tournamentId) async {

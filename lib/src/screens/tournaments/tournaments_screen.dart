@@ -18,6 +18,13 @@ class TournamentsScreen extends ConsumerWidget {
         title: const Text('Tournaments'),
         centerTitle: true,
       ),
+      floatingActionButton: FloatingActionButton(
+        onPressed: () => Navigator.of(context).push(
+          MaterialPageRoute(builder: (_) => const TournamentCreateScreen()),
+        ),
+        tooltip: 'Create tournament',
+        child: const Icon(Icons.add),
+      ),
       body: tournaments.when(
         loading: () => const Center(child: CircularProgressIndicator()),
         error: (error, stack) => Center(child: Text('Error: $error')),
@@ -372,4 +379,126 @@ class TournamentDetailScreen extends ConsumerWidget {
       );
     }
   }
+}
+
+/// Create a new tournament (single-elimination only - see
+/// TournamentActionsNotifier.createTournament's doc comment for why
+/// round_robin/swiss aren't offered here).
+class TournamentCreateScreen extends ConsumerStatefulWidget {
+  const TournamentCreateScreen({Key? key}) : super(key: key);
+
+  @override
+  ConsumerState<TournamentCreateScreen> createState() =>
+      _TournamentCreateScreenState();
+}
+
+class _TournamentCreateScreenState
+    extends ConsumerState<TournamentCreateScreen> {
+  final _nameController = TextEditingController();
+  final _descriptionController = TextEditingController();
+  final _maxParticipantsController = TextEditingController(text: '8');
+  final _timeControlController = TextEditingController(text: '10+0');
+  final _entryFeeController = TextEditingController(text: '0');
+  final _prizePoolController = TextEditingController(text: '0');
+  DateTime _startDate = DateTime.now().add(const Duration(days: 1));
+  DateTime _endDate = DateTime.now().add(const Duration(days: 7));
+  bool _isSubmitting = false;
+
+  @override
+  void dispose() {
+    _nameController.dispose();
+    _descriptionController.dispose();
+    _maxParticipantsController.dispose();
+    _timeControlController.dispose();
+    _entryFeeController.dispose();
+    _prizePoolController.dispose();
+    super.dispose();
+  }
+
+  Future<void> _create() async {
+    final name = _nameController.text.trim();
+    if (name.isEmpty || _isSubmitting) return;
+
+    setState(() => _isSubmitting = true);
+    final tournament =
+        await ref.read(tournamentActionsProvider.notifier).createTournament(
+              name: name,
+              description: _descriptionController.text.trim(),
+              maxParticipants:
+                  int.tryParse(_maxParticipantsController.text) ?? 8,
+              timeControl: _timeControlController.text.trim(),
+              entryFee: int.tryParse(_entryFeeController.text) ?? 0,
+              prizePool: int.tryParse(_prizePoolController.text) ?? 0,
+              startDate: _startDate,
+              endDate: _endDate,
+            );
+    if (!mounted) return;
+    setState(() => _isSubmitting = false);
+
+    if (tournament != null) {
+      Navigator.of(context).pop();
+    } else {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Failed to create tournament')),
+      );
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) => Scaffold(
+        appBar: AppBar(title: const Text('Create Tournament')),
+        body: SingleChildScrollView(
+          padding: const EdgeInsets.all(16),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              TextField(
+                controller: _nameController,
+                decoration: const InputDecoration(labelText: 'Name'),
+              ),
+              const SizedBox(height: 12),
+              TextField(
+                controller: _descriptionController,
+                decoration: const InputDecoration(labelText: 'Description'),
+                maxLines: 2,
+              ),
+              const SizedBox(height: 12),
+              TextField(
+                controller: _maxParticipantsController,
+                decoration:
+                    const InputDecoration(labelText: 'Max participants'),
+                keyboardType: TextInputType.number,
+              ),
+              const SizedBox(height: 12),
+              TextField(
+                controller: _timeControlController,
+                decoration: const InputDecoration(labelText: 'Time control'),
+              ),
+              const SizedBox(height: 12),
+              TextField(
+                controller: _entryFeeController,
+                decoration: const InputDecoration(labelText: 'Entry fee'),
+                keyboardType: TextInputType.number,
+              ),
+              const SizedBox(height: 12),
+              TextField(
+                controller: _prizePoolController,
+                decoration: const InputDecoration(labelText: 'Prize pool'),
+                keyboardType: TextInputType.number,
+              ),
+              const SizedBox(height: 24),
+              FilledButton(
+                onPressed: _isSubmitting ? null : _create,
+                child: _isSubmitting
+                    ? const SizedBox(
+                        width: 16,
+                        height: 16,
+                        child: CircularProgressIndicator(strokeWidth: 2),
+                      )
+                    : const Text('Create'),
+              ),
+            ],
+          ),
+        ),
+      );
 }
