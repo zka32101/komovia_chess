@@ -396,10 +396,16 @@ class _TournamentCreateScreenState
     extends ConsumerState<TournamentCreateScreen> {
   final _nameController = TextEditingController();
   final _descriptionController = TextEditingController();
-  final _maxParticipantsController = TextEditingController(text: '8');
   final _timeControlController = TextEditingController(text: '10+0');
   final _entryFeeController = TextEditingController(text: '0');
   final _prizePoolController = TextEditingController(text: '0');
+  // Max participants was a free-text number field with no bracket-size
+  // guidance - a single-elimination bracket only resolves cleanly for a
+  // power-of-two-ish field (generateBracket's bye handling covers odd
+  // counts, but an arbitrary number like 11 produces lopsided byes
+  // every round). ChoiceChips steer organizers toward the sizes this
+  // app's bracket logic is actually designed for.
+  int _maxParticipants = 8;
   DateTime _startDate = DateTime.now().add(const Duration(days: 1));
   DateTime _endDate = DateTime.now().add(const Duration(days: 7));
   bool _isSubmitting = false;
@@ -408,12 +414,44 @@ class _TournamentCreateScreenState
   void dispose() {
     _nameController.dispose();
     _descriptionController.dispose();
-    _maxParticipantsController.dispose();
     _timeControlController.dispose();
     _entryFeeController.dispose();
     _prizePoolController.dispose();
     super.dispose();
   }
+
+  Future<void> _pickStartDate() async {
+    final picked = await showDatePicker(
+      context: context,
+      initialDate: _startDate,
+      firstDate: DateTime.now(),
+      lastDate: DateTime.now().add(const Duration(days: 365)),
+    );
+    if (picked == null) return;
+    setState(() {
+      _startDate = picked;
+      // The end date previously had no UI to change at all and could
+      // silently end up before a newly-picked start date - keep it at
+      // least a day after start.
+      if (!_endDate.isAfter(_startDate)) {
+        _endDate = _startDate.add(const Duration(days: 6));
+      }
+    });
+  }
+
+  Future<void> _pickEndDate() async {
+    final picked = await showDatePicker(
+      context: context,
+      initialDate: _endDate,
+      firstDate: _startDate.add(const Duration(days: 1)),
+      lastDate: DateTime.now().add(const Duration(days: 365)),
+    );
+    if (picked == null) return;
+    setState(() => _endDate = picked);
+  }
+
+  String _formatDate(DateTime date) =>
+      '${date.year}-${date.month.toString().padLeft(2, '0')}-${date.day.toString().padLeft(2, '0')}';
 
   Future<void> _create() async {
     final name = _nameController.text.trim();
@@ -424,8 +462,7 @@ class _TournamentCreateScreenState
         await ref.read(tournamentActionsProvider.notifier).createTournament(
               name: name,
               description: _descriptionController.text.trim(),
-              maxParticipants:
-                  int.tryParse(_maxParticipantsController.text) ?? 8,
+              maxParticipants: _maxParticipants,
               timeControl: _timeControlController.text.trim(),
               entryFee: int.tryParse(_entryFeeController.text) ?? 0,
               prizePool: int.tryParse(_prizePoolController.text) ?? 0,
@@ -462,12 +499,43 @@ class _TournamentCreateScreenState
                 decoration: const InputDecoration(labelText: 'Description'),
                 maxLines: 2,
               ),
-              const SizedBox(height: 12),
-              TextField(
-                controller: _maxParticipantsController,
-                decoration:
-                    const InputDecoration(labelText: 'Max participants'),
-                keyboardType: TextInputType.number,
+              const SizedBox(height: 16),
+              Text('Max participants',
+                  style: Theme.of(context).textTheme.labelMedium),
+              const SizedBox(height: 8),
+              Wrap(
+                spacing: 8,
+                children: [4, 8, 16, 32].map((size) {
+                  return ChoiceChip(
+                    label: Text('$size'),
+                    selected: _maxParticipants == size,
+                    onSelected: (_) =>
+                        setState(() => _maxParticipants = size),
+                  );
+                }).toList(),
+              ),
+              const SizedBox(height: 16),
+              Row(
+                children: [
+                  Expanded(
+                    child: ListTile(
+                      contentPadding: EdgeInsets.zero,
+                      title: const Text('Start date'),
+                      subtitle: Text(_formatDate(_startDate)),
+                      onTap: _pickStartDate,
+                      trailing: const Icon(Icons.calendar_today, size: 18),
+                    ),
+                  ),
+                  Expanded(
+                    child: ListTile(
+                      contentPadding: EdgeInsets.zero,
+                      title: const Text('End date'),
+                      subtitle: Text(_formatDate(_endDate)),
+                      onTap: _pickEndDate,
+                      trailing: const Icon(Icons.calendar_today, size: 18),
+                    ),
+                  ),
+                ],
               ),
               const SizedBox(height: 12),
               TextField(
