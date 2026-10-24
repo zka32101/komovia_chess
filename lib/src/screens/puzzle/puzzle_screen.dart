@@ -3,12 +3,49 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:komovia_core/komovia_core.dart';
 import '../../models/puzzle.dart';
 import '../../providers/puzzle_provider.dart';
+import '../../providers/premium_provider.dart';
 import '../../services/chess_engine_service.dart';
 import '../../services/game_gif_service.dart';
 import '../../services/game_share_service.dart';
 import '../../widgets/game_board.dart';
 import '../../providers/user_preferences_provider.dart';
 import 'puzzle_rush_screen.dart';
+
+/// Checks this user's remaining free daily puzzle attempts
+/// (`canPerformActionProvider('daily_puzzles')`, backed by
+/// `FeatureGatingService`) before opening [PuzzleSolvingScreen` -
+/// previously nothing in the app ever called this system at all, so
+/// free-tier users had unlimited puzzles despite DAILY_LIMITS being
+/// fully implemented server-side. Pro/premium users always pass (the
+/// service itself treats non-free tiers as unlimited). On success,
+/// tracks the attempt via `trackActionUsageProvider` before navigating.
+Future<void> _startPuzzle(
+  BuildContext context,
+  WidgetRef ref,
+  List<String> puzzleIds,
+) async {
+  final canStart =
+      await ref.read(canPerformActionProvider('daily_puzzles').future);
+  if (!canStart) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+        content: Text(
+          'Reached today\'s free puzzle limit. Upgrade to Pro for unlimited puzzles.',
+        ),
+      ),
+    );
+    return;
+  }
+
+  await ref.read(trackActionUsageProvider('daily_puzzles').future);
+  if (!context.mounted) return;
+
+  Navigator.of(context).push(
+    MaterialPageRoute(
+      builder: (context) => PuzzleSolvingScreen(puzzleIds: puzzleIds),
+    ),
+  );
+}
 
 class PuzzleScreen extends ConsumerStatefulWidget {
   const PuzzleScreen({Key? key}) : super(key: key);
@@ -270,16 +307,7 @@ class _PuzzleScreenState extends ConsumerState<PuzzleScreen> {
 
               // Start button
               FilledButton(
-                onPressed: () {
-                  // Navigate to puzzle solving
-                  Navigator.of(context).push(
-                    MaterialPageRoute(
-                      builder: (context) => PuzzleSolvingScreen(
-                        puzzleIds: challenge.puzzleIds,
-                      ),
-                    ),
-                  );
-                },
+                onPressed: () => _startPuzzle(context, ref, challenge.puzzleIds),
                 style: FilledButton.styleFrom(
                   padding: const EdgeInsets.symmetric(vertical: 16),
                   minimumSize: const Size(double.infinity, 48),
@@ -820,16 +848,11 @@ class PuzzleListScreen extends ConsumerWidget {
                       : 'Puzzle'),
                   subtitle: Text('${puzzle.moves.length} moves to solve'),
                   trailing: const Icon(Icons.chevron_right),
-                  onTap: () {
-                    Navigator.of(context).push(
-                      MaterialPageRoute(
-                        builder: (context) => PuzzleSolvingScreen(
-                          puzzleIds:
-                              puzzles.skip(index).map((p) => p.id).toList(),
-                        ),
-                      ),
-                    );
-                  },
+                  onTap: () => _startPuzzle(
+                    context,
+                    ref,
+                    puzzles.skip(index).map((p) => p.id).toList(),
+                  ),
                 ),
               );
             },

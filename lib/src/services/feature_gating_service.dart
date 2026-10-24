@@ -19,10 +19,15 @@ class FeatureGatingService {
     'priority_support': {'premium'},
   };
 
-  // Free tier daily limits
+  // Free tier daily limits. Keys match the action-name vocabulary
+  // premium_provider.dart's remainingAttemptsProvider/canPerformActionProvider
+  // callers pass ('daily_puzzles'/'daily_games') - these previously read
+  // 'puzzles'/'games', which no real caller would ever pass, so every
+  // lookup below silently fell through to `?? 0` (zero daily attempts
+  // for free-tier users, instead of the intended 3/2).
   static const Map<String, int> DAILY_LIMITS = {
-    'puzzles': 3,
-    'games': 2,
+    'daily_puzzles': 3,
+    'daily_games': 2,
   };
 
   static FeatureGatingService get instance => _instance;
