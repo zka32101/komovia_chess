@@ -568,6 +568,31 @@ class ChallengeCompleteNotifier extends StateNotifier<ChallengeCompleteState> {
       state = state.copyWith(error: e.toString());
     }
   }
+
+  Future<void> claimRewards({
+    required String playerId,
+    required String challengeId,
+  }) async {
+    state = state.copyWith(isLoading: true);
+
+    try {
+      await _service.claimChallengeRewards(
+        playerId: playerId,
+        challengeId: challengeId,
+      );
+
+      state = state.copyWith(
+        isLoading: false,
+        lastClaimedId: challengeId,
+        error: null,
+      );
+    } catch (e) {
+      state = state.copyWith(
+        isLoading: false,
+        error: e.toString(),
+      );
+    }
+  }
 }
 
 class EventParticipationNotifier
@@ -661,20 +686,24 @@ class ChallengeCompleteState {
   const ChallengeCompleteState({
     this.isLoading = false,
     this.lastCompletedId,
+    this.lastClaimedId,
     this.error,
   });
   final bool isLoading;
   final String? lastCompletedId;
+  final String? lastClaimedId;
   final String? error;
 
   ChallengeCompleteState copyWith({
     bool? isLoading,
     String? lastCompletedId,
+    String? lastClaimedId,
     Object? error = _unsetError,
   }) =>
       ChallengeCompleteState(
         isLoading: isLoading ?? this.isLoading,
         lastCompletedId: lastCompletedId ?? this.lastCompletedId,
+        lastClaimedId: lastClaimedId ?? this.lastClaimedId,
         error: error == _unsetError ? this.error : error as String?,
       );
 }

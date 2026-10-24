@@ -472,6 +472,32 @@ class ChallengeTrackerCard extends ConsumerWidget {
       ),
     );
 
+    // Surfaces claim success/failure as a snackbar and refreshes the
+    // claimed challenge's own progress (rewardsClaimed/claimedAt) so the
+    // reward row immediately reflects the claim - the notifier only
+    // tracks loading/error/lastClaimedId in its own state.
+    ref.listen<ChallengeCompleteState>(challengeCompleteNotifierProvider,
+        (previous, next) {
+      if (next.error != null && next.error != previous?.error) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Claim failed: ${next.error}')),
+        );
+      } else if (next.lastClaimedId != null &&
+          next.lastClaimedId != previous?.lastClaimedId) {
+        ref.invalidate(
+          playerChallengeProgressProvider(
+            PlayerChallengeParams(
+              playerId: playerId,
+              challengeId: next.lastClaimedId!,
+            ),
+          ),
+        );
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Reward claimed!')),
+        );
+      }
+    });
+
     return challengesAsync.when(
       data: (challenges) => _buildChallengeList(context, ref, challenges),
       loading: () => const ChallengeLoadingWidget(),
@@ -600,6 +626,60 @@ class ChallengeTrackerCard extends ConsumerWidget {
                   '${progress?.targetProgress ?? challenge.target}',
                   style: Theme.of(context).textTheme.bodySmall,
                 ),
+                // Previously this card only ever showed objective/
+                // progress - a challenge's rewards were never displayed
+                // anywhere, and completing one (isCompleted: true) had no
+                // way to actually claim them.
+                if (challenge.rewards.isNotEmpty) ...[
+                  const SizedBox(height: 8),
+                  Wrap(
+                    spacing: 6,
+                    runSpacing: 4,
+                    children: challenge.rewards
+                        .map(
+                          (reward) => Chip(
+                            visualDensity: VisualDensity.compact,
+                            label: Text(
+                              '${reward.name} x${reward.amount}',
+                              style: const TextStyle(fontSize: 11),
+                            ),
+                          ),
+                        )
+                        .toList(),
+                  ),
+                ],
+                if (progress != null && progress.isCompleted) ...[
+                  const SizedBox(height: 8),
+                  if (progress.rewardsClaimed)
+                    Row(
+                      children: const [
+                        Icon(Icons.check_circle,
+                            color: Colors.green, size: 16),
+                        SizedBox(width: 4),
+                        Text(
+                          'Reward claimed',
+                          style: TextStyle(fontSize: 12, color: Colors.green),
+                        ),
+                      ],
+                    )
+                  else
+                    SizedBox(
+                      height: 32,
+                      child: ElevatedButton(
+                        onPressed: ref
+                                .watch(challengeCompleteNotifierProvider)
+                                .isLoading
+                            ? null
+                            : () => ref
+                                .read(challengeCompleteNotifierProvider.notifier)
+                                .claimRewards(
+                                  playerId: playerId,
+                                  challengeId: challenge.challengeId,
+                                ),
+                        child: const Text('Claim Reward'),
+                      ),
+                    ),
+                ],
               ],
             ),
           ),

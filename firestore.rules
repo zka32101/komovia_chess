@@ -343,17 +343,49 @@ service cloud.firestore {
       // also has no real-money backing (purely cosmetic, per
       // distributePrizes' own doc comment), so the cap here is generous
       // rather than tied to any specific currency limit.
-      allow create: if isSignedIn() &&
-        request.resource.data.keys().hasOnly(['totalPrizeWinnings', 'tournaments']) &&
-        request.resource.data.totalPrizeWinnings is int &&
-        request.resource.data.totalPrizeWinnings >= 0 &&
-        request.resource.data.totalPrizeWinnings <= 1000000 &&
-        request.resource.data.tournaments == 1;
-      allow update: if isSignedIn() &&
-        onlyChanged(['totalPrizeWinnings', 'tournaments']) &&
-        request.resource.data.tournaments == prevIntField('tournaments') + 1 &&
-        (request.resource.data.totalPrizeWinnings - prevIntField('totalPrizeWinnings')) >= 0 &&
-        (request.resource.data.totalPrizeWinnings - prevIntField('totalPrizeWinnings')) <= 1000000;
+      allow create: if isSignedIn() && (
+        (request.resource.data.keys().hasOnly(['totalPrizeWinnings', 'tournaments']) &&
+         request.resource.data.totalPrizeWinnings is int &&
+         request.resource.data.totalPrizeWinnings >= 0 &&
+         request.resource.data.totalPrizeWinnings <= 1000000 &&
+         request.resource.data.tournaments == 1) ||
+        // SeasonChallengeService.claimChallengeRewards: unlike the prize
+        // fields above (an organizer crediting another player), this is
+        // always the player claiming their own challenge reward, so it's
+        // restricted to the doc's own owner rather than any signed-in
+        // user. No real currency/XP economy exists anywhere in this app
+        // yet (same documented gap as this app's other self-reported
+        // totals) - the cap here is a generous sanity bound, not a real
+        // currency limit.
+        (isOwner(userId) &&
+         request.resource.data.keys().hasOnly(['totalChallengeCurrency', 'totalChallengeExperience']) &&
+         (!('totalChallengeCurrency' in request.resource.data) ||
+          (request.resource.data.totalChallengeCurrency is int &&
+           request.resource.data.totalChallengeCurrency >= 0 &&
+           request.resource.data.totalChallengeCurrency <= 1000000)) &&
+         (!('totalChallengeExperience' in request.resource.data) ||
+          (request.resource.data.totalChallengeExperience is int &&
+           request.resource.data.totalChallengeExperience >= 0 &&
+           request.resource.data.totalChallengeExperience <= 1000000)))
+      );
+      allow update: if isSignedIn() && (
+        (onlyChanged(['totalPrizeWinnings', 'tournaments']) &&
+         request.resource.data.tournaments == prevIntField('tournaments') + 1 &&
+         (request.resource.data.totalPrizeWinnings - prevIntField('totalPrizeWinnings')) >= 0 &&
+         (request.resource.data.totalPrizeWinnings - prevIntField('totalPrizeWinnings')) <= 1000000) ||
+        (isOwner(userId) &&
+         onlyChanged(['totalChallengeCurrency', 'totalChallengeExperience']) &&
+         // Either field may be absent from the resulting document (a
+         // player who has only ever earned one reward type never has the
+         // other field at all) - checked for existence before arithmetic,
+         // same reason as the create branch above.
+         (!('totalChallengeCurrency' in request.resource.data) ||
+          (request.resource.data.totalChallengeCurrency - prevIntField('totalChallengeCurrency')) >= 0 &&
+          (request.resource.data.totalChallengeCurrency - prevIntField('totalChallengeCurrency')) <= 1000000) &&
+         (!('totalChallengeExperience' in request.resource.data) ||
+          (request.resource.data.totalChallengeExperience - prevIntField('totalChallengeExperience')) >= 0 &&
+          (request.resource.data.totalChallengeExperience - prevIntField('totalChallengeExperience')) <= 1000000))
+      );
     }
 
     // ============================================

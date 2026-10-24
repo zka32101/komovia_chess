@@ -255,6 +255,95 @@ class SeasonChallengeService {
     }
   }
 
+  /// Claim a completed challenge's [Challenge.rewards] - previously
+  /// nothing in the app ever called this (it didn't exist): progress
+  /// tracking and the isCompleted flip were fully wired, but there was no
+  /// way to actually deliver the reward the challenge document promises.
+  /// Currency/experience rewards are credited onto the same `user_rewards`
+  /// aggregate TournamentService.distributePrizes already uses (a new pair
+  /// of fields there, distinct from the prize-money ones); an `item`-typed
+  /// reward is display-only, same as this app's other reward types with no
+  /// real inventory to deposit into (e.g. battle-pass rewards).
+  ///
+  /// Transactional and idempotent via [PlayerChallengeProgress.rewardsClaimed]
+  /// - a retry/double-tap after a successful claim is a silent no-op, never
+  /// a second grant.
+  Future<void> claimChallengeRewards({
+    required String playerId,
+    required String challengeId,
+  }) async {
+    try {
+      final progressRef = _firestore
+          .collection(_playerChallengeCollection)
+          .doc(playerId)
+          .collection('challenges')
+          .doc(challengeId);
+
+      final challenge = await _getChallengeById(challengeId);
+      if (challenge == null) {
+        throw Exception('Challenge not found: $challengeId');
+      }
+
+      var claimed = false;
+      await _firestore.runTransaction((transaction) async {
+        final progressDoc = await transaction.get(progressRef);
+        if (!progressDoc.exists) {
+          throw Exception('No progress recorded for challenge: $challengeId');
+        }
+
+        final progress = PlayerChallengeProgress.fromJson(progressDoc.data()!);
+        if (!progress.isCompleted) {
+          throw Exception('Challenge not yet completed: $challengeId');
+        }
+        if (progress.rewardsClaimed) {
+          // Already claimed by an earlier call - no-op, same convention
+          // as distributePrizes'/battle-pass-claim's idempotent retries.
+          return;
+        }
+
+        transaction.update(progressRef, {
+          'rewardsClaimed': true,
+          'claimedAt': FieldValue.serverTimestamp(),
+        });
+
+        final currencyAmount = challenge.rewards
+            .where((r) => r.type == 'currency')
+            .fold<int>(0, (sum, r) => sum + r.amount);
+        final experienceAmount = challenge.rewards
+            .where((r) => r.type == 'experience')
+            .fold<int>(0, (sum, r) => sum + r.amount);
+
+        if (currencyAmount > 0 || experienceAmount > 0) {
+          transaction.set(
+            _firestore.collection('user_rewards').doc(playerId),
+            {
+              if (currencyAmount > 0)
+                'totalChallengeCurrency': FieldValue.increment(currencyAmount),
+              if (experienceAmount > 0)
+                'totalChallengeExperience':
+                    FieldValue.increment(experienceAmount),
+            },
+            SetOptions(merge: true),
+          );
+        }
+
+        claimed = true;
+      });
+
+      if (claimed) {
+        _logger.i('Challenge rewards claimed: $challengeId by $playerId');
+      } else {
+        _logger.i(
+          'Challenge $challengeId rewards already claimed by $playerId; '
+          'skipping duplicate grant',
+        );
+      }
+    } catch (e, st) {
+      _logger.e('Failed to claim challenge rewards', error: e, stackTrace: st);
+      rethrow;
+    }
+  }
+
   /// Get event-specific challenges
   Future<List<Challenge>> getEventChallenges(
     String seasonId, {
@@ -468,6 +557,7 @@ class PlayerChallengeProgress {
     required this.isCompleted,
     required this.startedAt,
     required this.updatedAt,
+    this.rewardsClaimed = false,
     this.completedAt,
   });
 
@@ -478,6 +568,7 @@ class PlayerChallengeProgress {
         currentProgress: json['currentProgress'] as int? ?? 0,
         targetProgress: json['targetProgress'] as int? ?? 0,
         isCompleted: json['isCompleted'] as bool? ?? false,
+        rewardsClaimed: json['rewardsClaimed'] as bool? ?? false,
         startedAt: json['startedAt'] != null
             ? (json['startedAt'] as Timestamp).toDate()
             : DateTime.now(),
@@ -493,6 +584,14 @@ class PlayerChallengeProgress {
   final int currentProgress;
   final int targetProgress;
   final bool isCompleted;
+
+  /// Whether [SeasonChallengeService.claimChallengeRewards] has already
+  /// granted this challenge's [Challenge.rewards] to the player - guards
+  /// against a double-tap/retry crediting currency/experience twice.
+  /// Absent on any progress doc written before this field existed, which
+  /// defaults to false (not yet claimed), matching that this feature
+  /// previously had no claim step at all.
+  final bool rewardsClaimed;
   final DateTime startedAt;
   final DateTime? completedAt;
   final DateTime updatedAt;
