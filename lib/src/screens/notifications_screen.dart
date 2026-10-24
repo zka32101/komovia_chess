@@ -63,12 +63,59 @@ Color _colorForType(String type) {
   }
 }
 
+/// Groups `AppNotification.type` into a handful of broad categories for
+/// the filter chips below - previously every notification type (friend
+/// requests, challenges, game events, ...) was shown in one
+/// undifferentiated list with no way to narrow it down.
+enum _NotificationCategory { all, friends, challenges, games, other }
+
+_NotificationCategory _categoryForType(String type) {
+  switch (type) {
+    case 'friend_request':
+      return _NotificationCategory.friends;
+    case 'challenge_received':
+    case 'challenge_accepted':
+    case 'challenge_declined':
+      return _NotificationCategory.challenges;
+    case 'game_matched':
+    case 'game_turn':
+    case 'game_ended':
+    case 'rating_changed':
+      return _NotificationCategory.games;
+    default:
+      return _NotificationCategory.other;
+  }
+}
+
+String _labelForCategory(_NotificationCategory category) {
+  switch (category) {
+    case _NotificationCategory.all:
+      return 'All';
+    case _NotificationCategory.friends:
+      return 'Friends';
+    case _NotificationCategory.challenges:
+      return 'Challenges';
+    case _NotificationCategory.games:
+      return 'Games';
+    case _NotificationCategory.other:
+      return 'Other';
+  }
+}
+
 /// Notifications screen displaying all user notifications
-class NotificationsScreen extends ConsumerWidget {
+class NotificationsScreen extends ConsumerStatefulWidget {
   const NotificationsScreen({Key? key}) : super(key: key);
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<NotificationsScreen> createState() =>
+      _NotificationsScreenState();
+}
+
+class _NotificationsScreenState extends ConsumerState<NotificationsScreen> {
+  _NotificationCategory _selectedCategory = _NotificationCategory.all;
+
+  @override
+  Widget build(BuildContext context) {
     final userAsync = ref.watch(currentUserProvider);
 
     return Scaffold(
@@ -125,6 +172,30 @@ class NotificationsScreen extends ConsumerWidget {
     );
   }
 
+  Widget _buildCategoryFilterBar() {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+      child: SizedBox(
+        height: 36,
+        child: ListView(
+          scrollDirection: Axis.horizontal,
+          children: _NotificationCategory.values.map((category) {
+            final selected = category == _selectedCategory;
+            return Padding(
+              padding: const EdgeInsets.only(right: 8),
+              child: ChoiceChip(
+                label: Text(_labelForCategory(category)),
+                selected: selected,
+                onSelected: (_) =>
+                    setState(() => _selectedCategory = category),
+              ),
+            );
+          }).toList(),
+        ),
+      ),
+    );
+  }
+
   Widget _buildNotificationsList(
       BuildContext context, WidgetRef ref, String userId) {
     final notificationsAsync = ref.watch(firebaseNotificationsProvider(userId));
@@ -137,7 +208,15 @@ class NotificationsScreen extends ConsumerWidget {
         child: Text('Error loading notifications: $error'),
       ),
       data: (batch) {
-        if (batch == null || batch.notifications.isEmpty) {
+        final allNotifications = batch?.notifications ?? const [];
+        final filtered = _selectedCategory == _NotificationCategory.all
+            ? allNotifications
+            : allNotifications
+                .where((n) =>
+                    _categoryForType(n.type) == _selectedCategory)
+                .toList();
+
+        if (allNotifications.isEmpty) {
           return Center(
             child: Column(
               mainAxisAlignment: MainAxisAlignment.center,
@@ -159,22 +238,40 @@ class NotificationsScreen extends ConsumerWidget {
           );
         }
 
-        return RefreshIndicator(
-          onRefresh: () async {
-            // Trigger a refresh of the notifications
-            ref.refresh(firebaseNotificationsProvider(userId));
-          },
-          child: ListView.separated(
-            itemCount: batch.notifications.length,
-            separatorBuilder: (context, index) => Divider(
-              height: 1,
-              color: Colors.grey[200],
+        return Column(
+          children: [
+            _buildCategoryFilterBar(),
+            Expanded(
+              child: filtered.isEmpty
+                  ? Center(
+                      child: Text(
+                        'No ${_labelForCategory(_selectedCategory).toLowerCase()} notifications',
+                        style: Theme.of(context)
+                            .textTheme
+                            .bodyLarge
+                            ?.copyWith(color: Colors.grey[600]),
+                      ),
+                    )
+                  : RefreshIndicator(
+                      onRefresh: () async {
+                        // Trigger a refresh of the notifications
+                        ref.refresh(firebaseNotificationsProvider(userId));
+                      },
+                      child: ListView.separated(
+                        itemCount: filtered.length,
+                        separatorBuilder: (context, index) => Divider(
+                          height: 1,
+                          color: Colors.grey[200],
+                        ),
+                        itemBuilder: (context, index) {
+                          final notification = filtered[index];
+                          return _buildNotificationTile(
+                              context, ref, notification, userId);
+                        },
+                      ),
+                    ),
             ),
-            itemBuilder: (context, index) {
-              final notification = batch.notifications[index];
-              return _buildNotificationTile(context, ref, notification, userId);
-            },
-          ),
+          ],
         );
       },
     );
