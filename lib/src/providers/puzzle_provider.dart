@@ -295,9 +295,9 @@ final puzzleRatingProvider =
   final firestore = FirebaseFirestore.instance;
   try {
     final doc = await firestore.collection('users').doc(uid).get();
-    return (doc.data()?['averageRating'] as num?)?.toInt() ?? 1600;
+    return (doc.data()?['puzzleRating'] as num?)?.toInt() ?? 1500;
   } catch (e) {
-    return 1600;
+    return 1500;
   }
 });
 
@@ -308,7 +308,7 @@ final userPuzzleStatsProvider =
   final user = FirebaseAuth.instance.currentUser;
 
   if (user == null) {
-    yield {'puzzlesSolved': 0, 'dailyStreak': 0, 'averageRating': 1600};
+    yield {'puzzlesSolved': 0, 'dailyStreak': 0, 'puzzleRating': 1500};
     return;
   }
 
@@ -319,11 +319,11 @@ final userPuzzleStatsProvider =
         yield {
           'puzzlesSolved': snapshot.data()?['puzzlesSolved'] ?? 0,
           'dailyStreak': snapshot.data()?['dailyStreak'] ?? 0,
-          'averageRating': snapshot.data()?['averageRating'] ?? 1600,
+          'puzzleRating': snapshot.data()?['puzzleRating'] ?? 1500,
         };
       }
     }
   } catch (e) {
-    yield {'puzzlesSolved': 0, 'dailyStreak': 0, 'averageRating': 1600};
+    yield {'puzzlesSolved': 0, 'dailyStreak': 0, 'puzzleRating': 1500};
   }
 });
