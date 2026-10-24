@@ -269,10 +269,6 @@ class MyRankingScreen extends ConsumerWidget {
                     builder: (context) => PlayerDetailScreen(
                       uid: user.uid,
                       displayName: user.displayName ?? 'プレイヤー',
-                      shogiRankString: ShogiRankService.displayName(
-                        user.shogiRank ??
-                            ShogiRankService.calculateRank(user.rating),
-                      ),
                       rating: user.rating,
                       gamesPlayed: user.gamesPlayed,
                       wins: user.wins,
