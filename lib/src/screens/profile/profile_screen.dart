@@ -8,6 +8,7 @@ import '../../services/achievement_service.dart'
     show AchievementDefinition, AchievementProgress;
 import '../../providers/puzzle_provider.dart' show puzzleRatingProvider;
 import '../../providers/online_game_provider.dart';
+import '../../providers/rewards_provider.dart';
 import '../../models/user.dart';
 import '../../models/online_game.dart';
 import '../online/game_review_screen.dart';
@@ -398,10 +399,32 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
             description:
                 'Joined on ${user.createdAt?.toString().split(' ')[0] ?? 'N/A'}',
           ),
+          const SizedBox(height: 12),
+          _buildRewardsCard(user.uid),
           if (_isOwnProfile) ..._buildAnalyticsLinks(user),
           if (_isOwnProfile) ..._buildInviteSection(user),
         ],
       ),
+    );
+  }
+
+  /// Cumulative season-challenge and tournament-prize rewards - these were
+  /// previously credited by SeasonChallengeService/TournamentService to
+  /// `user_rewards/{uid}` on every "Claim Reward" tap and tournament
+  /// payout, but nothing in the app ever read that collection back.
+  Widget _buildRewardsCard(String uid) {
+    final rewardsAsync = ref.watch(userRewardsProvider(uid));
+    return rewardsAsync.when(
+      data: (rewards) => _buildStatCard(
+        title: 'Rewards Earned',
+        value:
+            '${rewards.totalChallengeCurrency + rewards.totalPrizeWinnings} coins',
+        description:
+            '${rewards.totalChallengeExperience} XP from challenges, '
+            '${rewards.totalPrizeWinnings} coins from tournaments',
+      ),
+      loading: () => const SizedBox.shrink(),
+      error: (_, __) => const SizedBox.shrink(),
     );
   }
 

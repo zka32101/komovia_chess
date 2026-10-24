@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../providers/phase_u_providers.dart';
+import '../providers/rewards_provider.dart';
 import '../services/season_management_service.dart';
 import '../services/battle_pass_service.dart';
 import '../services/season_challenge_service.dart';
@@ -670,12 +671,16 @@ class ChallengeTrackerCard extends ConsumerWidget {
                                 .watch(challengeCompleteNotifierProvider)
                                 .isLoading
                             ? null
-                            : () => ref
-                                .read(challengeCompleteNotifierProvider.notifier)
-                                .claimRewards(
-                                  playerId: playerId,
-                                  challengeId: challenge.challengeId,
-                                ),
+                            : () async {
+                                await ref
+                                    .read(
+                                        challengeCompleteNotifierProvider.notifier)
+                                    .claimRewards(
+                                      playerId: playerId,
+                                      challengeId: challenge.challengeId,
+                                    );
+                                ref.invalidate(userRewardsProvider(playerId));
+                              },
                         child: const Text('Claim Reward'),
                       ),
                     ),
