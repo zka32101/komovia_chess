@@ -2,8 +2,15 @@
  * Pure computation of what finishing a game with [result] requires -
  * the game doc patch, and each player's users/{uid} doc patch. Mirrors
  * OnlineGameService._endGameWithResult (Dart) and
- * timeout-handler.js's handleGameTimeout: same onlineRating/wins/
- * losses/draws/gamesPlayed fields, same ELO formula. Kept separate from
+ * timeout-handler.js's handleGameTimeout: same rating/wins/
+ * losses/draws/gamesPlayed fields, same ELO formula. `rating` is the
+ * single canonical rating field both CPU and online games write to
+ * (see UserModel.rating's doc comment on the Dart side) - previously
+ * this wrote a separate `onlineRating` field here while the Dart
+ * client-side ending path wrote the same thing, so as long as both
+ * used that name they agreed with each other, but neither agreed with
+ * the CPU-game `rating` field the leaderboard (ranking_service.dart)
+ * actually sorts by. Kept separate from
  * timeout-handler.js's own inline version (rather than refactoring it
  * to share this) to avoid widening that already-merged fix's surface;
  * a later pass can consolidate both onto this module.
@@ -48,13 +55,13 @@ function computeGameEndUpdates(game, result, resultReason) {
   };
 
   const whiteUserUpdate = {
-    onlineRating: whiteNewRating,
+    rating: whiteNewRating,
     gamesPlayed: admin.firestore.FieldValue.increment(1),
     [whiteOutcome]: admin.firestore.FieldValue.increment(1),
   };
 
   const blackUserUpdate = {
-    onlineRating: blackNewRating,
+    rating: blackNewRating,
     gamesPlayed: admin.firestore.FieldValue.increment(1),
     [blackOutcome]: admin.firestore.FieldValue.increment(1),
   };

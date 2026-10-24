@@ -31,7 +31,7 @@ const db = admin.firestore();
  * Mirrors OnlineGameService._endGameWithResult (Dart) for a timeout
  * ending: previously this only ever updated the `games/{gameId}` doc
  * itself (status/result/ratingDelta fields) - the game's two players'
- * `users/{uid}` docs (onlineRating/wins/losses/draws/gamesPlayed) were
+ * `users/{uid}` docs (rating/wins/losses/draws/gamesPlayed) were
  * never touched at all when a game ended by timeout specifically, unlike
  * every other way a game can end (resign/draw/abandonment), which all
  * route through `_endGameWithResult` on the client. A player who timed an
@@ -86,14 +86,14 @@ function handleGameTimeout(batch, gameRef, game, timedOutPlayer) {
 
   if (game.whitePlayerId) {
     batch.update(db.collection("users").doc(game.whitePlayerId), {
-      onlineRating: whiteNewRating,
+      rating: whiteNewRating,
       gamesPlayed: admin.firestore.FieldValue.increment(1),
       [isWhiteTimeout ? "losses" : "wins"]: admin.firestore.FieldValue.increment(1),
     });
   }
   if (game.blackPlayerId) {
     batch.update(db.collection("users").doc(game.blackPlayerId), {
-      onlineRating: blackNewRating,
+      rating: blackNewRating,
       gamesPlayed: admin.firestore.FieldValue.increment(1),
       [isWhiteTimeout ? "wins" : "losses"]: admin.firestore.FieldValue.increment(1),
     });

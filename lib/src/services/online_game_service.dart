@@ -219,7 +219,7 @@ class OnlineGameService {
       // to claim an abandonment forfeit) could each read the game while
       // it was still 'active', then both write 'completed' and both
       // increment each player's wins/losses/draws/gamesPlayed and
-      // overwrite onlineRating from a freshly (and differently)
+      // overwrite rating from a freshly (and differently)
       // recomputed delta - permanent stat/rating corruption, not just a
       // duplicate write. Matches the transactional re-check already used
       // for this exact race in the Cloud Functions side (recordMove/
@@ -288,8 +288,13 @@ class OnlineGameService {
       // the game document above, never on the user themselves, so an
       // online game's rating change was silently lost: it showed nowhere
       // (not on the profile, not on any leaderboard) after the game
-      // ended. `onlineRating` is this app's separate PvP rating track,
-      // distinct from the CPU-game `rating` field.
+      // ended. Writes `rating` - the single canonical rating field both
+      // CPU games (cpu_game_provider.dart) and ranking_service.dart's
+      // leaderboard already use - rather than the old separate
+      // `onlineRating` track, which meant a PvP-only player's kyu/dan
+      // rank moved on their own profile but never on the global
+      // leaderboard (and vice versa for a CPU-only player). See
+      // UserModel.rating's doc comment.
       //
       // wins/losses/draws/gamesPlayed are the same shared stat fields
       // CpuGameProvider already increments for CPU games (see
@@ -303,14 +308,14 @@ class OnlineGameService {
           result == 'black_win' ? 'win' : (result == 'draw' ? 'draw' : 'loss');
 
       await _firestore.collection('users').doc(game.whitePlayerId).update({
-        'onlineRating': whiteNewRating,
+        'rating': whiteNewRating,
         'gamesPlayed': FieldValue.increment(1),
         if (whiteResult == 'win') 'wins': FieldValue.increment(1),
         if (whiteResult == 'loss') 'losses': FieldValue.increment(1),
         if (whiteResult == 'draw') 'draws': FieldValue.increment(1),
       });
       await _firestore.collection('users').doc(game.blackPlayerId).update({
-        'onlineRating': blackNewRating,
+        'rating': blackNewRating,
         'gamesPlayed': FieldValue.increment(1),
         if (blackResult == 'win') 'wins': FieldValue.increment(1),
         if (blackResult == 'loss') 'losses': FieldValue.increment(1),
@@ -816,7 +821,7 @@ class OnlineGameService {
       // game doc and returned, bypassing _endGameWithResult entirely -
       // unlike resignGame/acceptDraw/claimDraw/claimAbandonmentForfeit,
       // which all route through it. That meant neither player's wins/
-      // losses/onlineRating/gamesPlayed ever updated, no achievement
+      // losses/rating/gamesPlayed ever updated, no achievement
       // check ran, and no seasonal challenge progressed when a game
       // ended by abandonment.
       // Only stamp abandonedBy if this call is the one that actually
@@ -1134,7 +1139,7 @@ class OnlineGameService {
 
     // RatingCalculationService validates both ratings against its own
     // [minRating, maxRating] range before computing anything -
-    // UserModel.onlineRating defaults to 0, below minRating (100), so a
+    // UserModel.rating defaults to 1500 now, but a pre-migration document could still sit at 0, below minRating (100), so a
     // brand-new player's very first online game would otherwise throw
     // RatingCalculationException from inside this transaction. Clamping
     // the inputs here (the delta is still derived from the real,
@@ -1150,7 +1155,7 @@ class OnlineGameService {
     // difference - against the CLAMPED starting rating, not the raw
     // one. Subtracting the raw whiteRating (as an earlier version of
     // this fix did) broke badly for a sub-floor rating: a brand-new
-    // player at onlineRating=0 who LOST would still have
+    // player at rating=0 who LOST would still have
     // calculateNewRating(...) clamp its result back up to minRating
     // (100) internally, so `100 - 0` produced a +100 delta for losing
     // their very first game. Measuring the delta from clampedWhiteRating

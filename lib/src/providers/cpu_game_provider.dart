@@ -1,5 +1,4 @@
 import 'dart:async' show unawaited;
-import 'dart:math' show pow;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
@@ -13,6 +12,7 @@ import '../services/season_management_service.dart';
 import '../services/achievement_service.dart';
 import '../services/match_history_service.dart';
 import '../services/analytics_dashboard_service_impl.dart';
+import '../services/rating_calculation_service.dart';
 import '../models/match_record.dart';
 
 
@@ -284,8 +284,13 @@ class CpuGameNotifier extends StateNotifier<CpuGameState> {
   }
 
   /// Updates the signed-in user's rating/win-loss-draw stats after a CPU
-  /// game, via a standard ELO update against the difficulty's virtual
-  /// rating (the same scale as [AIDifficultyStockfishExt.stockfishElo]).
+  /// game, via [RatingCalculationService] against the difficulty's virtual
+  /// rating (the same scale as [AIDifficultyStockfishExt.stockfishElo]) -
+  /// the same tiered-K-factor Elo engine online_game_service.dart uses for
+  /// PvP games, rather than a separately hand-inlined flat-K=32 formula
+  /// this method previously had (so a CPU-only player and a PvP-only
+  /// player's rating moved by inconsistent amounts for an equally
+  /// surprising win/loss, even though both write the same `rating` field).
   /// Best-effort: CPU games aren't otherwise persisted anywhere, so a
   /// failure here is swallowed rather than surfaced to the player.
   Future<void> _recordResult(String playerResult) async {
@@ -306,10 +311,18 @@ class CpuGameNotifier extends StateNotifier<CpuGameState> {
         _ => 0.0,
       };
       final opponentElo = state.difficulty.stockfishElo;
-      final expectedScore =
-          1 / (1 + pow(10, (opponentElo - currentRating) / 400));
-      const kFactor = 32;
-      final ratingDelta = (kFactor * (actualScore - expectedScore)).round();
+      final newRating = RatingCalculationService.calculateNewRating(
+        currentRating.clamp(
+          RatingCalculationService.minRating,
+          RatingCalculationService.maxRating,
+        ),
+        opponentElo.clamp(
+          RatingCalculationService.minRating,
+          RatingCalculationService.maxRating,
+        ),
+        actualScore,
+      );
+      final ratingDelta = newRating - currentRating;
 
       await userRef.update({
         'rating': FieldValue.increment(ratingDelta),

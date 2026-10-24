@@ -154,8 +154,8 @@ describe('handleTimeout', () => {
     fake = makeFakeFirestore(
       {},
       {
-        white_uid: { wins: 0, losses: 0, gamesPlayed: 0, onlineRating: 1500 },
-        black_uid: { wins: 0, losses: 0, gamesPlayed: 0, onlineRating: 1500 },
+        white_uid: { wins: 0, losses: 0, gamesPlayed: 0, rating: 1500 },
+        black_uid: { wins: 0, losses: 0, gamesPlayed: 0, rating: 1500 },
       },
     );
     admin.__setFakeDb(fake.db);

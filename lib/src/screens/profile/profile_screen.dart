@@ -164,7 +164,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                           children: [
                             _buildRatingBadge(
                               label: 'Blitz',
-                              rating: user.onlineRating ?? 1600,
+                              rating: user.rating ?? 1600,
                             ),
                             const SizedBox(width: 16),
                             _buildRatingBadge(
@@ -388,7 +388,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
           const SizedBox(height: 12),
           _buildStatCard(
             title: 'Current Rating',
-            value: user.onlineRating.toString() ?? '1600',
+            value: user.rating.toString() ?? '1600',
             description: 'Online blitz rating',
           ),
           const SizedBox(height: 12),
@@ -642,7 +642,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                   builder: (_) => PlayerComparisonScreen(
                     player1Id: user.uid,
                     player1Name: user.displayName ?? 'You',
-                    player1Rating: user.onlineRating ?? 1600,
+                    player1Rating: user.rating ?? 1600,
                     player2Id: opponentId,
                     player2Name: opponentName,
                     player2Rating: opponentRating,

@@ -34,7 +34,7 @@ describe('computeGameEndUpdates', () => {
     expect(winnerId).toBeNull();
   });
 
-  it('always increments gamesPlayed and onlineRating for both players regardless of result', () => {
+  it('always increments gamesPlayed and rating for both players regardless of result', () => {
     const { whiteUserUpdate, blackUserUpdate } = computeGameEndUpdates(
       baseGame(),
       'black_win',
@@ -43,7 +43,7 @@ describe('computeGameEndUpdates', () => {
 
     expect(whiteUserUpdate.gamesPlayed).toBeDefined();
     expect(blackUserUpdate.gamesPlayed).toBeDefined();
-    expect(typeof whiteUserUpdate.onlineRating).toBe('number');
-    expect(typeof blackUserUpdate.onlineRating).toBe('number');
+    expect(typeof whiteUserUpdate.rating).toBe('number');
+    expect(typeof blackUserUpdate.rating).toBe('number');
   });
 });
