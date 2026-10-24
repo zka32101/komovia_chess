@@ -133,7 +133,12 @@ class ChallengeActionsNotifier extends StateNotifier<AsyncValue<void>> {
       await _ref
           .read(challengeServiceProvider)
           .cancelChallenge(challenge.challengeId);
-      _ref.invalidate(activeChallengesProvider);
+      // The Cancel button only ever fires on a 'pending' challenge (see
+      // _PendingChallengesTab), which activeChallengesProvider never
+      // includes (it's filtered to status == 'accepted') - invalidating
+      // it here never did anything useful. pendingChallengesProvider is
+      // the list this action actually mutates.
+      _ref.invalidate(pendingChallengesProvider);
       state = const AsyncValue.data(null);
     } catch (e, st) {
       state = AsyncValue.error(e, st);
