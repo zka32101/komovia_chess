@@ -118,11 +118,32 @@ service cloud.firestore {
       // undoing a block mirror on unblockFriend — see FriendService).
       match /friends/{friendUid} {
         allow read: if isOwner(userId);
-        allow create: if isOwner(friendUid) &&
+        // FriendService writes BOTH mirrors of a relationship from a
+        // single caller - e.g. sendFriendRequest(currentUid, friendUid)
+        // sets users/{currentUid}/friends/{friendUid} (path: userId ==
+        // currentUid, friendUid == the other party) AND
+        // users/{friendUid}/friends/{currentUid} (path: userId ==
+        // friendUid, friendUid == currentUid) in the same transaction.
+        // Previously this only ever matched the SECOND shape
+        // (isOwner(friendUid), i.e. the caller writing into the other
+        // party's list) - the caller's own-list write (isOwner(userId))
+        // had no matching branch at all, so every paired write was
+        // rejected as a whole (one side always failed), meaning
+        // sendFriendRequest/acceptFriendRequest/rejectFriendRequest/
+        // blockFriend/unblockFriend/removeFriend all failed with
+        // permission-denied in production despite being otherwise fully
+        // wired. `data.uid` must point at whichever of
+        // userId/friendUid is NOT the caller, matching real writes
+        // either way.
+        allow create: if (isOwner(userId) &&
+          request.resource.data.uid == friendUid &&
+          request.resource.data.status == 'pending' &&
+          request.resource.data.requestedBy == request.auth.uid) ||
+          (isOwner(friendUid) &&
           request.resource.data.uid == request.auth.uid &&
           request.resource.data.status == 'pending' &&
-          request.resource.data.requestedBy == request.auth.uid;
-        allow update: if isOwner(friendUid) &&
+          request.resource.data.requestedBy == request.auth.uid);
+        allow update: if (isOwner(userId) || isOwner(friendUid)) &&
           unchanged('uid') &&
           onlyChanged(['status', 'blockedBy']) &&
           (
@@ -130,7 +151,7 @@ service cloud.firestore {
             (request.resource.data.status == 'accepted' &&
               resource.data.get('requestedBy', null) != request.auth.uid)
           );
-        allow delete: if isOwner(friendUid);
+        allow delete: if isOwner(userId) || isOwner(friendUid);
       }
 
       // Cross-user: a friend-request/accept notification is written into
