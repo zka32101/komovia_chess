@@ -195,10 +195,22 @@ class TournamentDetailScreen extends ConsumerWidget {
       );
     }
 
-    if (tournament.isActive) {
+    // Shown for an in-progress tournament (manual early finish) and also
+    // for one whose bracket already completed on its own - the bracket
+    // auto-completing now pays prizes automatically too (see
+    // TournamentService._advanceRoundIfComplete), but this stays as a
+    // manual retry path for the rare case that automatic payout failed
+    // (e.g. a transient Firestore error). distributePrizes is idempotent
+    // either way, so pressing it again when prizes were already paid is
+    // a harmless no-op.
+    if (tournament.isActive || tournament.isCompleted) {
       return OutlinedButton.icon(
         icon: const Icon(Icons.emoji_events),
-        label: const Text('Finish & Distribute Prizes'),
+        label: Text(
+          tournament.isActive
+              ? 'Finish & Distribute Prizes'
+              : 'Distribute Prizes',
+        ),
         onPressed: () async {
           await ref
               .read(tournamentActionsProvider.notifier)
