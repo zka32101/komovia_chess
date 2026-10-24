@@ -55,6 +55,23 @@ service cloud.firestore {
 
     match /users/{userId} {
       // ✅ ユーザーは自分のデータを読み書き可能
+      //
+      // KNOWN CLIENT-TRUST GAP (documented, not fixed): this blanket
+      // self-write grant also covers subscriptionTier/subscriptionExpiry/
+      // isLifetime, which PaywallService._persistEntitlement writes
+      // directly from the client after a purchase - with no Cloud
+      // Function anywhere in this app that verifies the purchase receipt
+      // against the App Store Server API / Play Developer API first. Any
+      // signed-in user can currently grant themselves 'premium'/'pro' (or
+      // isLifetime: true) by writing these fields directly, and
+      // feature_gating_service.dart will honor it immediately. Unlike the
+      // cross-user wins/losses/onlineRating write below (deliberately
+      // hardened against exactly this kind of tampering), these three
+      // fields have no such guard - closing that for real needs a
+      // receipt-verifying Cloud Function (an Admin SDK write, which
+      // bypasses these rules) to become the only legitimate writer,
+      // before this rule could safely block a normal client write to
+      // them. See PaywallService._persistEntitlement's matching comment.
       allow read, write: if isOwner(userId);
 
       // ✅ Admin はすべてのユーザーデータを読み取り可能
