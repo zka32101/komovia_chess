@@ -284,6 +284,8 @@ class TournamentService {
       final winnerRef = tournamentRef.collection(participantsCollection).doc(winnerId);
       final loserRef = tournamentRef.collection(participantsCollection).doc(loserId);
 
+      int? completedRound;
+
       await _firestore.runTransaction((transaction) async {
         // Claim the match by its own `status` before applying any
         // win/loss deltas - without this, a double-tap on the "Who won?"
@@ -316,10 +318,119 @@ class TournamentService {
         if (loserDoc.exists) {
           transaction.update(loserRef, {'losses': FieldValue.increment(1)});
         }
+
+        completedRound = matchDoc.data()?['round'] as int?;
       });
+
+      // Previously generateBracket only ever produced round 1 and nothing
+      // afterward ever generated round 2+ - any tournament with more than
+      // one round was structurally stuck once round 1 finished. Mirrors
+      // komovia_go's TournamentService._advanceRoundIfComplete.
+      if (completedRound != null) {
+        await _advanceRoundIfComplete(tournamentId, completedRound!);
+      }
     } catch (e) {
       debugPrint('Error recording match result: $e');
       rethrow;
+    }
+  }
+
+  /// After a match in [completedRound] is recorded, checks whether every
+  /// match in that round is now complete and, if so, either generates the
+  /// next round from this round's winners (same seed-order pairing as
+  /// generateBracket - a bye's "winner" simply carries over with no
+  /// opponent to re-pair against) or, once a single winner remains, marks
+  /// the tournament 'completed' with that winner.
+  ///
+  /// Transactional and guarded by [Tournament.lastAdvancedRound] (same
+  /// claim-first pattern as [generateBracket]) so two near-simultaneous
+  /// [recordMatchResult] calls that each complete the last pending match
+  /// of a round can't each generate a duplicate next round.
+  Future<void> _advanceRoundIfComplete(
+    String tournamentId,
+    int completedRound,
+  ) async {
+    final roundMatches =
+        await getTournamentMatches(tournamentId, round: completedRound);
+    if (roundMatches.isEmpty || roundMatches.any((m) => !m.isCompleted)) {
+      return;
+    }
+
+    final winners = roundMatches
+        .map((m) => m.winnerUid)
+        .whereType<String>()
+        .toList();
+
+    String? displayNameFor(String uid) {
+      for (final match in roundMatches) {
+        if (match.player1Uid == uid) return match.player1DisplayName;
+        if (match.player2Uid == uid) return match.player2DisplayName;
+      }
+      return null;
+    }
+
+    final tournamentRef =
+        _firestore.collection(tournamentsCollection).doc(tournamentId);
+    var tournamentCompleted = false;
+    var nextRoundGenerated = false;
+
+    await _firestore.runTransaction((transaction) async {
+      final tournamentDoc = await transaction.get(tournamentRef);
+      final data = tournamentDoc.data();
+      if (data == null) return;
+
+      final lastAdvancedRound = (data['lastAdvancedRound'] as int?) ?? 0;
+      if (lastAdvancedRound >= completedRound) {
+        // Another call already advanced past this round.
+        return;
+      }
+
+      if (winners.length <= 1) {
+        transaction.update(tournamentRef, {
+          'status': 'completed',
+          'winnerId': winners.isNotEmpty ? winners.first : null,
+          'lastAdvancedRound': completedRound,
+        });
+        tournamentCompleted = true;
+        return;
+      }
+
+      final nextRound = completedRound + 1;
+      final now = DateTime.now();
+
+      for (var i = 0; i < winners.length; i += 2) {
+        final player1 = winners[i];
+        final hasOpponent = i + 1 < winners.length;
+        final player2 = hasOpponent ? winners[i + 1] : null;
+
+        final matchRef = tournamentRef.collection(matchesCollection).doc();
+        final match = TournamentMatch(
+          id: matchRef.id,
+          tournamentId: tournamentId,
+          player1Uid: player1,
+          player1DisplayName: displayNameFor(player1),
+          player2Uid: player2,
+          player2DisplayName: player2 != null ? displayNameFor(player2) : null,
+          round: nextRound,
+          winnerUid: hasOpponent ? null : player1,
+          status: hasOpponent ? 'pending' : 'completed',
+          scheduledAt: now.add(Duration(hours: nextRound)),
+          completedAt: hasOpponent ? null : now,
+        );
+        transaction.set(matchRef, match.toFirestore());
+      }
+
+      transaction.update(tournamentRef, {'lastAdvancedRound': completedRound});
+      nextRoundGenerated = true;
+    });
+
+    // A newly-generated round that turned out to be a single bye match is
+    // already 'completed' the moment it's written (no opponent to wait
+    // on) - cascade into checking that round too, so the tournament
+    // doesn't sit stuck one round away from finishing until some
+    // unrelated event happens to re-trigger this check.
+    if (nextRoundGenerated && !tournamentCompleted) {
+      await _advanceRoundIfComplete(tournamentId, completedRound + 1);
     }
   }
 
