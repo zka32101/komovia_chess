@@ -435,7 +435,14 @@ class _CPUGameScreenState extends ConsumerState<CPUGameScreen> {
       whiteRating: widget.playerIsWhite ? myRating : 1200,
       blackRating: widget.playerIsWhite ? 1200 : myRating,
       pgn: '',
-      currentFen: 'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1',
+      // CpuGameState doesn't track the live current-position FEN
+      // separately (only startingFen + the move list) and
+      // GameReviewScreen never reads OnlineGame.currentFen (only
+      // .moves), so this is a placeholder - using the real starting
+      // position rather than the previous hardcoded standard-array
+      // value at least keeps it honest about what this synthetic game
+      // actually started from.
+      currentFen: gameState.startingFen ?? standardStartingFen,
       moves: moves,
       timeControl: 'untimed',
       timeControlMs: 0,
@@ -450,6 +457,7 @@ class _CPUGameScreenState extends ConsumerState<CPUGameScreen> {
         builder: (_) => GameReviewScreen(
           gameId: syntheticGame.gameId,
           game: syntheticGame,
+          startingFen: gameState.startingFen ?? standardStartingFen,
         ),
       ),
     );

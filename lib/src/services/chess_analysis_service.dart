@@ -3,7 +3,10 @@ import '../models/online_game.dart' show GameMove;
 import 'chess_engine_service.dart';
 import 'stockfish_engine_service.dart';
 
-const _standardStartingFen =
+/// Exposed so callers that only have an optional/nullable starting FEN
+/// can fall back to it explicitly instead of a second hardcoded copy -
+/// same convention as GameGifService.standardStartingFen.
+const standardStartingFen =
     'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1';
 
 /// Runs the already-integrated Stockfish engine over every position of a
@@ -17,7 +20,7 @@ class ChessAnalysisService {
   /// full game is one engine call per move and can take several seconds.
   Future<GameAnalysis> analyzeGame(
     List<GameMove> moves, {
-    String startingFen = _standardStartingFen,
+    String startingFen = standardStartingFen,
     int moveTimeMs = 200,
     void Function(int done, int total)? onProgress,
   }) async {
