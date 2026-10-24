@@ -2,8 +2,10 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/foundation.dart';
+import 'package:komovia_core/komovia_core.dart';
 import '../services/paywall_service.dart';
 import '../services/feature_gating_service.dart';
+import '../utils/entitlement_adapter.dart';
 
 /// User subscription state
 class UserSubscription {
@@ -70,6 +72,14 @@ final userSubscriptionProvider = FutureProvider<UserSubscription>((ref) async {
     debugPrint('Error fetching subscription: $e');
     return UserSubscription(tier: 'free', isActive: false);
   }
+});
+
+// This app's subscription status as a komovia_core Entitlement,
+// game-agnostic and shared with komovia_go/komovia_shogi's own read
+// paths.
+final userEntitlementProvider = FutureProvider<Entitlement>((ref) async {
+  final subscription = await ref.watch(userSubscriptionProvider.future);
+  return subscription.toEntitlement();
 });
 
 // Check if specific premium feature is available

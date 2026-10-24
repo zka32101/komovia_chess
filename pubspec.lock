@@ -842,7 +842,7 @@ packages:
     description:
       path: "."
       ref: main
-      resolved-ref: "244b4baef2b511f60667ec859778d50952ac9431"
+      resolved-ref: "6624349d6da0a4ab9ed156fa95722eb4c7923569"
       url: "https://github.com/zka32101/komovia_core"
     source: git
     version: "0.1.0"
