@@ -10,7 +10,6 @@ class PlayerDetailScreen extends ConsumerWidget {
   const PlayerDetailScreen({
     required this.uid,
     required this.displayName,
-    required this.shogiRankString,
     required this.rating,
     required this.gamesPlayed,
     required this.wins,
@@ -20,7 +19,6 @@ class PlayerDetailScreen extends ConsumerWidget {
   }) : super(key: key);
   final String uid;
   final String displayName;
-  final String shogiRankString;
   final int rating;
   final int gamesPlayed;
   final int wins;
