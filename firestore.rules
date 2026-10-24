@@ -155,8 +155,11 @@ service cloud.firestore {
         allow read, update, delete: if isOwner(userId);
         allow create: if isSignedIn() &&
           request.resource.data.uid == userId &&
-          request.resource.data.type in ['friend_request', 'game_matched'] &&
-          request.resource.data.data.actionUrl.matches('^/(friends|online-game/.+)$');
+          request.resource.data.type in [
+            'friend_request', 'game_matched',
+            'challenge_received', 'challenge_accepted', 'challenge_declined'
+          ] &&
+          request.resource.data.data.actionUrl.matches('^/(friends|challenges|online-game/.+)$');
       }
 
       // Per-user progress against the app's bundled static curriculum

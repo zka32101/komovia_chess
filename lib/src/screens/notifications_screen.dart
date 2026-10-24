@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:komovia_core/komovia_core.dart';
 import '../providers/auth_provider.dart';
 import '../providers/notification_provider.dart';
+import 'challenges/challenges_screen.dart';
 import 'friends/friends_screen.dart';
 import 'online/online_game_screen.dart';
 
@@ -28,6 +29,10 @@ String _iconForType(String type) {
       return '🏆';
     case 'message':
       return '💬';
+    case 'challenge_received':
+    case 'challenge_accepted':
+    case 'challenge_declined':
+      return '⚔️';
     default:
       return '🔔';
   }
@@ -49,6 +54,10 @@ Color _colorForType(String type) {
       return const Color(0xffFFC107);
     case 'message':
       return const Color(0xff3F51B5);
+    case 'challenge_received':
+    case 'challenge_accepted':
+    case 'challenge_declined':
+      return const Color(0xffE91E63);
     default:
       return const Color(0xff607D8B);
   }
@@ -328,14 +337,22 @@ class NotificationsScreen extends ConsumerWidget {
   /// Routes a tapped notification's `actionUrl` to the real screen it
   /// names. This app has no named-route table at all (every navigation
   /// elsewhere is a direct `MaterialPageRoute`), so actionUrl values are
-  /// parsed here the same way - only the two shapes any service actually
-  /// writes today (`/friends`, `/online-game/{gameId}`) are handled;
-  /// anything else falls back to a snackbar rather than silently doing
-  /// nothing, so a future sender's typo is visible instead of invisible.
+  /// parsed here the same way - only the shapes any service actually
+  /// writes today (`/friends`, `/challenges`, `/online-game/{gameId}`)
+  /// are handled; anything else falls back to a snackbar rather than
+  /// silently doing nothing, so a future sender's typo is visible
+  /// instead of invisible.
   void _navigateToAction(BuildContext context, String actionUrl) {
     if (actionUrl == '/friends') {
       Navigator.of(context).push(
         MaterialPageRoute(builder: (_) => const FriendsScreen()),
+      );
+      return;
+    }
+
+    if (actionUrl == '/challenges') {
+      Navigator.of(context).push(
+        MaterialPageRoute(builder: (_) => const ChallengesScreen()),
       );
       return;
     }
