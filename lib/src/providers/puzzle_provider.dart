@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../models/puzzle.dart';
 import '../services/season_challenge_service.dart';
 import '../services/season_management_service.dart';
+import '../services/rating_calculation_service.dart';
 
 // Puzzle provider for loading and tracking puzzle solving
 class PuzzleService {
@@ -98,27 +99,43 @@ class PuzzleService {
         'timestamp': FieldValue.serverTimestamp(),
       });
 
-      // Update the user's aggregate stats. puzzlesSolved/averageRating/
-      // dailyStreak previously only ever had puzzlesSolved actually
-      // written - averageRating and dailyStreak were read everywhere
-      // (getUserPuzzleStats, puzzle_screen.dart) but never computed, so
-      // they always showed their hardcoded defaults. A transaction is
-      // needed since averageRating is a running average, not a counter
-      // FieldValue.increment can express on its own.
-      if (solved) {
-        final userRef = _firestore.collection('users').doc(user.uid);
-        await _firestore.runTransaction((transaction) async {
-          final userDoc = await transaction.get(userRef);
-          final data = userDoc.data() ?? const <String, dynamic>{};
+      // Update the user's puzzle rating via a real Elo exchange against
+      // the puzzle's own rating (solve = win, fail = loss), through
+      // RatingCalculationService - the same tiered-K-factor engine
+      // CPU/online chess games use (see UserModel.rating's doc comment).
+      // Previously `averageRating` was a plain running average of every
+      // puzzle *attempted* ((sum of ratings) / count), with no win/loss
+      // semantics at all - it could only ever climb toward whatever
+      // difficulty the player attempted regardless of whether they
+      // solved it, and crucially only ever updated `if (solved)`, so a
+      // failed attempt moved nothing (not even the rating down),
+      // which is backwards for any real rating system. Renamed to
+      // `puzzleRating` to make clear it's now an Elo rating, not an
+      // average - puzzlesSolved/dailyStreak still only advance on an
+      // actual solve.
+      final userRef = _firestore.collection('users').doc(user.uid);
+      await _firestore.runTransaction((transaction) async {
+        final userDoc = await transaction.get(userRef);
+        final data = userDoc.data() ?? const <String, dynamic>{};
 
-          final previousSolved = (data['puzzlesSolved'] as num?)?.toInt() ?? 0;
-          final previousAverage =
-              (data['averageRating'] as num?)?.toInt() ?? 1600;
-          final newAverage = previousSolved == 0
-              ? puzzleRating
-              : ((previousAverage * previousSolved) + puzzleRating) ~/
-                  (previousSolved + 1);
+        final previousRating = (data['puzzleRating'] as num?)?.toInt() ?? 1500;
+        final clampedPrevious = previousRating.clamp(
+          RatingCalculationService.minRating,
+          RatingCalculationService.maxRating,
+        );
+        final clampedPuzzleRating = puzzleRating.clamp(
+          RatingCalculationService.minRating,
+          RatingCalculationService.maxRating,
+        );
+        final newRating = RatingCalculationService.calculateNewRating(
+          clampedPrevious,
+          clampedPuzzleRating,
+          solved ? 1.0 : 0.0,
+        );
 
+        final update = <String, dynamic>{'puzzleRating': newRating};
+
+        if (solved) {
           final today = DateTime.now();
           final todayKey =
               '${today.year}-${today.month.toString().padLeft(2, '0')}-${today.day.toString().padLeft(2, '0')}';
@@ -137,14 +154,15 @@ class PuzzleService {
             newStreak = 1;
           }
 
-          transaction.update(userRef, {
-            'puzzlesSolved': FieldValue.increment(1),
-            'averageRating': newAverage,
-            'dailyStreak': newStreak,
-            'lastPuzzleSolvedDate': todayKey,
-          });
-        });
+          update['puzzlesSolved'] = FieldValue.increment(1);
+          update['dailyStreak'] = newStreak;
+          update['lastPuzzleSolvedDate'] = todayKey;
+        }
 
+        transaction.update(userRef, update);
+      });
+
+      if (solved) {
         // Best-effort: advance any active seasonal challenge tracking
         // puzzle solves - previously nothing in the app ever called into
         // SeasonChallengeService from a real puzzle solve, so no seasonal
@@ -208,13 +226,13 @@ class PuzzleService {
         return {
           'puzzlesSolved': userDoc.data()?['puzzlesSolved'] ?? 0,
           'dailyStreak': userDoc.data()?['dailyStreak'] ?? 0,
-          'averageRating': userDoc.data()?['averageRating'] ?? 1600,
+          'puzzleRating': userDoc.data()?['puzzleRating'] ?? 1500,
         };
       }
-      return {'puzzlesSolved': 0, 'dailyStreak': 0, 'averageRating': 1600};
+      return {'puzzlesSolved': 0, 'dailyStreak': 0, 'puzzleRating': 1500};
     } catch (e) {
       print('Error fetching puzzle stats: $e');
-      return {'puzzlesSolved': 0, 'dailyStreak': 0, 'averageRating': 1600};
+      return {'puzzlesSolved': 0, 'dailyStreak': 0, 'puzzleRating': 1500};
     }
   }
 }
