@@ -20,7 +20,7 @@ Tournament _tournamentFromDoc(DocumentSnapshot<Map<String, dynamic>> doc) {
 
 extension _TournamentFirestore on Tournament {
   /// [extraFields] carries this app's own fields with no komovia_core
-  /// equivalent (entryFee/prizePool/timeControl — see
+  /// equivalent (prizePool/timeControl — see
   /// `TournamentService.createTournament`), kept on the same document but
   /// outside `Tournament.toJson`/`fromJson`.
   Map<String, dynamic> toFirestore(Map<String, dynamic> extraFields) {
@@ -83,7 +83,7 @@ class TournamentService {
   static const String participantsCollection = 'participants';
   static const String matchesCollection = 'matches';
 
-  /// Create a new tournament. `entryFee`/`prizePool`/`timeControl` have no
+  /// Create a new tournament. `prizePool`/`timeControl` have no
   /// komovia_core equivalent, so they're written onto the same document as
   /// extra fields rather than folded into `Tournament.toJson`.
   Future<Tournament> createTournament({
@@ -92,7 +92,6 @@ class TournamentService {
     required String format,
     required int maxParticipants,
     required String timeControl,
-    required int entryFee,
     required int prizePool,
     required String createdBy,
     required DateTime startDate,
@@ -116,7 +115,6 @@ class TournamentService {
 
       await docRef.set(tournament.toFirestore({
         'timeControl': timeControl,
-        'entryFee': entryFee,
         'prizePool': prizePool,
       }));
 
@@ -468,15 +466,13 @@ class TournamentService {
     }
   }
 
-  /// `entryFee`/`prizePool`/`timeControl` as stored on the tournament
-  /// document, read separately since they're not part of
-  /// `Tournament.toJson`/`fromJson`.
+  /// `prizePool`/`timeControl` as stored on the tournament document, read
+  /// separately since they're not part of `Tournament.toJson`/`fromJson`.
   Future<Map<String, dynamic>> getTournamentExtras(String tournamentId) async {
     final doc = await _firestore.collection(tournamentsCollection).doc(tournamentId).get();
     final data = doc.data() ?? const {};
     return {
       'timeControl': data['timeControl'] as String? ?? '',
-      'entryFee': (data['entryFee'] as num?)?.toInt() ?? 0,
       'prizePool': (data['prizePool'] as num?)?.toInt() ?? 0,
     };
   }
@@ -575,8 +571,8 @@ class TournamentService {
       // guard would always see 'completed' and skip, even on the very
       // first real payout attempt). This field is this guard's own
       // concern only; it's deliberately not surfaced on komovia_core's
-      // Tournament model, the same way entryFee/prizePool/timeControl
-      // aren't (see [getTournamentExtras]).
+      // Tournament model, the same way prizePool/timeControl aren't
+      // (see [getTournamentExtras]).
       var claimed = false;
       await _firestore.runTransaction((transaction) async {
         final doc = await transaction.get(tournamentRef);

@@ -409,7 +409,6 @@ class _TournamentCreateScreenState
   final _nameController = TextEditingController();
   final _descriptionController = TextEditingController();
   final _timeControlController = TextEditingController(text: '10+0');
-  final _entryFeeController = TextEditingController(text: '0');
   final _prizePoolController = TextEditingController(text: '0');
   // Max participants was a free-text number field with no bracket-size
   // guidance - a single-elimination bracket only resolves cleanly for a
@@ -427,7 +426,6 @@ class _TournamentCreateScreenState
     _nameController.dispose();
     _descriptionController.dispose();
     _timeControlController.dispose();
-    _entryFeeController.dispose();
     _prizePoolController.dispose();
     super.dispose();
   }
@@ -476,7 +474,6 @@ class _TournamentCreateScreenState
               description: _descriptionController.text.trim(),
               maxParticipants: _maxParticipants,
               timeControl: _timeControlController.text.trim(),
-              entryFee: int.tryParse(_entryFeeController.text) ?? 0,
               prizePool: int.tryParse(_prizePoolController.text) ?? 0,
               startDate: _startDate,
               endDate: _endDate,
@@ -553,12 +550,6 @@ class _TournamentCreateScreenState
               TextField(
                 controller: _timeControlController,
                 decoration: const InputDecoration(labelText: 'Time control'),
-              ),
-              const SizedBox(height: 12),
-              TextField(
-                controller: _entryFeeController,
-                decoration: const InputDecoration(labelText: 'Entry fee'),
-                keyboardType: TextInputType.number,
               ),
               const SizedBox(height: 12),
               TextField(

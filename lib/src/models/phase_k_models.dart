@@ -165,9 +165,14 @@ abstract class ChallengeResult with _$ChallengeResult {
 // `Tournament`/`TournamentParticipant`/`TournamentMatch` (status vocabulary
 // 'upcoming'/'active'/'completed'/'cancelled', format
 // 'single_elimination'/'round_robin'/'swiss', nullable bye-aware player
-// slots). `entryFee`/`prizePool`/`currentParticipants`/`timeControl` have
-// no komovia_core equivalent and are kept as extra Firestore fields outside
+// slots). `prizePool`/`currentParticipants`/`timeControl` have no
+// komovia_core equivalent and are kept as extra Firestore fields outside
 // the shared model's toJson/fromJson — see `tournament_service.dart`.
+// (`entryFee` was removed entirely: it was collected in the create-
+// tournament form and persisted, but nothing ever charged a registrant
+// for it or displayed it before registering - same "stores a value that
+// does nothing" dead-field pattern as the wagerPoints field removed from
+// friend challenges.)
 // `TournamentStandings`/`TournamentRanking` below are unaffected: they're
 // computed from each participant subdocument's own points/wins/losses/
 // draws fields (also chess-specific, also kept outside the shared
