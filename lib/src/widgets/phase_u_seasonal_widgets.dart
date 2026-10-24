@@ -680,6 +680,22 @@ class ChallengeTrackerCard extends ConsumerWidget {
                                       challengeId: challenge.challengeId,
                                     );
                                 ref.invalidate(userRewardsProvider(playerId));
+                                // Previously only userRewardsProvider was
+                                // invalidated - this widget's own
+                                // "Claim Reward" vs "Reward claimed" UI is
+                                // driven by playerChallengeProgressProvider
+                                // (rewardsClaimed), so the button stayed
+                                // tappable (each tap re-running the whole
+                                // claim transaction, wastefully but
+                                // harmlessly since claimChallengeRewards
+                                // is idempotent) until something unrelated
+                                // happened to refetch it.
+                                ref.invalidate(playerChallengeProgressProvider(
+                                  PlayerChallengeParams(
+                                    playerId: playerId,
+                                    challengeId: challenge.challengeId,
+                                  ),
+                                ));
                               },
                         child: const Text('Claim Reward'),
                       ),
