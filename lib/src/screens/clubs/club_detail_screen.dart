@@ -105,6 +105,12 @@ class ClubDetailScreen extends ConsumerWidget {
       await ref.read(clubServiceProvider).joinClub(clubId);
       ref.invalidate(clubByIdProvider(clubId));
       ref.invalidate(myClubsProvider);
+      // ClubsScreen's "All Clubs" tab (allClubsProvider) stays mounted
+      // underneath this screen on the navigation stack, so its cached
+      // memberCount/join-state would otherwise still be stale after
+      // popping back - same invalidation clubs_screen.dart's own
+      // create-club flow already does.
+      ref.invalidate(allClubsProvider);
     } catch (e) {
       if (context.mounted) {
         ScaffoldMessenger.of(context)
@@ -118,6 +124,7 @@ class ClubDetailScreen extends ConsumerWidget {
       await ref.read(clubServiceProvider).leaveClub(clubId);
       ref.invalidate(clubByIdProvider(clubId));
       ref.invalidate(myClubsProvider);
+      ref.invalidate(allClubsProvider);
     } catch (e) {
       if (context.mounted) {
         ScaffoldMessenger.of(context)
