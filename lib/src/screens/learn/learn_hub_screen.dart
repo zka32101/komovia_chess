@@ -1,6 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../../models/lesson.dart' show ContentType;
+import '../../models/weakness_profile.dart';
 import '../../providers/phase_i_providers.dart';
+import '../../providers/weakness_analysis_provider.dart';
 import 'how_to_play_screen.dart';
 import 'opening_course_screen.dart';
 import 'opening_explorer_screen.dart';
@@ -15,12 +18,18 @@ class LearnHubScreen extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final summary = ref.watch(lessonCompletionSummaryProvider);
+    final weaknessAsync = ref.watch(weaknessProfileProvider);
 
     return Scaffold(
         appBar: AppBar(title: const Text('学習センター')),
         body: ListView(
           padding: const EdgeInsets.all(16),
           children: [
+            weaknessAsync.when(
+              data: (profile) => _buildWeaknessCard(context, profile),
+              loading: () => const SizedBox.shrink(),
+              error: (_, __) => const SizedBox.shrink(),
+            ),
             Text(
               '初めての方はこちら',
               style: Theme.of(context).textTheme.titleMedium?.copyWith(
@@ -109,6 +118,75 @@ class LearnHubScreen extends ConsumerWidget {
           ],
         ),
       );
+  }
+
+  /// Shows nothing until the player has had at least a handful of moves
+  /// analyzed (WeaknessProfile.hasEnoughData) - a single analyzed game
+  /// isn't enough signal to recommend anything specific yet, and an
+  /// empty/misleading recommendation would be worse than none.
+  Widget _buildWeaknessCard(BuildContext context, WeaknessProfile profile) {
+    final weakest = profile.weakestPhase;
+    if (!profile.hasEnoughData || weakest == null) {
+      return const SizedBox.shrink();
+    }
+    final stats = profile.byPhase[weakest]!;
+
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 24),
+      child: Card(
+        color: Colors.deepOrange.shade50,
+        child: InkWell(
+          borderRadius: BorderRadius.circular(12),
+          onTap: () => _openContentType(context, weakest.recommendedContentType),
+          child: Padding(
+            padding: const EdgeInsets.all(16),
+            child: Row(
+              children: [
+                const Icon(Icons.insights, color: Colors.deepOrange, size: 32),
+                const SizedBox(width: 16),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        '苦手分野: ${weakest.label}',
+                        style: const TextStyle(fontWeight: FontWeight.bold),
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        '直近${profile.gamesAnalyzed}局の分析から、'
+                        '${weakest.label}でのミスが${stats.errorCount}回見つかりました。'
+                        'おすすめのレッスンへ',
+                        style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                              color: Colors.grey.shade700,
+                            ),
+                      ),
+                    ],
+                  ),
+                ),
+                const Icon(Icons.chevron_right),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  void _openContentType(BuildContext context, ContentType type) {
+    final Widget screen;
+    switch (type) {
+      case ContentType.opening:
+        screen = const OpeningCourseScreen();
+        break;
+      case ContentType.tactic:
+        screen = const TacticsScreen();
+        break;
+      case ContentType.strategy:
+        screen = const StrategyScreen();
+        break;
+    }
+    Navigator.of(context).push(MaterialPageRoute(builder: (_) => screen));
   }
 }
 
