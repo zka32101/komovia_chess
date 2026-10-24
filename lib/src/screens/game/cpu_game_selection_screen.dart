@@ -60,14 +60,33 @@ class _CPUGameSelectionScreenState extends State<CPUGameSelectionScreen> {
 
                   // Starting position section
                   Text(
-                    '開始局面',
+                    'Starting Position',
                     style: Theme.of(context).textTheme.titleLarge?.copyWith(
                           fontWeight: FontWeight.bold,
                         ),
                   ),
+                  const SizedBox(height: 4),
+                  // Previously this whole feature's only explanation was
+                  // the short card labels themselves ("中盤から"/
+                  // "終盤から") - easy to miss as anything more than a
+                  // cosmetic toggle.
+                  Text(
+                    'Practice from a specific position instead of always '
+                    'starting from scratch.',
+                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                          color: Colors.grey.shade600,
+                        ),
+                  ),
                   const SizedBox(height: 16),
                   _buildStartingPositionOptions(),
-                  const SizedBox(height: 48),
+                  const SizedBox(height: 8),
+                  Text(
+                    _selectedStartingPosition.description,
+                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                          color: Colors.grey.shade600,
+                        ),
+                  ),
+                  const SizedBox(height: 40),
 
                   // Start button
                   SizedBox(
