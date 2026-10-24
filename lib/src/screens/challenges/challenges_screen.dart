@@ -71,10 +71,7 @@ class _PendingChallengesTab extends ConsumerWidget {
                 title: Text(isIncoming
                     ? '${challenge.challengerUsername} challenged you'
                     : 'Waiting on ${challenge.challengeeUsername}'),
-                subtitle: Text(
-                  '${challenge.timeControl}'
-                  '${challenge.wagerPoints > 0 ? ' · ${challenge.wagerPoints} pts wager' : ''}',
-                ),
+                subtitle: Text(challenge.timeControl),
                 trailing: isIncoming
                     ? Row(
                         mainAxisSize: MainAxisSize.min,

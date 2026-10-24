@@ -46,7 +46,6 @@ class FriendChallengeService {
     required String challengeeUserId,
     required String challengeeUsername,
     required String timeControl,
-    required int wagerPoints,
   }) async {
     try {
       // A Firestore auto-generated ID, not the previous
@@ -69,7 +68,6 @@ class FriendChallengeService {
         'createdAt': FieldValue.serverTimestamp(),
         'status': 'pending',
         'timeControl': timeControl,
-        'wagerPoints': wagerPoints,
         'respondedAt': null,
         'winnerId': null,
         'gameId': null,
@@ -101,7 +99,6 @@ class FriendChallengeService {
         createdAt: DateTime.now(),
         status: 'pending',
         timeControl: timeControl,
-        wagerPoints: wagerPoints,
         respondedAt: null,
         winnerId: null,
         gameId: null,

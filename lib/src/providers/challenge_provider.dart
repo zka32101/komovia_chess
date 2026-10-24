@@ -42,7 +42,6 @@ class ChallengeActionsNotifier extends StateNotifier<AsyncValue<void>> {
     required String toUserId,
     required String toUsername,
     String timeControl = '10min',
-    int wagerPoints = 0,
   }) async {
     final me = _ref.read(currentUserProvider).value;
     if (me == null) return;
@@ -55,7 +54,6 @@ class ChallengeActionsNotifier extends StateNotifier<AsyncValue<void>> {
             challengeeUserId: toUserId,
             challengeeUsername: toUsername,
             timeControl: timeControl,
-            wagerPoints: wagerPoints,
           );
       state = const AsyncValue.data(null);
     } catch (e, st) {

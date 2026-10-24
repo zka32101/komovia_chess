@@ -105,7 +105,6 @@ abstract class Challenge with _$Challenge {
     required String
         status, // 'pending', 'accepted', 'rejected', 'completed', 'cancelled'
     required String timeControl, // 'blitz', 'rapid', 'classical'
-    required int wagerPoints,
     // ignore: invalid_annotation_target
     @JsonKey(fromJson: _dateTimeFromTimestamp) required DateTime? respondedAt,
     required String? winnerId,
