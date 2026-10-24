@@ -335,4 +335,30 @@ class SoundService {
 }
 
 /// Riverpod provider for sound service
-final soundServiceProvider = Provider((ref) => SoundService());
+///
+/// Keeps the singleton [SoundService] in sync with [soundPreferencesProvider]
+/// - previously nothing ever applied a player's saved sound
+/// preferences (master toggle/category/volume) to this service at all, so
+/// every real call site that plays a sound (e.g. online_game_screen.dart)
+/// reads this provider and calls `.play()` directly, bypassing the only
+/// code path that ever applied preferences (`SoundManager.play()` in
+/// sound_manager_provider.dart, which nothing in the app actually calls).
+/// Muting sound or disabling a category in Settings had zero effect on
+/// real gameplay audio. Listening here instead of requiring every call
+/// site to go through SoundManager means preferences apply automatically
+/// the moment they're saved, with no call-site changes needed.
+final soundServiceProvider = Provider((ref) {
+  final service = SoundService();
+
+  ref.listen(soundPreferencesProvider, (previous, next) {
+    next.whenData((prefs) {
+      service.setSoundMasterEnabled(prefs.soundMasterEnabled);
+      service.setVolume(prefs.volume);
+      for (final category in SoundCategory.values) {
+        service.setCategoryEnabled(category, prefs.isCategoryEnabled(category));
+      }
+    });
+  }, fireImmediately: true);
+
+  return service;
+});

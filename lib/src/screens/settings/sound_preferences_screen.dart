@@ -114,8 +114,15 @@ class SoundPreferencesScreen extends ConsumerWidget {
                   : const Text('All sounds are muted'),
               trailing: Switch(
                 value: preferences.soundMasterEnabled,
-                onChanged: (value) {
-                  service.setSoundMasterEnabled(value);
+                onChanged: (value) async {
+                  // Previously this only fired-and-forgot the Firestore
+                  // write - nothing ever refreshed soundPreferencesProvider
+                  // (the FutureProvider this whole screen's `preferences`
+                  // comes from), so every switch/slider on this screen
+                  // appeared to do nothing when tapped within the same
+                  // session.
+                  await service.setSoundMasterEnabled(value);
+                  ref.invalidate(soundPreferencesProvider);
                 },
               ),
             ),
@@ -182,6 +189,16 @@ class SoundPreferencesScreen extends ConsumerWidget {
                         divisions: 10,
                         onChanged: preferences.soundMasterEnabled
                             ? (value) {
+                                // Update the slider's own provider
+                                // immediately for responsive dragging
+                                // (same reason as the master switch above
+                                // - previously nothing updated this at
+                                // all), persisting to Firestore
+                                // best-effort without blocking each drag
+                                // frame on a round trip.
+                                ref
+                                    .read(soundVolumeProvider.notifier)
+                                    .state = value;
                                 service.setVolume(value);
                               }
                             : null,
@@ -288,6 +305,8 @@ class SoundPreferencesScreen extends ConsumerWidget {
         value: isEnabled,
         onChanged: preferences.soundMasterEnabled
             ? (value) {
+                ref.read(soundCategoryProvider(category).notifier).state =
+                    value;
                 service.setCategoryEnabled(category, value);
               }
             : null,
