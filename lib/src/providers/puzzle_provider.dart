@@ -5,6 +5,7 @@ import '../models/puzzle.dart';
 import '../services/season_challenge_service.dart';
 import '../services/season_management_service.dart';
 import '../services/rating_calculation_service.dart';
+import '../services/battle_pass_service.dart';
 
 // Puzzle provider for loading and tracking puzzle solving
 class PuzzleService {
@@ -174,6 +175,15 @@ class PuzzleService {
               playerId: user.uid,
               seasonId: season.seasonId,
               metric: GameplayMetric.solvePuzzles,
+            );
+            // Best-effort: same dead-wiring gap as the one just fixed for
+            // CPU games - BattlePassService.addBattlePassExperience was
+            // never called from anywhere, leaving every player's battle
+            // pass level stuck at 1 forever.
+            await BattlePassService().addBattlePassExperience(
+              playerId: user.uid,
+              seasonId: season.seasonId,
+              experienceAmount: 15,
             );
           }
         } catch (_) {

@@ -1091,7 +1091,32 @@ service cloud.firestore {
 
     match /player_battle_passes/{playerId} {
       match /seasons/{seasonId} {
-        allow read, write: if isOwner(playerId);
+        allow read: if isSignedIn();
+        // Cross-user: BattlePassService.addBattlePassExperience is now
+        // also called from OnlineGameService's game-end flow for BOTH
+        // participants (whichever client happens to end the game calls
+        // it for the opponent too) - same client-trusted, bounded
+        // pattern already used for player_challenge_progress's
+        // recordMetricProgress above. Bounds match every real caller
+        // (cpu_game_provider.dart/puzzle_provider.dart/
+        // online_game_service.dart only ever grant 15-50 XP per call).
+        allow create: if isSignedIn() &&
+          request.resource.data.playerId == playerId &&
+          request.resource.data.hasPremiumPass == false &&
+          request.resource.data.claimedFreeRewards.size() == 0 &&
+          request.resource.data.claimedPremiumRewards.size() == 0 &&
+          request.resource.data.currentLevel is int &&
+          request.resource.data.currentLevel >= 1 &&
+          request.resource.data.currentLevel <= 5 &&
+          request.resource.data.currentExperience is int &&
+          request.resource.data.currentExperience >= 0;
+        allow update: if isOwner(playerId) ||
+          (isSignedIn() &&
+           onlyChanged(['currentExperience', 'currentLevel', 'updatedAt']) &&
+           request.resource.data.currentLevel is int &&
+           request.resource.data.currentLevel >= resource.data.currentLevel &&
+           request.resource.data.currentLevel - resource.data.currentLevel <= 5);
+        allow delete: if isOwner(playerId);
       }
     }
 
