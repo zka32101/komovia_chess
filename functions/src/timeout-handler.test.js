@@ -1,6 +1,6 @@
 /**
  * Covers the fix for handleGameTimeout never recording wins/losses/
- * gamesPlayed/onlineRating (or unlocking achievements) on the two
+ * gamesPlayed/rating (or unlocking achievements) on the two
  * players' `users/{uid}` docs when a game ends by server-side timeout -
  * unlike every other way a game can end, which all route through the
  * Dart client's OnlineGameService._endGameWithResult.
@@ -152,8 +152,8 @@ describe('handleGameTimeout stat recording', () => {
     jest.resetModules();
     admin = require('firebase-admin');
     fake = makeFakeFirestore({
-      white_uid: { wins: 0, losses: 0, gamesPlayed: 0, onlineRating: 1500 },
-      black_uid: { wins: 4, losses: 1, gamesPlayed: 5, onlineRating: 1600 },
+      white_uid: { wins: 0, losses: 0, gamesPlayed: 0, rating: 1500 },
+      black_uid: { wins: 4, losses: 1, gamesPlayed: 5, rating: 1600 },
     });
     admin.__setFakeDb(fake.db);
     timeoutHandler = require('./timeout-handler');
@@ -188,7 +188,7 @@ describe('handleGameTimeout stat recording', () => {
     expect(fake.users.get('white_uid').gamesPlayed).toBe(1);
   });
 
-  it('updates onlineRating for both players based on the computed rating change', async () => {
+  it('updates rating for both players based on the computed rating change', async () => {
     const batch = fake.db.batch();
     const gameRef = fake.db.collection('games').doc('game_2');
     const game = baseGame();
@@ -197,8 +197,8 @@ describe('handleGameTimeout stat recording', () => {
     await batch.commit();
 
     // White was favored on rating and won: small positive change.
-    expect(fake.users.get('white_uid').onlineRating).toBeGreaterThan(1500);
-    expect(fake.users.get('black_uid').onlineRating).toBeLessThan(1600);
+    expect(fake.users.get('white_uid').rating).toBeGreaterThan(1500);
+    expect(fake.users.get('black_uid').rating).toBeLessThan(1600);
   });
 
   it('unlocks first_win for a white player winning their first game via timeout', async () => {

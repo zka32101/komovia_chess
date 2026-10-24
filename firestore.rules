@@ -65,7 +65,7 @@ service cloud.firestore {
       // signed-in user can currently grant themselves 'premium'/'pro' (or
       // isLifetime: true) by writing these fields directly, and
       // feature_gating_service.dart will honor it immediately. Unlike the
-      // cross-user wins/losses/onlineRating write below (deliberately
+      // cross-user wins/losses/rating write below (deliberately
       // hardened against exactly this kind of tampering), these three
       // fields have no such guard - closing that for real needs a
       // receipt-verifying Cloud Function (an Admin SDK write, which
@@ -81,33 +81,37 @@ service cloud.firestore {
       allow delete: if isOwner(userId) || isAdmin();
 
       // Cross-user: OnlineGameService._endGameWithResult persists the
-      // new onlineRating, plus the shared wins/losses/draws/gamesPlayed
-      // stat fields (the same ones CpuGameProvider increments for CPU
-      // games - AchievementService reads `wins` off this doc), to BOTH
+      // new rating, plus the shared wins/losses/draws/gamesPlayed stat
+      // fields (the same ones CpuGameProvider increments for CPU games -
+      // AchievementService reads `wins` off this doc), to BOTH
       // participants when a game ends, so the caller (whichever
       // participant's resign/draw/timeout/forfeit action triggered
       // completion) is often not `userId` itself - same client-trusted
       // pattern this app already uses for other self-reported game
       // outcomes, narrowed to just these fields so nothing else about
-      // another user's document can be touched this way.
+      // another user's document can be touched this way. `rating` is
+      // the single canonical rating both CPU and online games write
+      // (see UserModel.rating's doc comment) - previously this wrote a
+      // separate `onlineRating` field, never reconciled with the
+      // CPU-game `rating` the leaderboard actually sorts by.
       //
       // Previously this had no further shape requirement, so any
       // signed-in stranger (not just a real opponent) could call
-      // `users/{victim}.update({onlineRating: 0, losses: 999999})`
+      // `users/{victim}.update({rating: 0, losses: 999999})`
       // directly with no game in common at all - pure griefing/
       // leaderboard manipulation. Now requires this to look like exactly
       // one real game's worth of bookkeeping: gamesPlayed increases by
       // exactly 1, exactly one of wins/losses/draws increases by exactly
-      // 1 (the others, if present at all, unchanged), and onlineRating
+      // 1 (the others, if present at all, unchanged), and rating
       // moves by a bounded amount in one call (±64 covers this app's own
       // K-factor-based rating-system.js/rating_calculator.dart output
       // with headroom; a legitimate single game can never swing a rating
       // further than that).
       allow update: if isSignedIn() &&
-        onlyChanged(['onlineRating', 'wins', 'losses', 'draws', 'gamesPlayed']) &&
+        onlyChanged(['rating', 'wins', 'losses', 'draws', 'gamesPlayed']) &&
         request.resource.data.gamesPlayed == resource.data.gamesPlayed + 1 &&
-        (request.resource.data.onlineRating - resource.data.get('onlineRating', 0)) >= -64 &&
-        (request.resource.data.onlineRating - resource.data.get('onlineRating', 0)) <= 64 &&
+        (request.resource.data.rating - resource.data.get('rating', 1500)) >= -64 &&
+        (request.resource.data.rating - resource.data.get('rating', 1500)) <= 64 &&
         (
           (request.resource.data.get('wins', 0) == resource.data.get('wins', 0) + 1 &&
             request.resource.data.get('losses', 0) == resource.data.get('losses', 0) &&
@@ -581,7 +585,7 @@ service cloud.firestore {
         // another user's stats (whitePlayerId/blackPlayerId are the
         // literal strings 'player'/'cpu') - gameEndIsValid()'s
         // winner/loser shape only matters for real PvP games, where a
-        // forged result flows into another real player's onlineRating.
+        // forged result flows into another real player's rating.
         (resource.data.type == 'cpu' || gameEndIsValid()) &&
         takebackFieldValid() &&
         activityTimestampsValid();

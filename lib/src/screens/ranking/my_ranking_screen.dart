@@ -177,12 +177,18 @@ class MyRankingScreen extends ConsumerWidget {
                         overflow: TextOverflow.ellipsis,
                       ),
                       const SizedBox(height: 8),
-                      if (user.shogiRank != null)
-                        ShogiRankDisplay(
-                          rank: user.shogiRank!,
-                          eloRating: user.rating,
-                          compact: false,
-                        ),
+                      // `UserModel.shogiRank` is never written anywhere
+                      // in the app (confirmed: no caller sets it) - it
+                      // always reads as null, so the `!= null` guard
+                      // this used to have meant the rank display here
+                      // never actually rendered at all. Compute it live
+                      // from `rating`, same as every other screen that
+                      // shows a kyu/dan rank (e.g. leaderboard_screen.dart).
+                      ShogiRankDisplay(
+                        rank: ShogiRankService.calculateRank(user.rating),
+                        eloRating: user.rating,
+                        compact: false,
+                      ),
                     ],
                   ),
                 ),

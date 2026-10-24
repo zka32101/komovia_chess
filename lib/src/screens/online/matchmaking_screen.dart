@@ -423,7 +423,7 @@ class _MatchmakingScreenState extends ConsumerState<MatchmakingScreen> {
             playerName: user.displayName ?? 'Anonymous',
             // Online matchmaking is matched on the online rating track,
             // not the separate CPU-game `rating` field.
-            currentRating: userProfile?.onlineRating ?? 1500,
+            currentRating: userProfile?.rating ?? 1500,
             timeControlType: _selectedTimeControl,
             color: _selectedColor,
           );
