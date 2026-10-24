@@ -683,7 +683,9 @@ service cloud.firestore {
       // unaffected) - so getActiveChallenges/getChallengeHistory now run
       // two separately-equality-filtered queries (one per uid field)
       // instead of one broader query, each of which satisfies this rule
-      // on its own. getPendingChallenges already queried this way.
+      // on its own. getPendingChallenges now queries this way too (it
+      // only queried the challengee side before, so a user's own sent
+      // challenges never appeared/were cancellable anywhere in the UI).
       allow read: if isSignedIn() &&
         (resource.data.challengerUserId == request.auth.uid ||
          resource.data.challengeeUserId == request.auth.uid);
