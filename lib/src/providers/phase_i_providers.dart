@@ -27,14 +27,21 @@ final lessonProgressProvider = Provider.family<UserLessonProgress?,
 });
 
 /// How many pieces of content the user has marked completed, out of how
-/// many they have started - used for a simple completion badge on the
-/// learn hub.
+/// many they have started, plus their average self-assessment rating
+/// (1-5) across whatever lessons they've actually rated - used for a
+/// simple completion/mastery badge on the learn hub. 0 when nothing's
+/// been rated yet, distinct from "rated 0" (ratings are clamped to 1-5
+/// at write time, so a real average is never exactly 0).
 final lessonCompletionSummaryProvider =
-    Provider<({int completed, int started})>((ref) {
+    Provider<({int completed, int started, double averageMastery})>((ref) {
   final all = ref.watch(userLessonProgressProvider).value ?? const [];
   final completed =
       all.where((p) => p.status == LessonStatus.completed).length;
-  return (completed: completed, started: all.length);
+  final rated = all.where((p) => p.selfAssessmentScore > 0).toList();
+  final averageMastery = rated.isEmpty
+      ? 0.0
+      : rated.fold(0.0, (sum, p) => sum + p.selfAssessmentScore) / rated.length;
+  return (completed: completed, started: all.length, averageMastery: averageMastery);
 });
 
 /// Action provider for marking a piece of content as opened/completed.
@@ -69,6 +76,21 @@ class LessonProgressActions {
           contentType: contentType,
           contentId: contentId,
           percentageComplete: 100,
+        );
+  }
+
+  Future<void> rateSelfAssessment({
+    required String contentType,
+    required String contentId,
+    required double score,
+  }) async {
+    final user = _ref.read(currentUserProvider).value;
+    if (user == null) return;
+    await _ref.read(chessLessonsServiceProvider).setSelfAssessmentScore(
+          userId: user.uid,
+          contentType: contentType,
+          contentId: contentId,
+          score: score,
         );
   }
 }
