@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../models/puzzle.dart';
 import '../services/season_challenge_service.dart';
 import '../services/season_management_service.dart';
+import '../services/seasonal_event_service.dart';
 import '../services/rating_calculation_service.dart';
 import '../services/battle_pass_service.dart';
 
@@ -184,6 +185,13 @@ class PuzzleService {
               playerId: user.uid,
               seasonId: season.seasonId,
               experienceAmount: 15,
+            );
+            // Best-effort: same dead-wiring gap - SeasonalEventService.
+            // updateEventScore was never called from anywhere either.
+            await SeasonalEventService().recordEventScoreProgress(
+              playerId: user.uid,
+              seasonId: season.seasonId,
+              scoreIncrease: 5,
             );
           }
         } catch (_) {

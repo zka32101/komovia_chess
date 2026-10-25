@@ -10,6 +10,7 @@ import '../services/ai_opponent_engine.dart';
 import '../services/stockfish_engine_service.dart';
 import '../services/season_challenge_service.dart';
 import '../services/season_management_service.dart';
+import '../services/seasonal_event_service.dart';
 import '../services/battle_pass_service.dart';
 import '../services/achievement_service.dart';
 import '../services/match_history_service.dart';
@@ -431,6 +432,20 @@ class CpuGameNotifier extends StateNotifier<CpuGameState> {
           );
         } catch (e) {
           debugPrint('Error awarding battle pass experience: $e');
+        }
+
+        // Best-effort: same dead-wiring gap - SeasonalEventService.
+        // updateEventScore was never called from anywhere, so every
+        // seasonal event's leaderboard/rank-gated rewards stayed frozen
+        // at currentScore: 0 for every participant regardless of play.
+        try {
+          await SeasonalEventService().recordEventScoreProgress(
+            playerId: user.uid,
+            seasonId: season.seasonId,
+            scoreIncrease: playerResult == 'win' ? 20 : 5,
+          );
+        } catch (e) {
+          debugPrint('Error recording event score progress: $e');
         }
       }
 

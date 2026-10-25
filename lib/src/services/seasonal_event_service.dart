@@ -216,6 +216,53 @@ class SeasonalEventService {
     }
   }
 
+  /// Advances [playerId]'s score in every currently-active event of
+  /// [seasonId] they've joined and haven't withdrawn from, by
+  /// [scoreIncrease]. Mirrors SeasonChallengeService.recordMetricProgress's
+  /// wiring pattern (called from the exact same gameplay-completion
+  /// hooks - online PvP win/loss/draw, CPU-game win/loss/draw, puzzle
+  /// solve) but for event score instead of challenge progress.
+  /// Previously nothing in the app ever called [updateEventScore], so
+  /// every event participant's `currentScore` stayed permanently at 0 no
+  /// matter how much they actually played during the event window -
+  /// event leaderboards/rank-gated rewards were dead on arrival.
+  /// Best-effort: a failure here never blocks the game/puzzle flow that
+  /// triggered it.
+  Future<void> recordEventScoreProgress({
+    required String playerId,
+    required String seasonId,
+    required int scoreIncrease,
+  }) async {
+    try {
+      final activeEventIds = (await getActiveEvents(seasonId: seasonId))
+          .map((e) => e.eventId)
+          .toSet();
+      if (activeEventIds.isEmpty) return;
+
+      final snapshot = await _firestore
+          .collection(_playerEventCollection)
+          .doc(playerId)
+          .collection('events')
+          .where('seasonId', isEqualTo: seasonId)
+          .where('hasWithdrawn', isEqualTo: false)
+          .get();
+
+      for (final doc in snapshot.docs) {
+        final eventId = doc.data()['eventId'] as String?;
+        if (eventId == null || !activeEventIds.contains(eventId)) continue;
+        await updateEventScore(
+          playerId: playerId,
+          eventId: eventId,
+          scoreIncrease: scoreIncrease,
+        );
+      }
+    } catch (e, st) {
+      _logger.e('Failed to record event score progress',
+          error: e, stackTrace: st);
+      // Best-effort; never block the game/puzzle flow that triggered this.
+    }
+  }
+
   /// Get event leaderboard
   Future<List<EventLeaderboardEntry>> getEventLeaderboard(
     String eventId, {
