@@ -693,5 +693,40 @@
     "placeholders": {
       "percent": { "type": "String" }
     }
+  },
+
+  "clubsTitle": "Clubs",
+  "clubsAllClubsTab": "All Clubs",
+  "clubsMyClubsTab": "My Clubs",
+  "clubsNoClubsYetMessage": "No clubs yet - be the first to create one!",
+  "clubsNotJoinedAnyMessage": "You haven't joined any clubs yet.",
+  "clubsLoadFailedMessage": "Failed to load clubs: {error}",
+  "@clubsLoadFailedMessage": {
+    "placeholders": {
+      "error": { "type": "String" }
+    }
+  },
+  "clubsMemberCountLabel": "{count} member",
+  "@clubsMemberCountLabel": {
+    "placeholders": {
+      "count": { "type": "int" }
+    }
+  },
+  "clubsMembersCountLabel": "{count} members",
+  "@clubsMembersCountLabel": {
+    "placeholders": {
+      "count": { "type": "int" }
+    }
+  },
+  "clubsCreateClubTitle": "Create a Club",
+  "clubsClubNameLabel": "Club name",
+  "clubsDescriptionOptionalLabel": "Description (optional)",
+  "clubsCancelButton": "Cancel",
+  "clubsCreateButton": "Create",
+  "clubsCreateFailedMessage": "Failed to create club: {error}",
+  "@clubsCreateFailedMessage": {
+    "placeholders": {
+      "error": { "type": "String" }
+    }
   }
 }

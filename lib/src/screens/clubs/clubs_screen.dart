@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../models/club.dart';
 import '../../providers/club_provider.dart';
 import 'club_detail_screen.dart';
+import '../../../l10n/app_localizations.dart';
 
 /// Browse all clubs, see the ones you've joined, and create a new one
 /// (③ from the "次の機能案" feature survey).
@@ -18,66 +19,80 @@ class _ClubsScreenState extends ConsumerState<ClubsScreen> {
   int _tab = 0; // 0: All Clubs, 1: My Clubs
 
   @override
-  Widget build(BuildContext context) => Scaffold(
-        appBar: AppBar(
-          title: const Text('Clubs'),
-          centerTitle: true,
-          elevation: 0,
-        ),
-        floatingActionButton: FloatingActionButton(
-          onPressed: () => _showCreateClubDialog(context),
-          child: const Icon(Icons.add),
-        ),
-        body: SafeArea(
-          child: Column(
-            children: [
-              Padding(
-                padding: const EdgeInsets.all(16),
-                child: Row(
-                  children: [
-                    Expanded(
-                      child: ChoiceChip(
-                        label: const Text('All Clubs'),
-                        selected: _tab == 0,
-                        onSelected: (_) => setState(() => _tab = 0),
-                      ),
-                    ),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      child: ChoiceChip(
-                        label: const Text('My Clubs'),
-                        selected: _tab == 1,
-                        onSelected: (_) => setState(() => _tab = 1),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              Expanded(child: _tab == 0 ? _buildAllClubs() : _buildMyClubs()),
-            ],
-          ),
-        ),
-      );
+  Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
 
-  Widget _buildAllClubs() {
+    return Scaffold(
+      appBar: AppBar(
+        title: Text(l10n.clubsTitle),
+        centerTitle: true,
+        elevation: 0,
+      ),
+      floatingActionButton: FloatingActionButton(
+        onPressed: () => _showCreateClubDialog(context, l10n),
+        child: const Icon(Icons.add),
+      ),
+      body: SafeArea(
+        child: Column(
+          children: [
+            Padding(
+              padding: const EdgeInsets.all(16),
+              child: Row(
+                children: [
+                  Expanded(
+                    child: ChoiceChip(
+                      label: Text(l10n.clubsAllClubsTab),
+                      selected: _tab == 0,
+                      onSelected: (_) => setState(() => _tab = 0),
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: ChoiceChip(
+                      label: Text(l10n.clubsMyClubsTab),
+                      selected: _tab == 1,
+                      onSelected: (_) => setState(() => _tab = 1),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            Expanded(
+                child:
+                    _tab == 0 ? _buildAllClubs(l10n) : _buildMyClubs(l10n)),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildAllClubs(AppLocalizations l10n) {
     final clubsAsync = ref.watch(allClubsProvider);
     return clubsAsync.when(
-      data: (clubs) => _buildClubList(clubs, emptyMessage: 'No clubs yet - be the first to create one!'),
+      data: (clubs) => _buildClubList(clubs,
+          emptyMessage: l10n.clubsNoClubsYetMessage, l10n: l10n),
       loading: () => const Center(child: CircularProgressIndicator()),
-      error: (e, _) => Center(child: Text('Failed to load clubs: $e')),
+      error: (e, _) =>
+          Center(child: Text(l10n.clubsLoadFailedMessage(e.toString()))),
     );
   }
 
-  Widget _buildMyClubs() {
+  Widget _buildMyClubs(AppLocalizations l10n) {
     final clubsAsync = ref.watch(myClubsProvider);
     return clubsAsync.when(
-      data: (clubs) => _buildClubList(clubs, emptyMessage: "You haven't joined any clubs yet."),
+      data: (clubs) => _buildClubList(clubs,
+          emptyMessage: l10n.clubsNotJoinedAnyMessage, l10n: l10n),
       loading: () => const Center(child: CircularProgressIndicator()),
-      error: (e, _) => Center(child: Text('Failed to load clubs: $e')),
+      error: (e, _) =>
+          Center(child: Text(l10n.clubsLoadFailedMessage(e.toString()))),
     );
   }
 
-  Widget _buildClubList(List<Club> clubs, {required String emptyMessage}) {
+  Widget _buildClubList(
+    List<Club> clubs, {
+    required String emptyMessage,
+    required AppLocalizations l10n,
+  }) {
     if (clubs.isEmpty) {
       return Center(child: Text(emptyMessage, textAlign: TextAlign.center));
     }
@@ -94,7 +109,9 @@ class _ClubsScreenState extends ConsumerState<ClubsScreen> {
             subtitle: Text(
               club.description.isNotEmpty
                   ? club.description
-                  : '${club.memberCount} member${club.memberCount == 1 ? '' : 's'}',
+                  : (club.memberCount == 1
+                      ? l10n.clubsMemberCountLabel(club.memberCount)
+                      : l10n.clubsMembersCountLabel(club.memberCount)),
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
             ),
@@ -112,31 +129,32 @@ class _ClubsScreenState extends ConsumerState<ClubsScreen> {
     );
   }
 
-  void _showCreateClubDialog(BuildContext context) {
+  void _showCreateClubDialog(BuildContext context, AppLocalizations l10n) {
     final nameController = TextEditingController();
     final descriptionController = TextEditingController();
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text('Create a Club'),
+        title: Text(l10n.clubsCreateClubTitle),
         content: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
             TextField(
               controller: nameController,
-              decoration: const InputDecoration(labelText: 'Club name'),
+              decoration: InputDecoration(labelText: l10n.clubsClubNameLabel),
               autofocus: true,
             ),
             TextField(
               controller: descriptionController,
-              decoration: const InputDecoration(labelText: 'Description (optional)'),
+              decoration: InputDecoration(
+                  labelText: l10n.clubsDescriptionOptionalLabel),
             ),
           ],
         ),
         actions: [
           TextButton(
             onPressed: () => Navigator.of(context).pop(),
-            child: const Text('Cancel'),
+            child: Text(l10n.clubsCancelButton),
           ),
           FilledButton(
             onPressed: () async {
@@ -157,12 +175,14 @@ class _ClubsScreenState extends ConsumerState<ClubsScreen> {
               } catch (e) {
                 if (context.mounted) {
                   ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(content: Text('Failed to create club: $e')),
+                    SnackBar(
+                        content: Text(l10n.clubsCreateFailedMessage(
+                            e.toString()))),
                   );
                 }
               }
             },
-            child: const Text('Create'),
+            child: Text(l10n.clubsCreateButton),
           ),
         ],
       ),
