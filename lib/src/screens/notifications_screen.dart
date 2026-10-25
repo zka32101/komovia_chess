@@ -6,6 +6,7 @@ import '../providers/notification_provider.dart';
 import 'challenges/challenges_screen.dart';
 import 'friends/friends_screen.dart';
 import 'online/online_game_screen.dart';
+import '../../l10n/app_localizations.dart';
 
 // `AppNotification.type` is a plain string (komovia_core doesn't define
 // a fixed enum of notification types - see its own doc comments), so the
@@ -87,18 +88,18 @@ _NotificationCategory _categoryForType(String type) {
   }
 }
 
-String _labelForCategory(_NotificationCategory category) {
+String _labelForCategory(_NotificationCategory category, AppLocalizations l10n) {
   switch (category) {
     case _NotificationCategory.all:
-      return 'All';
+      return l10n.notificationsCategoryAll;
     case _NotificationCategory.friends:
-      return 'Friends';
+      return l10n.notificationsCategoryFriends;
     case _NotificationCategory.challenges:
-      return 'Challenges';
+      return l10n.notificationsCategoryChallenges;
     case _NotificationCategory.games:
-      return 'Games';
+      return l10n.notificationsCategoryGames;
     case _NotificationCategory.other:
-      return 'Other';
+      return l10n.notificationsCategoryOther;
   }
 }
 
@@ -117,10 +118,11 @@ class _NotificationsScreenState extends ConsumerState<NotificationsScreen> {
   @override
   Widget build(BuildContext context) {
     final userAsync = ref.watch(currentUserProvider);
+    final l10n = AppLocalizations.of(context);
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Notifications'),
+        title: Text(l10n.notificationsTitle),
         centerTitle: true,
         elevation: 0,
         actions: [
@@ -135,17 +137,17 @@ class _NotificationsScreenState extends ConsumerState<NotificationsScreen> {
                   if (value == 'mark_all_read') {
                     await service.markAllAsRead(user.uid);
                   } else if (value == 'delete_all') {
-                    _showDeleteAllDialog(context, ref, user.uid);
+                    _showDeleteAllDialog(context, ref, user.uid, l10n);
                   }
                 },
                 itemBuilder: (context) => <PopupMenuEntry<String>>[
-                  const PopupMenuItem<String>(
+                  PopupMenuItem<String>(
                     value: 'mark_all_read',
-                    child: Text('Mark all as read'),
+                    child: Text(l10n.notificationsMarkAllReadMenuItem),
                   ),
-                  const PopupMenuItem<String>(
+                  PopupMenuItem<String>(
                     value: 'delete_all',
-                    child: Text('Delete all'),
+                    child: Text(l10n.notificationsDeleteAllMenuItem),
                   ),
                 ],
               );
@@ -158,21 +160,21 @@ class _NotificationsScreenState extends ConsumerState<NotificationsScreen> {
           child: CircularProgressIndicator(),
         ),
         error: (error, stack) => Center(
-          child: Text('Error: $error'),
+          child: Text(l10n.notificationsErrorMessage(error.toString())),
         ),
         data: (user) {
           if (user == null) {
-            return const Center(
-              child: Text('Please log in to view notifications'),
+            return Center(
+              child: Text(l10n.notificationsLoginRequiredMessage),
             );
           }
-          return _buildNotificationsList(context, ref, user.uid);
+          return _buildNotificationsList(context, ref, user.uid, l10n);
         },
       ),
     );
   }
 
-  Widget _buildCategoryFilterBar() {
+  Widget _buildCategoryFilterBar(AppLocalizations l10n) {
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
       child: SizedBox(
@@ -184,7 +186,7 @@ class _NotificationsScreenState extends ConsumerState<NotificationsScreen> {
             return Padding(
               padding: const EdgeInsets.only(right: 8),
               child: ChoiceChip(
-                label: Text(_labelForCategory(category)),
+                label: Text(_labelForCategory(category, l10n)),
                 selected: selected,
                 onSelected: (_) =>
                     setState(() => _selectedCategory = category),
@@ -197,7 +199,11 @@ class _NotificationsScreenState extends ConsumerState<NotificationsScreen> {
   }
 
   Widget _buildNotificationsList(
-      BuildContext context, WidgetRef ref, String userId) {
+    BuildContext context,
+    WidgetRef ref,
+    String userId,
+    AppLocalizations l10n,
+  ) {
     final notificationsAsync = ref.watch(firebaseNotificationsProvider(userId));
 
     return notificationsAsync.when(
@@ -205,7 +211,7 @@ class _NotificationsScreenState extends ConsumerState<NotificationsScreen> {
         child: CircularProgressIndicator(),
       ),
       error: (error, stack) => Center(
-        child: Text('Error loading notifications: $error'),
+        child: Text(l10n.notificationsLoadErrorMessage(error.toString())),
       ),
       data: (batch) {
         final allNotifications = batch?.notifications ?? const [];
@@ -228,7 +234,7 @@ class _NotificationsScreenState extends ConsumerState<NotificationsScreen> {
                 ),
                 const SizedBox(height: 16),
                 Text(
-                  'No notifications',
+                  l10n.notificationsNoNotificationsMessage,
                   style: Theme.of(context).textTheme.bodyLarge?.copyWith(
                         color: Colors.grey[600],
                       ),
@@ -240,12 +246,15 @@ class _NotificationsScreenState extends ConsumerState<NotificationsScreen> {
 
         return Column(
           children: [
-            _buildCategoryFilterBar(),
+            _buildCategoryFilterBar(l10n),
             Expanded(
               child: filtered.isEmpty
                   ? Center(
                       child: Text(
-                        'No ${_labelForCategory(_selectedCategory).toLowerCase()} notifications',
+                        l10n.notificationsNoCategoryNotificationsMessage(
+                          _labelForCategory(_selectedCategory, l10n)
+                              .toLowerCase(),
+                        ),
                         style: Theme.of(context)
                             .textTheme
                             .bodyLarge
@@ -266,7 +275,7 @@ class _NotificationsScreenState extends ConsumerState<NotificationsScreen> {
                         itemBuilder: (context, index) {
                           final notification = filtered[index];
                           return _buildNotificationTile(
-                              context, ref, notification, userId);
+                              context, ref, notification, userId, l10n);
                         },
                       ),
                     ),
@@ -282,6 +291,7 @@ class _NotificationsScreenState extends ConsumerState<NotificationsScreen> {
     WidgetRef ref,
     AppNotification notification,
     String userId,
+    AppLocalizations l10n,
   ) {
     final service = ref.read(notificationServiceProvider);
 
@@ -294,7 +304,7 @@ class _NotificationsScreenState extends ConsumerState<NotificationsScreen> {
           }
           final actionUrl = notification.data?['actionUrl'] as String?;
           if (actionUrl != null) {
-            _navigateToAction(context, actionUrl);
+            _navigateToAction(context, actionUrl, l10n);
           }
         },
         child: Container(
@@ -362,7 +372,7 @@ class _NotificationsScreenState extends ConsumerState<NotificationsScreen> {
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
                         Text(
-                          _formatTime(notification.createdAt),
+                          _formatTime(notification.createdAt, l10n),
                           style:
                               Theme.of(context).textTheme.labelSmall?.copyWith(
                                     color: Colors.grey[500],
@@ -379,7 +389,7 @@ class _NotificationsScreenState extends ConsumerState<NotificationsScreen> {
                                   );
                                 },
                                 icon: const Icon(Icons.done_all, size: 16),
-                                label: const Text('Mark read'),
+                                label: Text(l10n.notificationsMarkReadButton),
                                 style: TextButton.styleFrom(
                                   padding: EdgeInsets.zero,
                                   tapTargetSize:
@@ -394,7 +404,7 @@ class _NotificationsScreenState extends ConsumerState<NotificationsScreen> {
                                 );
                               },
                               icon: const Icon(Icons.delete, size: 16),
-                              label: const Text('Delete'),
+                              label: Text(l10n.notificationsDeleteButton),
                               style: TextButton.styleFrom(
                                 padding: EdgeInsets.zero,
                                 tapTargetSize: MaterialTapTargetSize.shrinkWrap,
@@ -414,20 +424,24 @@ class _NotificationsScreenState extends ConsumerState<NotificationsScreen> {
     );
   }
 
-  String _formatTime(DateTime dateTime) {
+  String _formatTime(DateTime dateTime, AppLocalizations l10n) {
     final now = DateTime.now();
     final difference = now.difference(dateTime);
 
     if (difference.inSeconds < 60) {
-      return 'just now';
+      return l10n.notificationsJustNowLabel;
     } else if (difference.inMinutes < 60) {
-      return '${difference.inMinutes}m ago';
+      return l10n.notificationsMinutesAgoLabel(difference.inMinutes);
     } else if (difference.inHours < 24) {
-      return '${difference.inHours}h ago';
+      return l10n.notificationsHoursAgoLabel(difference.inHours);
     } else if (difference.inDays < 7) {
-      return '${difference.inDays}d ago';
+      return l10n.notificationsDaysAgoLabel(difference.inDays);
     } else {
-      return '${dateTime.month}/${dateTime.day}/${dateTime.year}';
+      return l10n.notificationsDateLabel(
+        dateTime.month,
+        dateTime.day,
+        dateTime.year,
+      );
     }
   }
 
@@ -439,7 +453,11 @@ class _NotificationsScreenState extends ConsumerState<NotificationsScreen> {
   /// are handled; anything else falls back to a snackbar rather than
   /// silently doing nothing, so a future sender's typo is visible
   /// instead of invisible.
-  void _navigateToAction(BuildContext context, String actionUrl) {
+  void _navigateToAction(
+    BuildContext context,
+    String actionUrl,
+    AppLocalizations l10n,
+  ) {
     if (actionUrl == '/friends') {
       Navigator.of(context).push(
         MaterialPageRoute(builder: (_) => const FriendsScreen()),
@@ -464,21 +482,29 @@ class _NotificationsScreenState extends ConsumerState<NotificationsScreen> {
     }
 
     ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text('Unknown notification destination: $actionUrl')),
+      SnackBar(
+        content: Text(
+          l10n.notificationsUnknownDestinationMessage(actionUrl),
+        ),
+      ),
     );
   }
 
   void _showDeleteAllDialog(
-      BuildContext context, WidgetRef ref, String userId) {
+    BuildContext context,
+    WidgetRef ref,
+    String userId,
+    AppLocalizations l10n,
+  ) {
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text('Delete all notifications?'),
-        content: const Text('This action cannot be undone.'),
+        title: Text(l10n.notificationsDeleteAllTitle),
+        content: Text(l10n.notificationsDeleteAllConfirmation),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context),
-            child: const Text('Cancel'),
+            child: Text(l10n.notificationsCancelButton),
           ),
           FilledButton(
             onPressed: () async {
@@ -487,11 +513,11 @@ class _NotificationsScreenState extends ConsumerState<NotificationsScreen> {
               if (context.mounted) {
                 Navigator.pop(context);
                 ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(content: Text('All notifications deleted')),
+                  SnackBar(content: Text(l10n.notificationsAllDeletedMessage)),
                 );
               }
             },
-            child: const Text('Delete'),
+            child: Text(l10n.notificationsDeleteButtonAction),
           ),
         ],
       ),

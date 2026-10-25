@@ -399,5 +399,74 @@
   "tournamentsTimeControlFieldLabel": "Time control",
   "tournamentsPrizePoolFieldLabel": "Prize pool",
   "tournamentsCreateButton": "Create",
-  "tournamentsCreateFailedMessage": "Failed to create tournament"
+  "tournamentsCreateFailedMessage": "Failed to create tournament",
+
+  "notificationsTitle": "Notifications",
+  "notificationsMarkAllReadMenuItem": "Mark all as read",
+  "notificationsDeleteAllMenuItem": "Delete all",
+  "notificationsErrorMessage": "Error: {error}",
+  "@notificationsErrorMessage": {
+    "placeholders": {
+      "error": { "type": "String" }
+    }
+  },
+  "notificationsLoginRequiredMessage": "Please log in to view notifications",
+  "notificationsLoadErrorMessage": "Error loading notifications: {error}",
+  "@notificationsLoadErrorMessage": {
+    "placeholders": {
+      "error": { "type": "String" }
+    }
+  },
+  "notificationsNoNotificationsMessage": "No notifications",
+  "notificationsNoCategoryNotificationsMessage": "No {category} notifications",
+  "@notificationsNoCategoryNotificationsMessage": {
+    "placeholders": {
+      "category": { "type": "String" }
+    }
+  },
+  "notificationsCategoryAll": "All",
+  "notificationsCategoryFriends": "Friends",
+  "notificationsCategoryChallenges": "Challenges",
+  "notificationsCategoryGames": "Games",
+  "notificationsCategoryOther": "Other",
+  "notificationsMarkReadButton": "Mark read",
+  "notificationsDeleteButton": "Delete",
+  "notificationsJustNowLabel": "just now",
+  "notificationsMinutesAgoLabel": "{minutes}m ago",
+  "@notificationsMinutesAgoLabel": {
+    "placeholders": {
+      "minutes": { "type": "int" }
+    }
+  },
+  "notificationsHoursAgoLabel": "{hours}h ago",
+  "@notificationsHoursAgoLabel": {
+    "placeholders": {
+      "hours": { "type": "int" }
+    }
+  },
+  "notificationsDaysAgoLabel": "{days}d ago",
+  "@notificationsDaysAgoLabel": {
+    "placeholders": {
+      "days": { "type": "int" }
+    }
+  },
+  "notificationsDateLabel": "{month}/{day}/{year}",
+  "@notificationsDateLabel": {
+    "placeholders": {
+      "month": { "type": "int" },
+      "day": { "type": "int" },
+      "year": { "type": "int" }
+    }
+  },
+  "notificationsUnknownDestinationMessage": "Unknown notification destination: {actionUrl}",
+  "@notificationsUnknownDestinationMessage": {
+    "placeholders": {
+      "actionUrl": { "type": "String" }
+    }
+  },
+  "notificationsDeleteAllTitle": "Delete all notifications?",
+  "notificationsDeleteAllConfirmation": "This action cannot be undone.",
+  "notificationsCancelButton": "Cancel",
+  "notificationsDeleteButtonAction": "Delete",
+  "notificationsAllDeletedMessage": "All notifications deleted"
 }
