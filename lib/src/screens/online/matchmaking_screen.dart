@@ -7,6 +7,7 @@ import '../../providers/online_game_provider.dart';
 import '../../providers/premium_provider.dart';
 import '../premium/premium_screen.dart';
 import 'online_game_screen.dart';
+import '../../../l10n/app_localizations.dart';
 
 /// Screen for matchmaking queue management
 class MatchmakingScreen extends ConsumerStatefulWidget {
@@ -42,15 +43,16 @@ class _MatchmakingScreenState extends ConsumerState<MatchmakingScreen> {
   @override
   Widget build(BuildContext context) {
     final queueStats = ref.watch(queueStatsProvider);
+    final l10n = AppLocalizations.of(context);
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Find Opponent'),
+        title: Text(l10n.matchmakingFindOpponentTitle),
         elevation: 0,
       ),
       body: _isSearching
-          ? _buildSearchingState(context)
-          : _buildInitialState(context, queueStats),
+          ? _buildSearchingState(context, l10n)
+          : _buildInitialState(context, queueStats, l10n),
     );
   }
 
@@ -58,26 +60,27 @@ class _MatchmakingScreenState extends ConsumerState<MatchmakingScreen> {
   Widget _buildInitialState(
     BuildContext context,
     AsyncValue<Map<String, dynamic>> queueStats,
+    AppLocalizations l10n,
   ) =>
       ListView(
         padding: const EdgeInsets.all(16),
         children: [
           // Time Control Selection
-          _buildSectionTitle('Time Control'),
-          _buildTimeControlSelector(),
+          _buildSectionTitle(l10n.matchmakingTimeControlSectionTitle),
+          _buildTimeControlSelector(l10n),
           const SizedBox(height: 24),
 
           // Color Selection
-          _buildSectionTitle('Preferred Color'),
-          _buildColorSelector(),
+          _buildSectionTitle(l10n.matchmakingPreferredColorSectionTitle),
+          _buildColorSelector(l10n),
           const SizedBox(height: 24),
 
           // Queue Statistics
-          _buildSectionTitle('Queue Status'),
+          _buildSectionTitle(l10n.matchmakingQueueStatusSectionTitle),
           queueStats.when(
-            data: _buildQueueStats,
+            data: (stats) => _buildQueueStats(stats, l10n),
             loading: () => const Center(child: CircularProgressIndicator()),
-            error: (err, st) => Text('Error: $err'),
+            error: (err, st) => Text(l10n.matchmakingErrorMessage(err.toString())),
           ),
           const SizedBox(height: 32),
 
@@ -85,7 +88,7 @@ class _MatchmakingScreenState extends ConsumerState<MatchmakingScreen> {
           ElevatedButton.icon(
             onPressed: _startSearch,
             icon: const Icon(Icons.search),
-            label: const Text('Find Opponent'),
+            label: Text(l10n.matchmakingFindOpponentButton),
             style: ElevatedButton.styleFrom(
               padding: const EdgeInsets.symmetric(vertical: 16),
               backgroundColor: Colors.blue,
@@ -96,9 +99,9 @@ class _MatchmakingScreenState extends ConsumerState<MatchmakingScreen> {
       );
 
   /// Searching state: Show spinner and match notification
-  Widget _buildSearchingState(BuildContext context) {
+  Widget _buildSearchingState(BuildContext context, AppLocalizations l10n) {
     if (_currentQueueId != null) {
-      return _buildQueueWaitingState(context);
+      return _buildQueueWaitingState(context, l10n);
     }
 
     return Center(
@@ -111,20 +114,20 @@ class _MatchmakingScreenState extends ConsumerState<MatchmakingScreen> {
             child: CircularProgressIndicator(strokeWidth: 3),
           ),
           const SizedBox(height: 24),
-          const Text(
-            'Searching for opponent...',
-            style: TextStyle(fontSize: 18, fontWeight: FontWeight.w500),
+          Text(
+            l10n.matchmakingSearchingForOpponentMessage,
+            style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w500),
           ),
           const SizedBox(height: 8),
           Text(
-            'Time Control: $_selectedTimeControl',
+            l10n.matchmakingTimeControlLabel(_selectedTimeControl),
             style: TextStyle(color: Colors.grey[600]),
           ),
           const SizedBox(height: 24),
           OutlinedButton.icon(
             onPressed: _cancelSearch,
             icon: const Icon(Icons.close),
-            label: const Text('Cancel'),
+            label: Text(l10n.matchmakingCancelButton),
           ),
         ],
       ),
@@ -135,14 +138,15 @@ class _MatchmakingScreenState extends ConsumerState<MatchmakingScreen> {
   /// Uses the live [queueEntryStreamProvider] (rather than the old
   /// one-shot [queueStatusProvider]) so it reacts the moment either
   /// side's `tryMatch` poll flips this entry to 'matched'.
-  Widget _buildQueueWaitingState(BuildContext context) {
+  Widget _buildQueueWaitingState(BuildContext context, AppLocalizations l10n) {
     final entryAsync = ref.watch(queueEntryStreamProvider(_currentQueueId!));
 
     return entryAsync.when(
       data: (entry) {
         if (entry == null) {
           // Queue entry no longer exists (expired/cancelled elsewhere).
-          return _buildErrorState('Matchmaking entry no longer exists');
+          return _buildErrorState(
+              l10n.matchmakingEntryNoLongerExistsMessage, l10n);
         }
 
         // Previously nothing ever checked this - the "Waiting for
@@ -150,7 +154,7 @@ class _MatchmakingScreenState extends ConsumerState<MatchmakingScreen> {
         // no feedback, even well past the 30s timeoutAt this entry was
         // created with.
         if (entry.status == 'waiting' && entry.isExpired) {
-          return _buildTimedOutState();
+          return _buildTimedOutState(l10n);
         }
 
         if (entry.status == 'matched' && entry.matchedGameId != null) {
@@ -179,17 +183,18 @@ class _MatchmakingScreenState extends ConsumerState<MatchmakingScreen> {
                   child: CircularProgressIndicator(strokeWidth: 3),
                 ),
                 const SizedBox(height: 24),
-                const Text(
-                  'Waiting for opponent...',
-                  style: TextStyle(fontSize: 18, fontWeight: FontWeight.w500),
+                Text(
+                  l10n.matchmakingWaitingForOpponentMessage,
+                  style: const TextStyle(
+                      fontSize: 18, fontWeight: FontWeight.w500),
                 ),
                 const SizedBox(height: 16),
-                _buildQueueWaitInfo(entry),
+                _buildQueueWaitInfo(entry, l10n),
                 const SizedBox(height: 24),
                 OutlinedButton.icon(
                   onPressed: _cancelSearch,
                   icon: const Icon(Icons.close),
-                  label: const Text('Cancel'),
+                  label: Text(l10n.matchmakingCancelButton),
                 ),
               ],
             ),
@@ -197,14 +202,14 @@ class _MatchmakingScreenState extends ConsumerState<MatchmakingScreen> {
         );
       },
       loading: () => const Center(child: CircularProgressIndicator()),
-      error: (err, st) => _buildErrorState(err),
+      error: (err, st) => _buildErrorState(err, l10n),
     );
   }
 
   /// Shown once the queue entry's own timeoutAt has passed with no match
   /// found - lets the player retry instead of staring at an endless
   /// spinner or needing to notice Cancel on their own.
-  Widget _buildTimedOutState() => Center(
+  Widget _buildTimedOutState(AppLocalizations l10n) => Center(
         child: Padding(
           padding: const EdgeInsets.all(16),
           child: Column(
@@ -212,13 +217,14 @@ class _MatchmakingScreenState extends ConsumerState<MatchmakingScreen> {
             children: [
               Icon(Icons.search_off, size: 64, color: Colors.grey[400]),
               const SizedBox(height: 16),
-              const Text(
-                'No opponent found',
-                style: TextStyle(fontSize: 18, fontWeight: FontWeight.w500),
+              Text(
+                l10n.matchmakingNoOpponentFoundMessage,
+                style: const TextStyle(
+                    fontSize: 18, fontWeight: FontWeight.w500),
               ),
               const SizedBox(height: 8),
               Text(
-                'Nobody matching your rating/time control was available.',
+                l10n.matchmakingNoOpponentAvailableMessage,
                 style: TextStyle(color: Colors.grey[600]),
                 textAlign: TextAlign.center,
               ),
@@ -229,13 +235,13 @@ class _MatchmakingScreenState extends ConsumerState<MatchmakingScreen> {
                   OutlinedButton.icon(
                     onPressed: _cancelSearch,
                     icon: const Icon(Icons.close),
-                    label: const Text('Cancel'),
+                    label: Text(l10n.matchmakingCancelButton),
                   ),
                   const SizedBox(width: 16),
                   FilledButton.icon(
                     onPressed: _requeue,
                     icon: const Icon(Icons.refresh),
-                    label: const Text('Try Again'),
+                    label: Text(l10n.matchmakingTryAgainButton),
                   ),
                 ],
               ),
@@ -258,7 +264,7 @@ class _MatchmakingScreenState extends ConsumerState<MatchmakingScreen> {
   }
 
   /// Build queue wait information widget
-  Widget _buildQueueWaitInfo(MatchmakingQueueEntry entry) {
+  Widget _buildQueueWaitInfo(MatchmakingQueueEntry entry, AppLocalizations l10n) {
     final waitSeconds = entry.waitTimeSeconds;
     final minutes = waitSeconds ~/ 60;
     final seconds = waitSeconds % 60;
@@ -266,7 +272,7 @@ class _MatchmakingScreenState extends ConsumerState<MatchmakingScreen> {
     return Column(
       children: [
         Text(
-          'Wait Time: ${minutes}m ${seconds}s',
+          l10n.matchmakingWaitTimeLabel(minutes, seconds),
           style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w500),
         ),
         const SizedBox(height: 12),
@@ -277,7 +283,8 @@ class _MatchmakingScreenState extends ConsumerState<MatchmakingScreen> {
             borderRadius: BorderRadius.circular(8),
           ),
           child: Text(
-            'Searching: ±${_getRatingRangeForWait(waitSeconds)}',
+            l10n.matchmakingSearchingRangeLabel(
+                _getRatingRangeForWait(waitSeconds)),
             style: TextStyle(color: Colors.blue[900]),
           ),
         ),
@@ -294,7 +301,7 @@ class _MatchmakingScreenState extends ConsumerState<MatchmakingScreen> {
   }
 
   /// Build time control selector
-  Widget _buildTimeControlSelector() {
+  Widget _buildTimeControlSelector(AppLocalizations l10n) {
     final liveControls = ['3min', '5min', '10min'];
     // Correspondence controls (⑤ from this round's feature survey) - a
     // much larger shared time bank per side (see
@@ -315,7 +322,7 @@ class _MatchmakingScreenState extends ConsumerState<MatchmakingScreen> {
                     child: Padding(
                       padding: const EdgeInsets.symmetric(horizontal: 4),
                       child: ChoiceChip(
-                        label: Text(_timeControlLabel(control)),
+                        label: Text(_timeControlLabel(control, l10n)),
                         selected: _selectedTimeControl == control,
                         onSelected: (selected) {
                           setState(() => _selectedTimeControl = control);
@@ -332,7 +339,7 @@ class _MatchmakingScreenState extends ConsumerState<MatchmakingScreen> {
         buildRow(liveControls),
         const SizedBox(height: 8),
         Text(
-          'Correspondence',
+          l10n.matchmakingCorrespondenceLabel,
           style: TextStyle(fontSize: 12, color: Colors.grey.shade600),
         ),
         const SizedBox(height: 4),
@@ -341,18 +348,24 @@ class _MatchmakingScreenState extends ConsumerState<MatchmakingScreen> {
     );
   }
 
-  String _timeControlLabel(String control) {
+  String _timeControlLabel(String control, AppLocalizations l10n) {
     if (control.endsWith('day')) {
       final days = control.substring(0, control.length - 3);
-      return '$days day${days == '1' ? '' : 's'}';
+      return days == '1'
+          ? l10n.matchmakingDayLabel(days)
+          : l10n.matchmakingDaysLabel(days);
     }
     return control;
   }
 
   /// Build color selector
-  Widget _buildColorSelector() {
+  Widget _buildColorSelector(AppLocalizations l10n) {
     final colors = ['white', 'black', 'random'];
-    final labels = ['White', 'Black', 'Random'];
+    final labels = [
+      l10n.matchmakingColorWhite,
+      l10n.matchmakingColorBlack,
+      l10n.matchmakingColorRandom,
+    ];
 
     return Row(
       children: colors
@@ -375,20 +388,21 @@ class _MatchmakingScreenState extends ConsumerState<MatchmakingScreen> {
   }
 
   /// Build queue statistics widget
-  Widget _buildQueueStats(Map<String, dynamic> stats) => Card(
+  Widget _buildQueueStats(Map<String, dynamic> stats, AppLocalizations l10n) =>
+      Card(
         child: Padding(
           padding: const EdgeInsets.all(16),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               _buildStatRow(
-                'Total Waiting',
+                l10n.matchmakingTotalWaitingLabel,
                 (stats['totalWaiting'] as int? ?? 0).toString(),
               ),
               const Divider(),
               const SizedBox(height: 8),
-              const Text('By Time Control:',
-                  style: TextStyle(fontWeight: FontWeight.w500)),
+              Text(l10n.matchmakingByTimeControlLabel,
+                  style: const TextStyle(fontWeight: FontWeight.w500)),
               const SizedBox(height: 8),
               ...((stats['byTimeControl'] as Map<String, dynamic>?) ?? {})
                   .entries
@@ -396,7 +410,7 @@ class _MatchmakingScreenState extends ConsumerState<MatchmakingScreen> {
               const Divider(),
               const SizedBox(height: 8),
               _buildStatRow(
-                'Avg Wait Time',
+                l10n.matchmakingAvgWaitTimeLabel,
                 '${(stats['avgWaitTimeSeconds'] as double? ?? 0).toStringAsFixed(0)}s',
               ),
             ],
@@ -414,17 +428,17 @@ class _MatchmakingScreenState extends ConsumerState<MatchmakingScreen> {
       );
 
   /// Build error state widget
-  Widget _buildErrorState(Object error) => Center(
+  Widget _buildErrorState(Object error, AppLocalizations l10n) => Center(
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
             Icon(Icons.error_outline, size: 64, color: Colors.red[300]),
             const SizedBox(height: 16),
-            Text('Error: $error'),
+            Text(l10n.matchmakingErrorMessage(error.toString())),
             const SizedBox(height: 24),
             ElevatedButton(
               onPressed: _cancelSearch,
-              child: const Text('Go Back'),
+              child: Text(l10n.matchmakingGoBackButton),
             ),
           ],
         ),
@@ -457,16 +471,15 @@ class _MatchmakingScreenState extends ConsumerState<MatchmakingScreen> {
             await ref.read(canPerformActionProvider('daily_games').future);
         if (!canStart) {
           if (mounted) {
+            final l10n = AppLocalizations.of(context);
             ScaffoldMessenger.of(context).showSnackBar(
               SnackBar(
-                content: const Text(
-                  'Reached today\'s free online-game limit. Upgrade to Pro for unlimited games.',
-                ),
+                content: Text(l10n.matchmakingDailyLimitReachedMessage),
                 // Direct conversion path right where the limit is hit,
                 // instead of leaving the player to find PremiumScreen
                 // on their own via Settings.
                 action: SnackBarAction(
-                  label: 'Upgrade',
+                  label: l10n.matchmakingUpgradeButton,
                   onPressed: () => Navigator.of(context).push(
                     MaterialPageRoute(builder: (_) => const PremiumScreen()),
                   ),
@@ -484,7 +497,8 @@ class _MatchmakingScreenState extends ConsumerState<MatchmakingScreen> {
 
           final entry = await notifier.joinQueue(
             playerId: user.uid,
-            playerName: user.displayName ?? 'Anonymous',
+            playerName: user.displayName ??
+                AppLocalizations.of(context).matchmakingAnonymousFallbackName,
             // Online matchmaking is matched on the online rating track,
             // not the separate CPU-game `rating` field.
             currentRating: userProfile?.rating ?? 1500,
@@ -499,7 +513,13 @@ class _MatchmakingScreenState extends ConsumerState<MatchmakingScreen> {
         } catch (e) {
           if (mounted) {
             ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(content: Text('Error: $e')),
+              SnackBar(
+                content: Text(
+                  AppLocalizations.of(context).matchmakingErrorMessage(
+                    e.toString(),
+                  ),
+                ),
+              ),
             );
             setState(() => _isSearching = false);
           }
