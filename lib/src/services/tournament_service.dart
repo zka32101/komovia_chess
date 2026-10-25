@@ -1,6 +1,7 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/foundation.dart';
 import 'package:komovia_core/komovia_core.dart';
+import '../models/phase_k_models.dart';
 import 'firestore_time.dart';
 
 /// `Tournament`/`TournamentMatch` have no storage dependency (see

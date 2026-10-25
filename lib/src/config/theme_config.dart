@@ -317,7 +317,7 @@ class ThemeConfig {
         ),
       );
 
-  static CardTheme _buildLightCardTheme() => CardTheme(
+  static CardThemeData _buildLightCardTheme() => CardThemeData(
         color: _surfaceLight,
         elevation: 2,
         margin: const EdgeInsets.all(8),
@@ -326,7 +326,7 @@ class ThemeConfig {
         ),
       );
 
-  static CardTheme _buildDarkCardTheme() => CardTheme(
+  static CardThemeData _buildDarkCardTheme() => CardThemeData(
         color: _surfaceDark,
         elevation: 2,
         margin: const EdgeInsets.all(8),
@@ -456,9 +456,9 @@ class ThemeConfig {
     );
   }
 
-  static DialogTheme _buildDialogTheme(Brightness brightness) {
+  static DialogThemeData _buildDialogTheme(Brightness brightness) {
     final isLight = brightness == Brightness.light;
-    return DialogTheme(
+    return DialogThemeData(
       backgroundColor: isLight ? _surfaceLight : _surfaceDark,
       titleTextStyle: GoogleFonts.roboto(
         fontSize: 22,

@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:komovia_core/komovia_core.dart';
+import 'package:komovia_core/komovia_core.dart' hide GameResult;
 import '../../models/cpu_game_state.dart';
 import '../../models/online_game.dart';
 import '../../services/ai_opponent_engine.dart';

@@ -60,7 +60,7 @@ class ChessTheme {
             color: Colors.white,
           ),
         ),
-        cardTheme: CardTheme(
+        cardTheme: CardThemeData(
           color: lightSurface,
           elevation: 2,
           shape: RoundedRectangleBorder(
@@ -211,7 +211,7 @@ class ChessTheme {
             color: Colors.white,
           ),
         ),
-        cardTheme: CardTheme(
+        cardTheme: CardThemeData(
           color: darkSurface,
           elevation: 2,
           shape: RoundedRectangleBorder(
