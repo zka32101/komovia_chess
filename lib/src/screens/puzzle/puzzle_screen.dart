@@ -13,6 +13,7 @@ import '../../services/shogi_rank_service.dart';
 import '../../widgets/shogi_rank_display.dart';
 import '../premium/premium_screen.dart';
 import 'puzzle_rush_screen.dart';
+import '../../../l10n/app_localizations.dart';
 
 /// Checks this user's remaining free daily puzzle attempts
 /// (`canPerformActionProvider('daily_puzzles')`, backed by
@@ -31,16 +32,15 @@ Future<void> _startPuzzle(
       await ref.read(canPerformActionProvider('daily_puzzles').future);
   if (!canStart) {
     if (!context.mounted) return;
+    final l10n = AppLocalizations.of(context);
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
-        content: const Text(
-          'Reached today\'s free puzzle limit. Upgrade to Pro for unlimited puzzles.',
-        ),
+        content: Text(l10n.puzzleDailyLimitReachedMessage),
         // Previously a dead end - the player had to find PremiumScreen
         // on their own (via Settings). A direct "Upgrade" action right
         // where the limit is hit is the obvious conversion point.
         action: SnackBarAction(
-          label: 'Upgrade',
+          label: l10n.puzzleUpgradeButton,
           onPressed: () => Navigator.of(context).push(
             MaterialPageRoute(builder: (_) => const PremiumScreen()),
           ),
@@ -71,62 +71,66 @@ class _PuzzleScreenState extends ConsumerState<PuzzleScreen> {
   int _selectedTab = 0; // 0: Daily, 1: By Rating
 
   @override
-  Widget build(BuildContext context) => Scaffold(
-        appBar: AppBar(
-          title: const Text('Puzzles'),
-          centerTitle: true,
-          elevation: 0,
-          actions: [
-            IconButton(
-              icon: const Icon(Icons.bolt),
-              tooltip: 'Puzzle Rush',
-              onPressed: () {
-                Navigator.of(context).push(
-                  MaterialPageRoute(
-                    builder: (_) => const PuzzleRushScreen(),
+  Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
+
+    return Scaffold(
+      appBar: AppBar(
+        title: Text(l10n.puzzleTitle),
+        centerTitle: true,
+        elevation: 0,
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.bolt),
+            tooltip: l10n.puzzleRushTooltip,
+            onPressed: () {
+              Navigator.of(context).push(
+                MaterialPageRoute(
+                  builder: (_) => const PuzzleRushScreen(),
+                ),
+              );
+            },
+          ),
+        ],
+      ),
+      body: SafeArea(
+        child: Column(
+          children: [
+            // Tab selector
+            Padding(
+              padding: const EdgeInsets.all(16),
+              child: Row(
+                children: [
+                  Expanded(
+                    child: _buildTabButton(
+                      label: l10n.puzzleDailyChallengeTab,
+                      isSelected: _selectedTab == 0,
+                      onTap: () => setState(() => _selectedTab = 0),
+                    ),
                   ),
-                );
-              },
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: _buildTabButton(
+                      label: l10n.puzzleByRatingTab,
+                      isSelected: _selectedTab == 1,
+                      onTap: () => setState(() => _selectedTab = 1),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+
+            // Content
+            Expanded(
+              child: _selectedTab == 0
+                  ? _buildDailyChallengeTab(l10n)
+                  : _buildByRatingTab(l10n),
             ),
           ],
         ),
-        body: SafeArea(
-          child: Column(
-            children: [
-              // Tab selector
-              Padding(
-                padding: const EdgeInsets.all(16),
-                child: Row(
-                  children: [
-                    Expanded(
-                      child: _buildTabButton(
-                        label: 'Daily Challenge',
-                        isSelected: _selectedTab == 0,
-                        onTap: () => setState(() => _selectedTab = 0),
-                      ),
-                    ),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      child: _buildTabButton(
-                        label: 'By Rating',
-                        isSelected: _selectedTab == 1,
-                        onTap: () => setState(() => _selectedTab = 1),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-
-              // Content
-              Expanded(
-                child: _selectedTab == 0
-                    ? _buildDailyChallengeTab()
-                    : _buildByRatingTab(),
-              ),
-            ],
-          ),
-        ),
-      );
+      ),
+    );
+  }
 
   Widget _buildTabButton({
     required String label,
@@ -157,7 +161,7 @@ class _PuzzleScreenState extends ConsumerState<PuzzleScreen> {
         ),
       );
 
-  Widget _buildDailyChallengeTab() {
+  Widget _buildDailyChallengeTab(AppLocalizations l10n) {
     final dailyChallenge = ref.watch(dailyChallengeProvider);
     final puzzleStats = ref.watch(userPuzzleStatsProvider);
 
@@ -171,7 +175,7 @@ class _PuzzleScreenState extends ConsumerState<PuzzleScreen> {
           children: [
             const Icon(Icons.error_outline, size: 48, color: Colors.red),
             const SizedBox(height: 16),
-            Text('Error: $error'),
+            Text(l10n.puzzleErrorMessage(error.toString())),
           ],
         ),
       ),
@@ -183,11 +187,11 @@ class _PuzzleScreenState extends ConsumerState<PuzzleScreen> {
               children: [
                 const Icon(Icons.calendar_today, size: 48, color: Colors.grey),
                 const SizedBox(height: 16),
-                const Text('No daily challenge available'),
+                Text(l10n.puzzleNoDailyChallengeMessage),
                 const SizedBox(height: 24),
                 FilledButton(
                   onPressed: () => setState(() => _selectedTab = 1),
-                  child: const Text('Browse Puzzles'),
+                  child: Text(l10n.puzzleBrowsePuzzlesButton),
                 ),
               ],
             ),
@@ -210,9 +214,9 @@ class _PuzzleScreenState extends ConsumerState<PuzzleScreen> {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      const Text(
-                        'Your Progress',
-                        style: TextStyle(
+                      Text(
+                        l10n.puzzleYourProgressHeading,
+                        style: const TextStyle(
                           fontSize: 16,
                           fontWeight: FontWeight.bold,
                         ),
@@ -222,15 +226,15 @@ class _PuzzleScreenState extends ConsumerState<PuzzleScreen> {
                         mainAxisAlignment: MainAxisAlignment.spaceBetween,
                         children: [
                           _buildStatItem(
-                            label: 'Solved',
+                            label: l10n.puzzleSolvedLabel,
                             value: '${stats['puzzlesSolved'] ?? 0}',
                           ),
                           _buildStatItem(
-                            label: 'Streak',
+                            label: l10n.puzzleStreakLabel,
                             value: '${stats['dailyStreak'] ?? 0}',
                           ),
                           _buildStatItem(
-                            label: 'Rating',
+                            label: l10n.puzzleRatingLabel,
                             value: '${stats['puzzleRating'] ?? 1500}',
                           ),
                         ],
@@ -274,9 +278,9 @@ class _PuzzleScreenState extends ConsumerState<PuzzleScreen> {
                         Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            const Text(
-                              'Today\'s Theme',
-                              style: TextStyle(
+                            Text(
+                              l10n.puzzleTodaysThemeLabel,
+                              style: const TextStyle(
                                 fontSize: 12,
                                 color: Colors.grey,
                               ),
@@ -301,7 +305,7 @@ class _PuzzleScreenState extends ConsumerState<PuzzleScreen> {
                             borderRadius: BorderRadius.circular(20),
                           ),
                           child: Text(
-                            '${challenge.puzzleIds.length} puzzles',
+                            l10n.puzzleCountLabel(challenge.puzzleIds.length),
                             style: const TextStyle(
                               fontSize: 12,
                               fontWeight: FontWeight.w600,
@@ -312,7 +316,7 @@ class _PuzzleScreenState extends ConsumerState<PuzzleScreen> {
                     ),
                     const SizedBox(height: 16),
                     Text(
-                      'Description',
+                      l10n.puzzleDescriptionLabel,
                       style: TextStyle(
                         fontSize: 12,
                         color: Colors.grey.shade600,
@@ -320,7 +324,7 @@ class _PuzzleScreenState extends ConsumerState<PuzzleScreen> {
                     ),
                     const SizedBox(height: 8),
                     Text(
-                      'Complete today\'s puzzle set to maintain your daily streak.',
+                      l10n.puzzleStreakDescription,
                       style: TextStyle(
                         fontSize: 14,
                         color: Colors.grey.shade700,
@@ -339,7 +343,7 @@ class _PuzzleScreenState extends ConsumerState<PuzzleScreen> {
                   padding: const EdgeInsets.symmetric(vertical: 16),
                   minimumSize: const Size(double.infinity, 48),
                 ),
-                child: const Text('Start Today\'s Challenge'),
+                child: Text(l10n.puzzleStartTodaysChallengeButton),
               ),
             ],
           ),
@@ -348,14 +352,14 @@ class _PuzzleScreenState extends ConsumerState<PuzzleScreen> {
     );
   }
 
-  Widget _buildByRatingTab() => SingleChildScrollView(
+  Widget _buildByRatingTab(AppLocalizations l10n) => SingleChildScrollView(
         padding: const EdgeInsets.all(16),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const Text(
-              'Select Difficulty Range',
-              style: TextStyle(
+            Text(
+              l10n.puzzleSelectDifficultyRangeHeading,
+              style: const TextStyle(
                 fontSize: 16,
                 fontWeight: FontWeight.bold,
               ),
@@ -369,28 +373,28 @@ class _PuzzleScreenState extends ConsumerState<PuzzleScreen> {
               physics: const NeverScrollableScrollPhysics(),
               children: [
                 _buildDifficultyCard(
-                  label: 'Beginner',
+                  label: l10n.puzzleBeginnerLabel,
                   rating: '800-1200',
                   color: Colors.green,
                   minRating: 800,
                   maxRating: 1200,
                 ),
                 _buildDifficultyCard(
-                  label: 'Intermediate',
+                  label: l10n.puzzleIntermediateLabel,
                   rating: '1200-1600',
                   color: Colors.blue,
                   minRating: 1200,
                   maxRating: 1600,
                 ),
                 _buildDifficultyCard(
-                  label: 'Advanced',
+                  label: l10n.puzzleAdvancedLabel,
                   rating: '1600-2000',
                   color: Colors.orange,
                   minRating: 1600,
                   maxRating: 2000,
                 ),
                 _buildDifficultyCard(
-                  label: 'Expert',
+                  label: l10n.puzzleExpertLabel,
                   rating: '2000+',
                   color: Colors.red,
                   minRating: 2000,
@@ -652,7 +656,13 @@ class _PuzzleSolvingScreenState extends ConsumerState<PuzzleSolvingScreen> {
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Could not create share GIF: $e')),
+          SnackBar(
+            content: Text(
+              AppLocalizations.of(context).puzzleShareFailedMessage(
+                e.toString(),
+              ),
+            ),
+          ),
         );
       }
     } finally {
@@ -684,24 +694,32 @@ class _PuzzleSolvingScreenState extends ConsumerState<PuzzleSolvingScreen> {
   @override
   Widget build(BuildContext context) {
     final puzzleAsync = ref.watch(puzzleByIdProvider(_currentPuzzleId));
+    final l10n = AppLocalizations.of(context);
 
     return Scaffold(
       appBar: AppBar(
-        title: Text('Puzzle ${_puzzleIndex + 1} of ${widget.puzzleIds.length}'),
+        title: Text(
+          l10n.puzzleIndexOfTotalTitle(
+            _puzzleIndex + 1,
+            widget.puzzleIds.length,
+          ),
+        ),
         centerTitle: true,
         actions: [
           TextButton(
             onPressed: _nextPuzzle,
-            child: const Text('Skip', style: TextStyle(color: Colors.white)),
+            child: Text(l10n.puzzleSkipButton,
+                style: const TextStyle(color: Colors.white)),
           ),
         ],
       ),
       body: puzzleAsync.when(
         loading: () => const Center(child: CircularProgressIndicator()),
-        error: (error, stack) => Center(child: Text('Error: $error')),
+        error: (error, stack) =>
+            Center(child: Text(l10n.puzzleErrorMessage(error.toString()))),
         data: (puzzle) {
           if (puzzle == null) {
-            return const Center(child: Text('Puzzle not found'));
+            return Center(child: Text(l10n.puzzleNotFoundMessage));
           }
           if (_loadedPuzzleId != puzzle.id) {
             _loadPuzzle(puzzle);
@@ -715,12 +733,13 @@ class _PuzzleSolvingScreenState extends ConsumerState<PuzzleSolvingScreen> {
                   alignment: WrapAlignment.center,
                   spacing: 8,
                   children: [
-                    Chip(label: Text('Rating: ${puzzle.rating}')),
+                    Chip(
+                        label: Text(l10n.puzzleRatingChipLabel(puzzle.rating))),
                     for (final theme in puzzle.themes) Chip(label: Text(theme)),
                   ],
                 ),
                 const SizedBox(height: 12),
-                _buildFeedbackBanner(),
+                _buildFeedbackBanner(l10n),
                 const SizedBox(height: 12),
                 GameBoard(
                   gameState: _chess.rawChess,
@@ -749,15 +768,15 @@ class _PuzzleSolvingScreenState extends ConsumerState<PuzzleSolvingScreen> {
                                       strokeWidth: 2),
                                 )
                               : const Icon(Icons.share),
-                          label: const Text('Share'),
+                          label: Text(l10n.puzzleShareButton),
                         ),
                         const SizedBox(height: 8),
                         FilledButton(
                           onPressed: _nextPuzzle,
                           child: Text(
                             _puzzleIndex + 1 >= widget.puzzleIds.length
-                                ? 'Finish'
-                                : 'Next Puzzle',
+                                ? l10n.puzzleFinishButton
+                                : l10n.puzzleNextPuzzleButton,
                           ),
                         ),
                       ],
@@ -771,30 +790,30 @@ class _PuzzleSolvingScreenState extends ConsumerState<PuzzleSolvingScreen> {
     );
   }
 
-  Widget _buildFeedbackBanner() {
+  Widget _buildFeedbackBanner(AppLocalizations l10n) {
     switch (_feedback) {
       case _PuzzleFeedback.correct:
-        return const _FeedbackBanner(
-          text: 'Correct!',
+        return _FeedbackBanner(
+          text: l10n.puzzleCorrectFeedback,
           color: Colors.green,
           icon: Icons.check_circle,
         );
       case _PuzzleFeedback.wrong:
-        return const _FeedbackBanner(
-          text: 'Not quite — try again',
+        return _FeedbackBanner(
+          text: l10n.puzzleWrongFeedback,
           color: Colors.red,
           icon: Icons.cancel,
         );
       case _PuzzleFeedback.solved:
-        return const _FeedbackBanner(
-          text: 'Puzzle solved!',
+        return _FeedbackBanner(
+          text: l10n.puzzleSolvedFeedback,
           color: Colors.blue,
           icon: Icons.emoji_events,
         );
       case _PuzzleFeedback.none:
-        return const Text(
-          'Find the best move for the side to play',
-          style: TextStyle(color: Colors.grey),
+        return Text(
+          l10n.puzzleFindBestMoveMessage,
+          style: const TextStyle(color: Colors.grey),
         );
     }
   }
@@ -847,6 +866,7 @@ class PuzzleListScreen extends ConsumerWidget {
     final puzzlesAsync = ref.watch(
       puzzlesByRatingProvider((minRating: minRating, maxRating: maxRating)),
     );
+    final l10n = AppLocalizations.of(context);
 
     return Scaffold(
       appBar: AppBar(
@@ -855,10 +875,11 @@ class PuzzleListScreen extends ConsumerWidget {
       ),
       body: puzzlesAsync.when(
         loading: () => const Center(child: CircularProgressIndicator()),
-        error: (error, stack) => Center(child: Text('Error: $error')),
+        error: (error, stack) =>
+            Center(child: Text(l10n.puzzleErrorMessage(error.toString()))),
         data: (puzzles) {
           if (puzzles.isEmpty) {
-            return const Center(child: Text('No puzzles found in this range'));
+            return Center(child: Text(l10n.puzzleNoPuzzlesFoundMessage));
           }
 
           return ListView.separated(
@@ -872,8 +893,9 @@ class PuzzleListScreen extends ConsumerWidget {
                   leading: CircleAvatar(child: Text('${puzzle.rating}')),
                   title: Text(puzzle.themes.isNotEmpty
                       ? puzzle.themes.join(', ')
-                      : 'Puzzle'),
-                  subtitle: Text('${puzzle.moves.length} moves to solve'),
+                      : l10n.puzzleFallbackName),
+                  subtitle:
+                      Text(l10n.puzzleMovesToSolveLabel(puzzle.moves.length)),
                   trailing: const Icon(Icons.chevron_right),
                   onTap: () => _startPuzzle(
                     context,
