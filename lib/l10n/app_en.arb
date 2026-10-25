@@ -196,5 +196,103 @@
     "placeholders": {
       "error": { "type": "String" }
     }
+  },
+
+  "friendsTitle": "Friends",
+  "friendsTabFriends": "Friends",
+  "friendsTabRequests": "Requests",
+  "friendsTabRequestsWithCount": "Requests ({count})",
+  "@friendsTabRequestsWithCount": {
+    "placeholders": {
+      "count": { "type": "int" }
+    }
+  },
+  "friendsTabAddFriend": "Add Friend",
+  "friendsTabActivity": "Activity",
+  "friendsTabBlocked": "Blocked",
+  "friendsErrorMessage": "Error: {error}",
+  "@friendsErrorMessage": {
+    "placeholders": {
+      "error": { "type": "String" }
+    }
+  },
+  "friendsNoFriendsYetMessage": "No friends yet. Add one from the \"Add Friend\" tab.",
+  "friendsSinceLabel": "Friends since {date}",
+  "@friendsSinceLabel": {
+    "placeholders": {
+      "date": { "type": "String" }
+    }
+  },
+  "friendsMessageTooltip": "Message",
+  "friendsChallengeTooltip": "Challenge",
+  "friendsRemoveFriendMenuItem": "Remove friend",
+  "friendsBlockMenuItem": "Block",
+  "friendsChallengeSentMessage": "Challenge sent to {displayName}",
+  "@friendsChallengeSentMessage": {
+    "placeholders": {
+      "displayName": { "type": "String" }
+    }
+  },
+  "friendsRemoveFriendTitle": "Remove Friend?",
+  "friendsRemoveFriendConfirmation": "Remove {displayName} from your friends?",
+  "@friendsRemoveFriendConfirmation": {
+    "placeholders": {
+      "displayName": { "type": "String" }
+    }
+  },
+  "friendsCancelButton": "Cancel",
+  "friendsRemoveButton": "Remove",
+  "friendsBlockUserTitle": "Block User?",
+  "friendsBlockUserConfirmation": "{displayName} will no longer be able to message, challenge, or see you as a friend.",
+  "@friendsBlockUserConfirmation": {
+    "placeholders": {
+      "displayName": { "type": "String" }
+    }
+  },
+  "friendsBlockButton": "Block",
+  "friendsNoBlockedUsersMessage": "No blocked users.",
+  "friendsUnblockButton": "Unblock",
+  "friendsNoPendingRequestsMessage": "No pending friend requests",
+  "friendsRequestSentLabel": "Request sent",
+  "friendsCancelRequestButton": "Cancel",
+  "friendsAcceptTooltip": "Accept",
+  "friendsDeclineTooltip": "Decline",
+  "friendsSearchByDisplayNameLabel": "Search by display name",
+  "friendsTypeNameToSearchMessage": "Type a name to search",
+  "friendsNoUsersFoundMessage": "No users found",
+  "friendsAnonymousFallbackName": "Anonymous",
+  "friendsRatingLabel": "Rating: {rating}",
+  "@friendsRatingLabel": {
+    "placeholders": {
+      "rating": { "type": "int" }
+    }
+  },
+  "friendsAddButton": "Add",
+  "friendsRequestSentToMessage": "Friend request sent to {displayName}",
+  "@friendsRequestSentToMessage": {
+    "placeholders": {
+      "displayName": { "type": "String" }
+    }
+  },
+  "friendsUserFallbackName": "user",
+  "friendsNoActivityYetMessage": "No activity yet. Games your friends finish will show up here.",
+  "friendsJustNowLabel": "just now",
+  "friendsMinutesAgoLabel": "{minutes}m ago",
+  "@friendsMinutesAgoLabel": {
+    "placeholders": {
+      "minutes": { "type": "int" }
+    }
+  },
+  "friendsHoursAgoLabel": "{hours}h ago",
+  "@friendsHoursAgoLabel": {
+    "placeholders": {
+      "hours": { "type": "int" }
+    }
+  },
+  "friendsDaysAgoLabel": "{days}d ago",
+  "@friendsDaysAgoLabel": {
+    "placeholders": {
+      "days": { "type": "int" }
+    }
   }
 }
