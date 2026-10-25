@@ -9,6 +9,7 @@ import 'sound_preferences_screen.dart';
 import 'legal_documents_screen.dart';
 import 'board_themes_screen.dart';
 import '../../providers/board_theme_provider.dart';
+import '../../l10n/app_localizations.dart';
 
 class SettingsScreen extends ConsumerWidget {
   const SettingsScreen({Key? key}) : super(key: key);
@@ -17,10 +18,11 @@ class SettingsScreen extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final preferencesAsync = ref.watch(userPreferencesProvider);
     final preferencesService = ref.watch(userPreferencesServiceProvider);
+    final l10n = AppLocalizations.of(context);
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Settings'),
+        title: Text(l10n.settingsTitle),
         centerTitle: true,
         elevation: 0,
       ),
@@ -29,7 +31,7 @@ class SettingsScreen extends ConsumerWidget {
           child: CircularProgressIndicator(),
         ),
         error: (error, stack) => Center(
-          child: Text('Error: $error'),
+          child: Text(l10n.settingsErrorMessage(error.toString())),
         ),
         data: (preferences) => SafeArea(
           child: SingleChildScrollView(
@@ -37,13 +39,14 @@ class SettingsScreen extends ConsumerWidget {
               children: [
                 // Theme settings
                 _buildSettingSection(
-                  title: 'Display',
+                  title: l10n.settingsDisplaySection,
                   children: [
                     _buildThemeOption(
                       context,
                       ref,
                       preferences.themeMode,
                       preferencesService,
+                      l10n,
                     ),
                     const Divider(height: 1),
                     _buildLanguageOption(
@@ -51,18 +54,19 @@ class SettingsScreen extends ConsumerWidget {
                       ref,
                       preferences.language,
                       preferencesService,
+                      l10n,
                     ),
                   ],
                 ),
 
                 // Sound & Notifications
                 _buildSettingSection(
-                  title: 'Sound & Notifications',
+                  title: l10n.settingsSoundNotificationsSection,
                   children: [
                     ListTile(
                       leading: const Icon(Icons.volume_up),
-                      title: const Text('Sound Settings'),
-                      subtitle: const Text('Manage sound effects and volume'),
+                      title: Text(l10n.settingsSoundSettingsTitle),
+                      subtitle: Text(l10n.settingsSoundSettingsSubtitle),
                       trailing: const Icon(Icons.arrow_forward_ios, size: 16),
                       onTap: () {
                         Navigator.push(
@@ -76,8 +80,8 @@ class SettingsScreen extends ConsumerWidget {
                     ),
                     const Divider(height: 1),
                     _buildToggleOption(
-                      title: 'Notifications',
-                      subtitle: 'Receive game and match notifications',
+                      title: l10n.settingsNotificationsTitle,
+                      subtitle: l10n.settingsNotificationsSubtitle,
                       value: preferences.notificationsEnabled,
                       onChanged: (value) {
                         preferencesService.setNotificationsEnabled(value);
@@ -85,8 +89,8 @@ class SettingsScreen extends ConsumerWidget {
                     ),
                     const Divider(height: 1),
                     _buildToggleOption(
-                      title: 'Friend Requests',
-                      subtitle: 'New requests and acceptances',
+                      title: l10n.settingsFriendRequestsTitle,
+                      subtitle: l10n.settingsFriendRequestsSubtitle,
                       value: preferences.notificationsEnabled &&
                           preferences.notifyFriendRequests,
                       onChanged: preferences.notificationsEnabled
@@ -97,8 +101,8 @@ class SettingsScreen extends ConsumerWidget {
                     ),
                     const Divider(height: 1),
                     _buildToggleOption(
-                      title: 'Game Alerts',
-                      subtitle: 'Matches, rematches, and challenges',
+                      title: l10n.settingsGameAlertsTitle,
+                      subtitle: l10n.settingsGameAlertsSubtitle,
                       value: preferences.notificationsEnabled &&
                           preferences.notifyGameAlerts,
                       onChanged: preferences.notificationsEnabled
@@ -109,8 +113,8 @@ class SettingsScreen extends ConsumerWidget {
                     ),
                     const Divider(height: 1),
                     _buildToggleOption(
-                      title: 'Achievements',
-                      subtitle: 'Unlocked achievements and milestones',
+                      title: l10n.settingsAchievementsTitle,
+                      subtitle: l10n.settingsAchievementsSubtitle,
                       value: preferences.notificationsEnabled &&
                           preferences.notifyAchievements,
                       onChanged: preferences.notificationsEnabled
@@ -124,25 +128,26 @@ class SettingsScreen extends ConsumerWidget {
 
                 // Board settings
                 _buildSettingSection(
-                  title: 'Board',
+                  title: l10n.settingsBoardSection,
                   children: [
                     _buildBoardSizeOption(
                       context,
                       ref,
                       preferences.boardSize,
                       preferencesService,
+                      l10n,
                     ),
                     const Divider(height: 1),
                     _buildToggleOption(
-                      title: 'Show Coordinates',
-                      subtitle: 'Display board coordinates (a-h, 1-8)',
+                      title: l10n.settingsShowCoordinatesTitle,
+                      subtitle: l10n.settingsShowCoordinatesSubtitle,
                       value: preferences.showCoordinates,
                       onChanged: (value) {
                         preferencesService.setShowCoordinates(value);
                       },
                     ),
                     const Divider(height: 1),
-                    _buildBoardThemeOption(context, ref),
+                    _buildBoardThemeOption(context, ref, l10n),
                   ],
                 ),
 
@@ -151,40 +156,41 @@ class SettingsScreen extends ConsumerWidget {
                 // (GameReviewScreen's Stockfish evaluation was hardcoded
                 // to a fixed 500ms time budget).
                 _buildSettingSection(
-                  title: 'Analysis',
+                  title: l10n.settingsAnalysisSection,
                   children: [
                     _buildAnalysisDepthOption(
                       context,
                       preferences.analysisDepth,
                       preferencesService,
+                      l10n,
                     ),
                     const Divider(height: 1),
                     _buildBlindfoldModeOption(
                       preferences.blindfoldMode,
                       preferencesService,
+                      l10n,
                     ),
                   ],
                 ),
 
                 // Account settings
                 _buildSettingSection(
-                  title: 'Account',
+                  title: l10n.settingsAccountSection,
                   children: [
                     ListTile(
-                      title: const Text('Reset to Defaults'),
-                      subtitle:
-                          const Text('Restore all settings to default values'),
+                      title: Text(l10n.settingsResetToDefaultsTitle),
+                      subtitle: Text(l10n.settingsResetToDefaultsSubtitle),
                       trailing: const Icon(Icons.arrow_forward_ios, size: 16),
                       onTap: () {
-                        _showResetDialog(context, preferencesService);
+                        _showResetDialog(context, preferencesService, l10n);
                       },
                     ),
                     const Divider(height: 1),
                     ListTile(
                       leading: const Icon(Icons.logout),
-                      title: const Text('Sign Out'),
+                      title: Text(l10n.settingsSignOutTitle),
                       onTap: () {
-                        _showSignOutDialog(context, ref);
+                        _showSignOutDialog(context, ref, l10n);
                       },
                     ),
                   ],
@@ -192,21 +198,21 @@ class SettingsScreen extends ConsumerWidget {
 
                 // Cross-promotion for the other Komovia series apps
                 _buildSettingSection(
-                  title: '他のKomoviaシリーズ',
-                  children: _buildCrossPromoTiles(context),
+                  title: l10n.settingsCrossPromoSection,
+                  children: _buildCrossPromoTiles(context, l10n),
                 ),
 
                 // About
                 _buildSettingSection(
-                  title: 'About',
+                  title: l10n.settingsAboutSection,
                   children: [
-                    const ListTile(
-                      title: Text('Version'),
-                      subtitle: Text('1.0.0'),
+                    ListTile(
+                      title: Text(l10n.settingsVersionTitle),
+                      subtitle: const Text('1.0.0'),
                     ),
                     const Divider(height: 1),
                     ListTile(
-                      title: const Text('Privacy Policy'),
+                      title: Text(l10n.settingsPrivacyPolicyTitle),
                       trailing: const Icon(Icons.arrow_forward_ios, size: 16),
                       onTap: () {
                         Navigator.push(
@@ -220,7 +226,7 @@ class SettingsScreen extends ConsumerWidget {
                     ),
                     const Divider(height: 1),
                     ListTile(
-                      title: const Text('Terms of Service'),
+                      title: Text(l10n.settingsTermsOfServiceTitle),
                       trailing: const Icon(Icons.arrow_forward_ios, size: 16),
                       onTap: () {
                         Navigator.push(
@@ -251,7 +257,10 @@ class SettingsScreen extends ConsumerWidget {
   /// sibling shows a "まだ公開されていません" message instead of
   /// opening a broken link, the same honest-coming-soon convention
   /// already used elsewhere in this app for unfinished integrations.
-  List<Widget> _buildCrossPromoTiles(BuildContext context) {
+  List<Widget> _buildCrossPromoTiles(
+    BuildContext context,
+    AppLocalizations l10n,
+  ) {
     final others = otherKomoviaApps(komoviaRoster, kKomoviaChessAppId);
     final tiles = <Widget>[];
 
@@ -264,7 +273,7 @@ class SettingsScreen extends ConsumerWidget {
           title: Text(app.name),
           subtitle: Text(app.tagline),
           trailing: const Icon(Icons.open_in_new, size: 16),
-          onTap: () => _openStore(context, app),
+          onTap: () => _openStore(context, app, l10n),
         ),
       );
     }
@@ -285,13 +294,19 @@ class SettingsScreen extends ConsumerWidget {
     }
   }
 
-  Future<void> _openStore(BuildContext context, PromotedApp app) async {
+  Future<void> _openStore(
+    BuildContext context,
+    PromotedApp app,
+    AppLocalizations l10n,
+  ) async {
     final isIOS = Theme.of(context).platform == TargetPlatform.iOS;
     final storeUrl = app.storeUrlFor(isIOS: isIOS);
 
     if (storeUrl == null) {
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('${app.name}はまだ公開されていません')),
+        SnackBar(
+          content: Text(l10n.settingsAppNotYetPublishedMessage(app.name)),
+        ),
       );
       return;
     }
@@ -300,7 +315,9 @@ class SettingsScreen extends ConsumerWidget {
     final launched = await launchUrl(uri, mode: LaunchMode.externalApplication);
     if (!launched && context.mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('${app.name}のストアページを開けませんでした')),
+        SnackBar(
+          content: Text(l10n.settingsAppStoreOpenFailedMessage(app.name)),
+        ),
       );
     }
   }
@@ -341,15 +358,16 @@ class SettingsScreen extends ConsumerWidget {
     WidgetRef ref,
     ThemeMode currentMode,
     UserPreferencesService service,
+    AppLocalizations l10n,
   ) =>
       ListTile(
-        title: const Text('Theme'),
+        title: Text(l10n.settingsThemeTitle),
         subtitle: Text(
           currentMode == ThemeMode.light
-              ? 'Light'
+              ? l10n.settingsThemeLight
               : currentMode == ThemeMode.dark
-                  ? 'Dark'
-                  : 'System',
+                  ? l10n.settingsThemeDark
+                  : l10n.settingsThemeSystem,
         ),
         trailing: const Icon(Icons.arrow_forward_ios, size: 16),
         onTap: () {
@@ -360,7 +378,7 @@ class SettingsScreen extends ConsumerWidget {
                 mainAxisSize: MainAxisSize.min,
                 children: [
                   ListTile(
-                    title: const Text('Light'),
+                    title: Text(l10n.settingsThemeLight),
                     trailing: currentMode == ThemeMode.light
                         ? const Icon(Icons.check, color: Colors.blue)
                         : null,
@@ -372,7 +390,7 @@ class SettingsScreen extends ConsumerWidget {
                     },
                   ),
                   ListTile(
-                    title: const Text('Dark'),
+                    title: Text(l10n.settingsThemeDark),
                     trailing: currentMode == ThemeMode.dark
                         ? const Icon(Icons.check, color: Colors.blue)
                         : null,
@@ -384,7 +402,7 @@ class SettingsScreen extends ConsumerWidget {
                     },
                   ),
                   ListTile(
-                    title: const Text('System'),
+                    title: Text(l10n.settingsThemeSystem),
                     trailing: currentMode == ThemeMode.system
                         ? const Icon(Icons.check, color: Colors.blue)
                         : null,
@@ -408,11 +426,14 @@ class SettingsScreen extends ConsumerWidget {
     WidgetRef ref,
     String currentLanguage,
     UserPreferencesService service,
+    AppLocalizations l10n,
   ) =>
       ListTile(
-        title: const Text('Language'),
+        title: Text(l10n.settingsLanguageTitle),
         subtitle: Text(
-          currentLanguage == 'en' ? 'English' : '日本語',
+          currentLanguage == 'en'
+              ? l10n.settingsLanguageEnglish
+              : l10n.settingsLanguageJapanese,
         ),
         trailing: const Icon(Icons.arrow_forward_ios, size: 16),
         onTap: () {
@@ -423,7 +444,7 @@ class SettingsScreen extends ConsumerWidget {
                 mainAxisSize: MainAxisSize.min,
                 children: [
                   ListTile(
-                    title: const Text('English'),
+                    title: Text(l10n.settingsLanguageEnglish),
                     trailing: currentLanguage == 'en'
                         ? const Icon(Icons.check, color: Colors.blue)
                         : null,
@@ -433,7 +454,7 @@ class SettingsScreen extends ConsumerWidget {
                     },
                   ),
                   ListTile(
-                    title: const Text('日本語'),
+                    title: Text(l10n.settingsLanguageJapanese),
                     trailing: currentLanguage == 'ja'
                         ? const Icon(Icons.check, color: Colors.blue)
                         : null,
@@ -455,10 +476,11 @@ class SettingsScreen extends ConsumerWidget {
     WidgetRef ref,
     int currentSize,
     UserPreferencesService service,
+    AppLocalizations l10n,
   ) =>
       ListTile(
-        title: const Text('Board Size'),
-        subtitle: Text('$currentSize × $currentSize pixels'),
+        title: Text(l10n.settingsBoardSizeTitle),
+        subtitle: Text(l10n.settingsBoardSizePixels(currentSize)),
         trailing: const Icon(Icons.arrow_forward_ios, size: 16),
         onTap: () {
           showModalBottomSheet(
@@ -472,9 +494,9 @@ class SettingsScreen extends ConsumerWidget {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        const Text(
-                          'Select Board Size',
-                          style: TextStyle(
+                        Text(
+                          l10n.settingsSelectBoardSizeTitle,
+                          style: const TextStyle(
                             fontSize: 16,
                             fontWeight: FontWeight.bold,
                           ),
@@ -491,7 +513,7 @@ class SettingsScreen extends ConsumerWidget {
                           },
                         ),
                         Text(
-                          'Current: $currentSize × $currentSize pixels',
+                          l10n.settingsCurrentBoardSize(currentSize),
                           style: TextStyle(
                             color: Colors.grey.shade600,
                           ),
@@ -511,12 +533,11 @@ class SettingsScreen extends ConsumerWidget {
     BuildContext context,
     int currentDepth,
     UserPreferencesService service,
+    AppLocalizations l10n,
   ) =>
       ListTile(
-        title: const Text('Analysis Depth'),
-        subtitle: Text(
-          'Depth $currentDepth - higher is stronger but slower',
-        ),
+        title: Text(l10n.settingsAnalysisDepthTitle),
+        subtitle: Text(l10n.settingsAnalysisDepthSubtitle(currentDepth)),
         trailing: const Icon(Icons.arrow_forward_ios, size: 16),
         onTap: () {
           showModalBottomSheet(
@@ -528,9 +549,9 @@ class SettingsScreen extends ConsumerWidget {
                   mainAxisSize: MainAxisSize.min,
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    const Text(
-                      'Computer Analysis Depth',
-                      style: TextStyle(
+                    Text(
+                      l10n.settingsComputerAnalysisDepthTitle,
+                      style: const TextStyle(
                         fontSize: 16,
                         fontWeight: FontWeight.bold,
                       ),
@@ -541,14 +562,13 @@ class SettingsScreen extends ConsumerWidget {
                       min: 8,
                       max: 20,
                       divisions: 12,
-                      label: 'Depth $currentDepth',
+                      label: l10n.settingsAnalysisDepthLabel(currentDepth),
                       onChanged: (value) {
                         service.setAnalysisDepth(value.toInt());
                       },
                     ),
                     Text(
-                      'Used when reviewing a finished game. Higher depths '
-                      'take longer per position.',
+                      l10n.settingsAnalysisDepthDescription,
                       style: TextStyle(color: Colors.grey.shade600),
                     ),
                   ],
@@ -562,19 +582,22 @@ class SettingsScreen extends ConsumerWidget {
   Widget _buildBlindfoldModeOption(
     bool enabled,
     UserPreferencesService service,
+    AppLocalizations l10n,
   ) =>
       SwitchListTile(
-        title: const Text('Blindfold Mode'),
-        subtitle: const Text(
-          'Hide piece graphics during games - play from memory',
-        ),
+        title: Text(l10n.settingsBlindfoldModeTitle),
+        subtitle: Text(l10n.settingsBlindfoldModeSubtitle),
         value: enabled,
         onChanged: (value) {
           service.setBlindfoldMode(value);
         },
       );
 
-  Widget _buildBoardThemeOption(BuildContext context, WidgetRef ref) {
+  Widget _buildBoardThemeOption(
+    BuildContext context,
+    WidgetRef ref,
+    AppLocalizations l10n,
+  ) {
     final selectedTheme = ref.watch(selectedBoardThemeProvider);
 
     return ListTile(
@@ -591,7 +614,7 @@ class SettingsScreen extends ConsumerWidget {
           ),
         ),
       ),
-      title: const Text('Board Theme'),
+      title: Text(l10n.settingsBoardThemeTitle),
       subtitle: Text(selectedTheme.displayName),
       trailing: const Icon(Icons.arrow_forward_ios, size: 16),
       onTap: () {
@@ -623,43 +646,47 @@ class SettingsScreen extends ConsumerWidget {
   void _showResetDialog(
     BuildContext context,
     UserPreferencesService service,
+    AppLocalizations l10n,
   ) {
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text('Reset Settings'),
-        content: const Text(
-            'Are you sure you want to reset all settings to their default values?'),
+        title: Text(l10n.settingsResetSettingsTitle),
+        content: Text(l10n.settingsResetSettingsConfirmation),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context),
-            child: const Text('Cancel'),
+            child: Text(l10n.settingsCancelButton),
           ),
           FilledButton(
             onPressed: () {
               service.resetToDefaults();
               Navigator.pop(context);
               ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(content: Text('Settings reset to defaults')),
+                SnackBar(content: Text(l10n.settingsResetDoneMessage)),
               );
             },
-            child: const Text('Reset'),
+            child: Text(l10n.settingsResetButton),
           ),
         ],
       ),
     );
   }
 
-  void _showSignOutDialog(BuildContext context, WidgetRef ref) {
+  void _showSignOutDialog(
+    BuildContext context,
+    WidgetRef ref,
+    AppLocalizations l10n,
+  ) {
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text('Sign Out'),
-        content: const Text('Are you sure you want to sign out?'),
+        title: Text(l10n.settingsSignOutTitle),
+        content: Text(l10n.settingsSignOutConfirmation),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context),
-            child: const Text('Cancel'),
+            child: Text(l10n.settingsCancelButton),
           ),
           FilledButton(
             onPressed: () async {
@@ -669,12 +696,15 @@ class SettingsScreen extends ConsumerWidget {
               } catch (e) {
                 if (context.mounted) {
                   ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(content: Text('Error signing out: $e')),
+                    SnackBar(
+                      content:
+                          Text(l10n.settingsSignOutErrorMessage(e.toString())),
+                    ),
                   );
                 }
               }
             },
-            child: const Text('Sign Out'),
+            child: Text(l10n.settingsSignOutButton),
           ),
         ],
       ),

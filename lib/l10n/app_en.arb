@@ -99,5 +99,102 @@
   "registerInvalidEmailError": "Invalid email address",
   "registerWeakPasswordError": "Password is too weak",
   "registerOperationNotAllowedError": "Account creation is disabled",
-  "registerGenericError": "Sign up failed. Please try again"
+  "registerGenericError": "Sign up failed. Please try again",
+
+  "settingsTitle": "Settings",
+  "settingsErrorMessage": "Error: {error}",
+  "@settingsErrorMessage": {
+    "placeholders": {
+      "error": { "type": "String" }
+    }
+  },
+  "settingsDisplaySection": "Display",
+  "settingsSoundNotificationsSection": "Sound & Notifications",
+  "settingsBoardSection": "Board",
+  "settingsAnalysisSection": "Analysis",
+  "settingsAccountSection": "Account",
+  "settingsCrossPromoSection": "Other Komovia Series Apps",
+  "settingsAboutSection": "About",
+  "settingsSoundSettingsTitle": "Sound Settings",
+  "settingsSoundSettingsSubtitle": "Manage sound effects and volume",
+  "settingsNotificationsTitle": "Notifications",
+  "settingsNotificationsSubtitle": "Receive game and match notifications",
+  "settingsFriendRequestsTitle": "Friend Requests",
+  "settingsFriendRequestsSubtitle": "New requests and acceptances",
+  "settingsGameAlertsTitle": "Game Alerts",
+  "settingsGameAlertsSubtitle": "Matches, rematches, and challenges",
+  "settingsAchievementsTitle": "Achievements",
+  "settingsAchievementsSubtitle": "Unlocked achievements and milestones",
+  "settingsShowCoordinatesTitle": "Show Coordinates",
+  "settingsShowCoordinatesSubtitle": "Display board coordinates (a-h, 1-8)",
+  "settingsResetToDefaultsTitle": "Reset to Defaults",
+  "settingsResetToDefaultsSubtitle": "Restore all settings to default values",
+  "settingsSignOutTitle": "Sign Out",
+  "settingsVersionTitle": "Version",
+  "settingsPrivacyPolicyTitle": "Privacy Policy",
+  "settingsTermsOfServiceTitle": "Terms of Service",
+  "settingsAppNotYetPublishedMessage": "{appName} has not been published yet",
+  "@settingsAppNotYetPublishedMessage": {
+    "placeholders": {
+      "appName": { "type": "String" }
+    }
+  },
+  "settingsAppStoreOpenFailedMessage": "Could not open {appName}'s store page",
+  "@settingsAppStoreOpenFailedMessage": {
+    "placeholders": {
+      "appName": { "type": "String" }
+    }
+  },
+  "settingsThemeTitle": "Theme",
+  "settingsThemeLight": "Light",
+  "settingsThemeDark": "Dark",
+  "settingsThemeSystem": "System",
+  "settingsLanguageTitle": "Language",
+  "settingsLanguageEnglish": "English",
+  "settingsLanguageJapanese": "日本語",
+  "settingsBoardSizeTitle": "Board Size",
+  "settingsBoardSizePixels": "{size} × {size} pixels",
+  "@settingsBoardSizePixels": {
+    "placeholders": {
+      "size": { "type": "int" }
+    }
+  },
+  "settingsSelectBoardSizeTitle": "Select Board Size",
+  "settingsCurrentBoardSize": "Current: {size} × {size} pixels",
+  "@settingsCurrentBoardSize": {
+    "placeholders": {
+      "size": { "type": "int" }
+    }
+  },
+  "settingsAnalysisDepthTitle": "Analysis Depth",
+  "settingsAnalysisDepthSubtitle": "Depth {depth} - higher is stronger but slower",
+  "@settingsAnalysisDepthSubtitle": {
+    "placeholders": {
+      "depth": { "type": "int" }
+    }
+  },
+  "settingsComputerAnalysisDepthTitle": "Computer Analysis Depth",
+  "settingsAnalysisDepthLabel": "Depth {depth}",
+  "@settingsAnalysisDepthLabel": {
+    "placeholders": {
+      "depth": { "type": "int" }
+    }
+  },
+  "settingsAnalysisDepthDescription": "Used when reviewing a finished game. Higher depths take longer per position.",
+  "settingsBlindfoldModeTitle": "Blindfold Mode",
+  "settingsBlindfoldModeSubtitle": "Hide piece graphics during games - play from memory",
+  "settingsBoardThemeTitle": "Board Theme",
+  "settingsResetSettingsTitle": "Reset Settings",
+  "settingsResetSettingsConfirmation": "Are you sure you want to reset all settings to their default values?",
+  "settingsCancelButton": "Cancel",
+  "settingsResetButton": "Reset",
+  "settingsResetDoneMessage": "Settings reset to defaults",
+  "settingsSignOutConfirmation": "Are you sure you want to sign out?",
+  "settingsSignOutButton": "Sign Out",
+  "settingsSignOutErrorMessage": "Error signing out: {error}",
+  "@settingsSignOutErrorMessage": {
+    "placeholders": {
+      "error": { "type": "String" }
+    }
+  }
 }
