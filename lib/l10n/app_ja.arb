@@ -365,5 +365,20 @@
   "challengesCurrentStreakLabel": "現在の連勝数: {count}",
   "challengesBestStreakLabel": "最高連勝数: {count}",
   "challengesRecordLabel": "成績: {wins}勝{losses}敗",
-  "challengesWinRateLabel": "勝率: {percent}%"
+  "challengesWinRateLabel": "勝率: {percent}%",
+
+  "clubsTitle": "クラブ",
+  "clubsAllClubsTab": "すべてのクラブ",
+  "clubsMyClubsTab": "マイクラブ",
+  "clubsNoClubsYetMessage": "まだクラブがありません - 最初のクラブを作成しましょう！",
+  "clubsNotJoinedAnyMessage": "まだクラブに参加していません。",
+  "clubsLoadFailedMessage": "クラブの読み込みに失敗しました: {error}",
+  "clubsMemberCountLabel": "{count}人",
+  "clubsMembersCountLabel": "{count}人",
+  "clubsCreateClubTitle": "クラブを作成",
+  "clubsClubNameLabel": "クラブ名",
+  "clubsDescriptionOptionalLabel": "説明（任意）",
+  "clubsCancelButton": "キャンセル",
+  "clubsCreateButton": "作成",
+  "clubsCreateFailedMessage": "クラブの作成に失敗しました: {error}"
 }
