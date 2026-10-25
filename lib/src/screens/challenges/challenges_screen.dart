@@ -4,6 +4,7 @@ import '../../models/phase_k_models.dart';
 import '../../providers/auth_provider.dart';
 import '../../providers/challenge_provider.dart';
 import '../online/online_game_screen.dart';
+import '../../../l10n/app_localizations.dart';
 
 class ChallengesScreen extends ConsumerWidget {
   const ChallengesScreen({Key? key}) : super(key: key);
@@ -12,20 +13,22 @@ class ChallengesScreen extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final pending = ref.watch(pendingChallengesProvider);
     final pendingCount = pending.value?.length ?? 0;
+    final l10n = AppLocalizations.of(context);
 
     return DefaultTabController(
       length: 3,
       child: Scaffold(
         appBar: AppBar(
-          title: const Text('Challenges'),
+          title: Text(l10n.challengesTitle),
           centerTitle: true,
           bottom: TabBar(
             tabs: [
               Tab(
-                  text:
-                      pendingCount > 0 ? 'Pending ($pendingCount)' : 'Pending'),
-              const Tab(text: 'Active'),
-              const Tab(text: 'Streak'),
+                  text: pendingCount > 0
+                      ? l10n.challengesPendingTabWithCount(pendingCount)
+                      : l10n.challengesPendingTab),
+              Tab(text: l10n.challengesActiveTab),
+              Tab(text: l10n.challengesStreakTab),
             ],
           ),
         ),
@@ -48,13 +51,15 @@ class _PendingChallengesTab extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final challenges = ref.watch(pendingChallengesProvider);
     final me = ref.watch(currentUserProvider).value;
+    final l10n = AppLocalizations.of(context);
 
     return challenges.when(
       loading: () => const Center(child: CircularProgressIndicator()),
-      error: (error, stack) => Center(child: Text('Error: $error')),
+      error: (error, stack) =>
+          Center(child: Text(l10n.challengesErrorMessage(error.toString()))),
       data: (list) {
         if (list.isEmpty) {
-          return const Center(child: Text('No pending challenges'));
+          return Center(child: Text(l10n.challengesNoPendingMessage));
         }
 
         return ListView.separated(
@@ -69,8 +74,10 @@ class _PendingChallengesTab extends ConsumerWidget {
             return Card(
               child: ListTile(
                 title: Text(isIncoming
-                    ? '${challenge.challengerUsername} challenged you'
-                    : 'Waiting on ${challenge.challengeeUsername}'),
+                    ? l10n.challengesChallengedYouLabel(
+                        challenge.challengerUsername)
+                    : l10n.challengesWaitingOnLabel(
+                        challenge.challengeeUsername)),
                 subtitle: Text(challenge.timeControl),
                 trailing: isIncoming
                     ? Row(
@@ -79,12 +86,12 @@ class _PendingChallengesTab extends ConsumerWidget {
                           IconButton(
                             icon: const Icon(Icons.check_circle,
                                 color: Colors.green),
-                            tooltip: 'Accept',
+                            tooltip: l10n.challengesAcceptTooltip,
                             onPressed: () => _accept(context, ref, challenge),
                           ),
                           IconButton(
                             icon: const Icon(Icons.cancel, color: Colors.red),
-                            tooltip: 'Decline',
+                            tooltip: l10n.challengesDeclineTooltip,
                             onPressed: () => ref
                                 .read(challengeActionsProvider.notifier)
                                 .rejectChallenge(challenge),
@@ -93,7 +100,7 @@ class _PendingChallengesTab extends ConsumerWidget {
                       )
                     : IconButton(
                         icon: const Icon(Icons.close),
-                        tooltip: 'Cancel',
+                        tooltip: l10n.challengesCancelTooltip,
                         onPressed: () => ref
                             .read(challengeActionsProvider.notifier)
                             .cancelChallenge(challenge),
@@ -129,13 +136,15 @@ class _ActiveChallengesTab extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final challenges = ref.watch(activeChallengesProvider);
     final me = ref.watch(currentUserProvider).value;
+    final l10n = AppLocalizations.of(context);
 
     return challenges.when(
       loading: () => const Center(child: CircularProgressIndicator()),
-      error: (error, stack) => Center(child: Text('Error: $error')),
+      error: (error, stack) =>
+          Center(child: Text(l10n.challengesErrorMessage(error.toString()))),
       data: (list) {
         if (list.isEmpty) {
-          return const Center(child: Text('No active challenges'));
+          return Center(child: Text(l10n.challengesNoActiveMessage));
         }
 
         return ListView.separated(
@@ -150,7 +159,7 @@ class _ActiveChallengesTab extends ConsumerWidget {
 
             return Card(
               child: ListTile(
-                title: Text('vs $opponent'),
+                title: Text(l10n.challengesVersusLabel(opponent)),
                 subtitle: Text(challenge.timeControl),
                 trailing: const Icon(Icons.arrow_forward_ios, size: 16),
                 onTap: challenge.gameId == null
@@ -176,13 +185,15 @@ class _StreakTab extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final streak = ref.watch(userChallengeStreakProvider);
+    final l10n = AppLocalizations.of(context);
 
     return streak.when(
       loading: () => const Center(child: CircularProgressIndicator()),
-      error: (error, stack) => Center(child: Text('Error: $error')),
+      error: (error, stack) =>
+          Center(child: Text(l10n.challengesErrorMessage(error.toString()))),
       data: (data) {
         if (data == null) {
-          return const Center(child: Text('Sign in to see your streak'));
+          return Center(child: Text(l10n.challengesSignInToSeeStreakMessage));
         }
 
         return ListView(
@@ -194,12 +205,12 @@ class _StreakTab extends ConsumerWidget {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text('Current streak: ${data.currentStreak}'),
-                    Text('Best streak: ${data.bestStreak}'),
-                    Text(
-                        'Record: ${data.totalChallengesWon}W - ${data.totalChallengesLost}L'),
-                    Text(
-                        'Win rate: ${(data.winRate * 100).toStringAsFixed(0)}%'),
+                    Text(l10n.challengesCurrentStreakLabel(data.currentStreak)),
+                    Text(l10n.challengesBestStreakLabel(data.bestStreak)),
+                    Text(l10n.challengesRecordLabel(
+                        data.totalChallengesWon, data.totalChallengesLost)),
+                    Text(l10n.challengesWinRateLabel(
+                        (data.winRate * 100).toStringAsFixed(0))),
                   ],
                 ),
               ),

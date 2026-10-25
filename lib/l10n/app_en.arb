@@ -627,5 +627,71 @@
   "matchmakingGoBackButton": "Go Back",
   "matchmakingDailyLimitReachedMessage": "Reached today's free online-game limit. Upgrade to Pro for unlimited games.",
   "matchmakingUpgradeButton": "Upgrade",
-  "matchmakingAnonymousFallbackName": "Anonymous"
+  "matchmakingAnonymousFallbackName": "Anonymous",
+
+  "challengesTitle": "Challenges",
+  "challengesPendingTab": "Pending",
+  "challengesPendingTabWithCount": "Pending ({count})",
+  "@challengesPendingTabWithCount": {
+    "placeholders": {
+      "count": { "type": "int" }
+    }
+  },
+  "challengesActiveTab": "Active",
+  "challengesStreakTab": "Streak",
+  "challengesErrorMessage": "Error: {error}",
+  "@challengesErrorMessage": {
+    "placeholders": {
+      "error": { "type": "String" }
+    }
+  },
+  "challengesNoPendingMessage": "No pending challenges",
+  "challengesChallengedYouLabel": "{name} challenged you",
+  "@challengesChallengedYouLabel": {
+    "placeholders": {
+      "name": { "type": "String" }
+    }
+  },
+  "challengesWaitingOnLabel": "Waiting on {name}",
+  "@challengesWaitingOnLabel": {
+    "placeholders": {
+      "name": { "type": "String" }
+    }
+  },
+  "challengesAcceptTooltip": "Accept",
+  "challengesDeclineTooltip": "Decline",
+  "challengesCancelTooltip": "Cancel",
+  "challengesNoActiveMessage": "No active challenges",
+  "challengesVersusLabel": "vs {name}",
+  "@challengesVersusLabel": {
+    "placeholders": {
+      "name": { "type": "String" }
+    }
+  },
+  "challengesSignInToSeeStreakMessage": "Sign in to see your streak",
+  "challengesCurrentStreakLabel": "Current streak: {count}",
+  "@challengesCurrentStreakLabel": {
+    "placeholders": {
+      "count": { "type": "int" }
+    }
+  },
+  "challengesBestStreakLabel": "Best streak: {count}",
+  "@challengesBestStreakLabel": {
+    "placeholders": {
+      "count": { "type": "int" }
+    }
+  },
+  "challengesRecordLabel": "Record: {wins}W - {losses}L",
+  "@challengesRecordLabel": {
+    "placeholders": {
+      "wins": { "type": "int" },
+      "losses": { "type": "int" }
+    }
+  },
+  "challengesWinRateLabel": "Win rate: {percent}%",
+  "@challengesWinRateLabel": {
+    "placeholders": {
+      "percent": { "type": "String" }
+    }
+  }
 }
