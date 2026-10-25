@@ -46,7 +46,7 @@ class ComparisonService {
         .collection('player_matchups')
         .doc(matchupId)
         .snapshots()
-        .asyncMap((doc) {
+        .asyncMap<HeadToHeadStats>((doc) {
       if (doc.exists) {
         return HeadToHeadStats.fromJson({
           ...doc.data()!,

@@ -35,7 +35,7 @@ class AppTheme {
           elevation: 0,
           centerTitle: true,
         ),
-        cardTheme: CardTheme(
+        cardTheme: CardThemeData(
           color: lightSurface,
           elevation: 1,
           shape: RoundedRectangleBorder(
@@ -75,7 +75,7 @@ class AppTheme {
           elevation: 0,
           centerTitle: true,
         ),
-        cardTheme: CardTheme(
+        cardTheme: CardThemeData(
           color: darkSurface,
           elevation: 2,
           shape: RoundedRectangleBorder(
