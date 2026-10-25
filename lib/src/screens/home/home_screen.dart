@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../../../l10n/app_localizations.dart';
 import '../../models/user.dart';
 import '../../providers/auth_provider.dart';
 import '../../providers/notification_provider.dart';
@@ -50,7 +51,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                         SmoothPageTransition(page: const NotificationsScreen()),
                       );
                     },
-                    tooltip: 'Notifications',
+                    tooltip: AppLocalizations.of(context).homeNotificationsTooltip,
                   ),
                   if (unreadCount > 0)
                     Positioned(
@@ -105,7 +106,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                         SmoothPageTransition(page: const MessageThreadsScreen()),
                       );
                     },
-                    tooltip: 'Messages',
+                    tooltip: AppLocalizations.of(context).homeMessagesTooltip,
                   ),
                   if (unreadCount > 0)
                     Positioned(
@@ -140,6 +141,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
   @override
   Widget build(BuildContext context) {
     final userAsync = ref.watch(authStateNotifierProvider);
+    final l10n = AppLocalizations.of(context);
 
     return userAsync.when(
       loading: () => const Scaffold(
@@ -148,25 +150,25 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
         ),
       ),
       error: (error, stack) => Scaffold(
-        appBar: AppBar(title: const Text('Error')),
+        appBar: AppBar(title: Text(l10n.homeErrorTitle)),
         body: Center(
-          child: Text('Error: $error'),
+          child: Text(l10n.homeErrorMessage(error.toString())),
         ),
       ),
       data: (user) {
         if (user == null) {
           // User not authenticated, redirect to login
           // This should be handled by the root navigation
-          return const Scaffold(
+          return Scaffold(
             body: Center(
-              child: Text('Not authenticated'),
+              child: Text(l10n.homeNotAuthenticatedMessage),
             ),
           );
         }
 
         return Scaffold(
           appBar: AppBar(
-            title: const Text('♟️ Chess Tactics Master'),
+            title: Text(l10n.homeAppTitle),
             centerTitle: true,
             elevation: 0,
             actions: [
@@ -179,7 +181,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                     SmoothPageTransition(page: const LearnHubScreen()),
                   );
                 },
-                tooltip: 'Learn',
+                tooltip: l10n.homeLearnTooltip,
               ),
               IconButton(
                 icon: const Icon(Icons.leaderboard_outlined),
@@ -188,7 +190,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                     SmoothPageTransition(page: const LeaderboardScreen()),
                   );
                 },
-                tooltip: 'Leaderboard',
+                tooltip: l10n.homeLeaderboardTooltip,
               ),
               IconButton(
                 icon: const Icon(Icons.visibility_outlined),
@@ -197,7 +199,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                     SmoothPageTransition(page: const LiveGamesScreen()),
                   );
                 },
-                tooltip: 'Watch Live Games',
+                tooltip: l10n.homeWatchLiveGamesTooltip,
               ),
               IconButton(
                 icon: const Icon(Icons.star_outline),
@@ -206,7 +208,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                     SmoothPageTransition(page: const PremiumScreen()),
                   );
                 },
-                tooltip: 'Premium',
+                tooltip: l10n.homePremiumTooltip,
               ),
               IconButton(
                 icon: const Icon(Icons.settings_outlined),
@@ -302,7 +304,7 @@ class _UserStatusSection extends StatelessWidget {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
-                        user.displayName ?? 'Player',
+                        user.displayName ?? AppLocalizations.of(context).homePlayerFallbackName,
                         style: Theme.of(context).textTheme.titleLarge?.copyWith(
                               color: Colors.white,
                               fontWeight: FontWeight.bold,
@@ -325,19 +327,19 @@ class _UserStatusSection extends StatelessWidget {
             Row(
               children: [
                 _StatCard(
-                  label: 'Rating',
+                  label: AppLocalizations.of(context).homeRatingLabel,
                   value: user.rating.toString(),
                   icon: Icons.trending_up,
                 ),
                 const SizedBox(width: 12),
                 _StatCard(
-                  label: 'Games',
+                  label: AppLocalizations.of(context).homeGamesLabel,
                   value: user.gamesPlayed.toString(),
                   icon: Icons.sports_esports,
                 ),
                 const SizedBox(width: 12),
                 _StatCard(
-                  label: 'Win Rate',
+                  label: AppLocalizations.of(context).homeWinRateLabel,
                   value: user.gamesPlayed > 0
                       ? '${(user.wins / user.gamesPlayed * 100).toStringAsFixed(0)}%'
                       : '--',
@@ -406,7 +408,7 @@ class _DailyChallengeSection extends StatelessWidget {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text(
-              'Today\'s Challenge',
+              AppLocalizations.of(context).homeTodaysChallengeTitle,
               style: Theme.of(context).textTheme.titleMedium?.copyWith(
                     fontWeight: FontWeight.bold,
                   ),
@@ -431,7 +433,7 @@ class _DailyChallengeSection extends StatelessWidget {
                   ),
                   const SizedBox(height: 12),
                   Text(
-                    'Fork Tactic Challenge',
+                    AppLocalizations.of(context).homeForkTacticChallengeTitle,
                     style: Theme.of(context).textTheme.titleMedium?.copyWith(
                           fontWeight: FontWeight.bold,
                         ),
@@ -439,7 +441,7 @@ class _DailyChallengeSection extends StatelessWidget {
                   ),
                   const SizedBox(height: 4),
                   Text(
-                    '5 puzzles • Rating 800-1200',
+                    AppLocalizations.of(context).homeForkTacticChallengeSubtitle,
                     style: Theme.of(context).textTheme.bodySmall?.copyWith(
                           color: Colors.grey,
                         ),
@@ -454,7 +456,7 @@ class _DailyChallengeSection extends StatelessWidget {
                           SmoothPageTransition(page: const PuzzleScreen()),
                         );
                       },
-                      child: const Text('Start Challenge'),
+                      child: Text(AppLocalizations.of(context).homeStartChallengeButton),
                     ),
                   ),
                 ],
@@ -492,7 +494,7 @@ class _LearnSection extends StatelessWidget {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(
-                          '遊び方・戦術・戦略を学ぶ',
+                          AppLocalizations.of(context).homeLearnSectionTitle,
                           style:
                               Theme.of(context).textTheme.titleMedium?.copyWith(
                                     fontWeight: FontWeight.bold,
@@ -500,7 +502,7 @@ class _LearnSection extends StatelessWidget {
                         ),
                         const SizedBox(height: 4),
                         Text(
-                          '初めての方はここから。ルールからオープニングまで、ステップで学べます。',
+                          AppLocalizations.of(context).homeLearnSectionSubtitle,
                           style: Theme.of(context).textTheme.bodySmall,
                         ),
                       ],
@@ -544,7 +546,7 @@ class _TournamentsSection extends StatelessWidget {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(
-                          'トーナメント',
+                          AppLocalizations.of(context).homeTournamentsSectionTitle,
                           style:
                               Theme.of(context).textTheme.titleMedium?.copyWith(
                                     fontWeight: FontWeight.bold,
@@ -552,7 +554,7 @@ class _TournamentsSection extends StatelessWidget {
                         ),
                         const SizedBox(height: 4),
                         Text(
-                          '開催中・参加予定のトーナメントを確認、新規登録もここから。',
+                          AppLocalizations.of(context).homeTournamentsSectionSubtitle,
                           style: Theme.of(context).textTheme.bodySmall,
                         ),
                       ],
@@ -593,7 +595,7 @@ class _ClubsSection extends StatelessWidget {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(
-                          'クラブ',
+                          AppLocalizations.of(context).homeClubsSectionTitle,
                           style:
                               Theme.of(context).textTheme.titleMedium?.copyWith(
                                     fontWeight: FontWeight.bold,
@@ -601,7 +603,7 @@ class _ClubsSection extends StatelessWidget {
                         ),
                         const SizedBox(height: 4),
                         Text(
-                          '仲間を見つけて参加、クラブ内ランキングで競い合おう。',
+                          AppLocalizations.of(context).homeClubsSectionSubtitle,
                           style: Theme.of(context).textTheme.bodySmall,
                         ),
                       ],
@@ -658,7 +660,7 @@ class _RecentGamesSection extends StatelessWidget {
                       SmoothPageTransition(page: const MatchmakingScreen()),
                     );
                   },
-                  child: const Text('Find Opponent'),
+                  child: Text(AppLocalizations.of(context).homeFindOpponentButton),
                 ),
               ),
               const SizedBox(width: 12),
@@ -670,7 +672,7 @@ class _RecentGamesSection extends StatelessWidget {
                           page: const CPUGameSelectionScreen()),
                     );
                   },
-                  child: const Text('Play CPU'),
+                  child: Text(AppLocalizations.of(context).homePlayCpuButton),
                 ),
               ),
             ],
@@ -682,7 +684,7 @@ class _RecentGamesSection extends StatelessWidget {
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
               Text(
-                'Recent Games',
+                AppLocalizations.of(context).homeRecentGamesTitle,
                 style: Theme.of(context).textTheme.titleMedium?.copyWith(
                       fontWeight: FontWeight.bold,
                     ),
@@ -693,7 +695,7 @@ class _RecentGamesSection extends StatelessWidget {
                     SmoothPageTransition(page: const ProfileScreen()),
                   );
                 },
-                child: const Text('View All'),
+                child: Text(AppLocalizations.of(context).homeViewAllButton),
               ),
             ],
           ),

@@ -10,6 +10,8 @@ environment:
 dependencies:
   flutter:
     sdk: flutter
+  flutter_localizations:
+    sdk: flutter
 
   komovia_core:
     git:
@@ -99,6 +101,7 @@ flutter_launcher_icons:
   image_path: assets/images/app_icon_master.png
 
 flutter:
+  generate: true
   uses-material-design: true
 
   # Assets

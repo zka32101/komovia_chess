@@ -1,0 +1,36 @@
+{
+  "@@locale": "en",
+  "homeNotificationsTooltip": "Notifications",
+  "homeMessagesTooltip": "Messages",
+  "homeLearnTooltip": "Learn",
+  "homeLeaderboardTooltip": "Leaderboard",
+  "homeWatchLiveGamesTooltip": "Watch Live Games",
+  "homePremiumTooltip": "Premium",
+  "homeAppTitle": "♟️ Chess Tactics Master",
+  "homeErrorTitle": "Error",
+  "homeErrorMessage": "Error: {error}",
+  "@homeErrorMessage": {
+    "placeholders": {
+      "error": { "type": "String" }
+    }
+  },
+  "homeNotAuthenticatedMessage": "Not authenticated",
+  "homePlayerFallbackName": "Player",
+  "homeRatingLabel": "Rating",
+  "homeGamesLabel": "Games",
+  "homeWinRateLabel": "Win Rate",
+  "homeTodaysChallengeTitle": "Today's Challenge",
+  "homeForkTacticChallengeTitle": "Fork Tactic Challenge",
+  "homeForkTacticChallengeSubtitle": "5 puzzles • Rating 800-1200",
+  "homeStartChallengeButton": "Start Challenge",
+  "homeLearnSectionTitle": "Learn how to play, tactics & strategy",
+  "homeLearnSectionSubtitle": "New here? Start with the rules, then work your way up to openings, step by step.",
+  "homeTournamentsSectionTitle": "Tournaments",
+  "homeTournamentsSectionSubtitle": "Check ongoing and upcoming tournaments, and register for new ones.",
+  "homeClubsSectionTitle": "Clubs",
+  "homeClubsSectionSubtitle": "Find and join a club, and compete on club rankings.",
+  "homeFindOpponentButton": "Find Opponent",
+  "homePlayCpuButton": "Play CPU",
+  "homeRecentGamesTitle": "Recent Games",
+  "homeViewAllButton": "View All"
+}
