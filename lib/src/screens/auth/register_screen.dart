@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../../../l10n/app_localizations.dart';
 import '../../providers/auth_provider.dart';
 
 class RegisterScreen extends ConsumerStatefulWidget {
@@ -43,33 +44,34 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
   }
 
   Future<void> _handleSignUp() async {
+    final l10n = AppLocalizations.of(context);
     // Validation
     if (_nameController.text.isEmpty ||
         _emailController.text.isEmpty ||
         _passwordController.text.isEmpty) {
       setState(() {
-        _errorMessage = 'Please fill in all fields';
+        _errorMessage = l10n.registerFillAllFieldsError;
       });
       return;
     }
 
     if (_passwordController.text != _confirmPasswordController.text) {
       setState(() {
-        _errorMessage = 'Passwords do not match';
+        _errorMessage = l10n.registerPasswordsDoNotMatchError;
       });
       return;
     }
 
     if (_passwordController.text.length < 6) {
       setState(() {
-        _errorMessage = 'Password must be at least 6 characters';
+        _errorMessage = l10n.registerPasswordTooShortError;
       });
       return;
     }
 
     if (!_agreedToTerms) {
       setState(() {
-        _errorMessage = 'You must agree to the terms and conditions';
+        _errorMessage = l10n.registerMustAgreeToTermsError;
       });
       return;
     }
@@ -101,22 +103,25 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
   }
 
   String _extractErrorMessage(String error) {
+    final l10n = AppLocalizations.of(context);
     if (error.contains('email-already-in-use')) {
-      return 'An account with this email already exists';
+      return l10n.registerEmailInUseError;
     } else if (error.contains('invalid-email')) {
-      return 'Invalid email address';
+      return l10n.registerInvalidEmailError;
     } else if (error.contains('weak-password')) {
-      return 'Password is too weak';
+      return l10n.registerWeakPasswordError;
     } else if (error.contains('operation-not-allowed')) {
-      return 'Account creation is disabled';
+      return l10n.registerOperationNotAllowedError;
     }
-    return 'Sign up failed. Please try again';
+    return l10n.registerGenericError;
   }
 
   @override
-  Widget build(BuildContext context) => Scaffold(
+  Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
+    return Scaffold(
         appBar: AppBar(
-          title: const Text('Create Account'),
+          title: Text(l10n.registerTitle),
           centerTitle: true,
         ),
         body: SingleChildScrollView(
@@ -127,18 +132,18 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
               children: [
                 const SizedBox(height: 20),
                 // Title
-                const Text(
-                  'Join Chess Tactics Master',
-                  style: TextStyle(
+                Text(
+                  l10n.registerHeading,
+                  style: const TextStyle(
                     fontSize: 24,
                     fontWeight: FontWeight.bold,
                   ),
                   textAlign: TextAlign.center,
                 ),
                 const SizedBox(height: 8),
-                const Text(
-                  'Start your chess learning journey',
-                  style: TextStyle(
+                Text(
+                  l10n.registerSubtitle,
+                  style: const TextStyle(
                     fontSize: 14,
                     color: Colors.grey,
                   ),
@@ -150,8 +155,8 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
                   controller: _nameController,
                   enabled: !_isLoading,
                   decoration: InputDecoration(
-                    labelText: 'Full Name',
-                    hintText: 'Enter your name',
+                    labelText: l10n.registerNameLabel,
+                    hintText: l10n.registerNameHint,
                     prefixIcon: const Icon(Icons.person_outlined),
                     border: OutlineInputBorder(
                       borderRadius: BorderRadius.circular(12),
@@ -170,8 +175,8 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
                   enabled: !_isLoading,
                   keyboardType: TextInputType.emailAddress,
                   decoration: InputDecoration(
-                    labelText: 'Email',
-                    hintText: 'your@email.com',
+                    labelText: l10n.registerEmailLabel,
+                    hintText: l10n.registerEmailHint,
                     prefixIcon: const Icon(Icons.email_outlined),
                     border: OutlineInputBorder(
                       borderRadius: BorderRadius.circular(12),
@@ -190,8 +195,8 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
                   enabled: !_isLoading,
                   obscureText: !_isPasswordVisible,
                   decoration: InputDecoration(
-                    labelText: 'Password',
-                    hintText: 'At least 6 characters',
+                    labelText: l10n.registerPasswordLabel,
+                    hintText: l10n.registerPasswordHint,
                     prefixIcon: const Icon(Icons.lock_outlined),
                     suffixIcon: IconButton(
                       onPressed: () {
@@ -222,8 +227,8 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
                   enabled: !_isLoading,
                   obscureText: !_isConfirmPasswordVisible,
                   decoration: InputDecoration(
-                    labelText: 'Confirm Password',
-                    hintText: 'Re-enter your password',
+                    labelText: l10n.registerConfirmPasswordLabel,
+                    hintText: l10n.registerConfirmPasswordHint,
                     prefixIcon: const Icon(Icons.lock_outlined),
                     suffixIcon: IconButton(
                       onPressed: () {
@@ -259,7 +264,7 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
                             _agreedToTerms = value ?? false;
                           });
                         },
-                  title: const Text('I agree to Terms & Conditions'),
+                  title: Text(l10n.registerAgreeToTermsLabel),
                   contentPadding: EdgeInsets.zero,
                   controlAffinity: ListTileControlAffinity.leading,
                 ),
@@ -305,7 +310,7 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
                                   AlwaysStoppedAnimation<Color>(Colors.white),
                             ),
                           )
-                        : const Text('Create Account'),
+                        : Text(l10n.registerCreateAccountButton),
                   ),
                 ),
                 const SizedBox(height: 16),
@@ -314,10 +319,10 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
                 Row(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
-                    const Text('Already have an account? '),
+                    Text(l10n.registerAlreadyHaveAccountPrompt),
                     TextButton(
                       onPressed: _isLoading ? null : widget.onLoginTap,
-                      child: const Text('Sign In'),
+                      child: Text(l10n.registerSignInButton),
                     ),
                   ],
                 ),
@@ -326,4 +331,5 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
           ),
         ),
       );
+  }
 }

@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../../../l10n/app_localizations.dart';
 import '../../providers/auth_provider.dart';
 import '../../services/validation_service.dart';
 
@@ -38,7 +39,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
   Future<void> _handleSignIn() async {
     if (_emailController.text.isEmpty || _passwordController.text.isEmpty) {
       setState(() {
-        _errorMessage = 'Please fill in all fields';
+        _errorMessage = AppLocalizations.of(context).loginFillAllFieldsError;
       });
       return;
     }
@@ -113,8 +114,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
         // User cancelled or not available, don't show error for cancelled
         if (e.toString().contains('not available')) {
           setState(() {
-            _errorMessage =
-                'Sign in with Apple is not available on this device';
+            _errorMessage = AppLocalizations.of(context).loginAppleNotAvailableError;
             _isLoading = false;
           });
         } else {
@@ -132,16 +132,17 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
   }
 
   String _extractErrorMessage(String error) {
+    final l10n = AppLocalizations.of(context);
     if (error.contains('user-not-found')) {
-      return 'No account found with this email';
+      return l10n.loginUserNotFoundError;
     } else if (error.contains('wrong-password')) {
-      return 'Incorrect password';
+      return l10n.loginWrongPasswordError;
     } else if (error.contains('invalid-email')) {
-      return 'Invalid email address';
+      return l10n.loginInvalidEmailError;
     } else if (error.contains('too-many-requests')) {
-      return 'Too many login attempts. Please try again later';
+      return l10n.loginTooManyRequestsError;
     }
-    return 'Sign in failed. Please try again';
+    return l10n.loginGenericError;
   }
 
   void _showForgotPasswordDialog() {
@@ -149,27 +150,25 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
         TextEditingController(text: _emailController.text.trim());
     bool isSending = false;
     String? dialogError;
+    final l10n = AppLocalizations.of(context);
 
     showDialog(
       context: context,
       builder: (dialogContext) => StatefulBuilder(
         builder: (dialogContext, setDialogState) => AlertDialog(
-          title: const Text('Reset Password'),
+          title: Text(l10n.loginResetPasswordTitle),
           content: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              const Text(
-                'Enter your account email and we\'ll send you a link to '
-                'reset your password.',
-              ),
+              Text(l10n.loginResetPasswordDescription),
               const SizedBox(height: 16),
               TextField(
                 controller: controller,
                 enabled: !isSending,
                 keyboardType: TextInputType.emailAddress,
                 decoration: InputDecoration(
-                  labelText: 'Email',
-                  hintText: 'your@email.com',
+                  labelText: l10n.loginEmailLabel,
+                  hintText: l10n.loginEmailHint,
                   prefixIcon: const Icon(Icons.email_outlined),
                   border: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(12),
@@ -190,7 +189,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
               onPressed: isSending
                   ? null
                   : () => Navigator.of(dialogContext).pop(),
-              child: const Text('Cancel'),
+              child: Text(l10n.loginCancelButton),
             ),
             FilledButton(
               onPressed: isSending
@@ -199,7 +198,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                       final email = controller.text.trim();
                       if (email.isEmpty) {
                         setDialogState(() {
-                          dialogError = 'Please enter your email';
+                          dialogError = l10n.loginEnterEmailError;
                         });
                         return;
                       }
@@ -218,7 +217,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                           ScaffoldMessenger.of(context).showSnackBar(
                             SnackBar(
                               content: Text(
-                                'Password reset email sent to $email',
+                                l10n.loginPasswordResetSentMessage(email),
                               ),
                             ),
                           );
@@ -236,7 +235,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                       height: 16,
                       child: CircularProgressIndicator(strokeWidth: 2),
                     )
-                  : const Text('Send Link'),
+                  : Text(l10n.loginSendLinkButton),
             ),
           ],
         ),
@@ -245,9 +244,11 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
   }
 
   @override
-  Widget build(BuildContext context) => Scaffold(
+  Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
+    return Scaffold(
         appBar: AppBar(
-          title: const Text('Sign In'),
+          title: Text(l10n.loginTitle),
           centerTitle: true,
         ),
         body: SingleChildScrollView(
@@ -258,18 +259,18 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
               children: [
                 const SizedBox(height: 40),
                 // Logo/Title
-                const Text(
-                  '♟️ Chess Tactics Master',
-                  style: TextStyle(
+                Text(
+                  l10n.loginAppTitle,
+                  style: const TextStyle(
                     fontSize: 28,
                     fontWeight: FontWeight.bold,
                   ),
                   textAlign: TextAlign.center,
                 ),
                 const SizedBox(height: 8),
-                const Text(
-                  'Learn chess through tactics',
-                  style: TextStyle(
+                Text(
+                  l10n.loginAppSubtitle,
+                  style: const TextStyle(
                     fontSize: 14,
                     color: Colors.grey,
                   ),
@@ -282,8 +283,8 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                   enabled: !_isLoading,
                   keyboardType: TextInputType.emailAddress,
                   decoration: InputDecoration(
-                    labelText: 'Email',
-                    hintText: 'your@email.com',
+                    labelText: l10n.loginEmailLabel,
+                    hintText: l10n.loginEmailHint,
                     prefixIcon: const Icon(Icons.email_outlined),
                     border: OutlineInputBorder(
                       borderRadius: BorderRadius.circular(12),
@@ -302,8 +303,8 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                   enabled: !_isLoading,
                   obscureText: !_isPasswordVisible,
                   decoration: InputDecoration(
-                    labelText: 'Password',
-                    hintText: 'Enter your password',
+                    labelText: l10n.loginPasswordLabel,
+                    hintText: l10n.loginPasswordHint,
                     prefixIcon: const Icon(Icons.lock_outlined),
                     suffixIcon: IconButton(
                       onPressed: () {
@@ -333,7 +334,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                   alignment: Alignment.centerRight,
                   child: TextButton(
                     onPressed: _isLoading ? null : _showForgotPasswordDialog,
-                    child: const Text('Forgot password?'),
+                    child: Text(l10n.loginForgotPasswordButton),
                   ),
                 ),
                 const SizedBox(height: 24),
@@ -378,7 +379,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                                   AlwaysStoppedAnimation<Color>(Colors.white),
                             ),
                           )
-                        : const Text('Sign In'),
+                        : Text(l10n.loginSignInButton),
                   ),
                 ),
                 const SizedBox(height: 24),
@@ -387,10 +388,10 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                 Row(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
-                    const Text("Don't have an account? "),
+                    Text(l10n.loginNoAccountPrompt),
                     TextButton(
                       onPressed: _isLoading ? null : widget.onSignUpTap,
-                      child: const Text('Sign Up'),
+                      child: Text(l10n.loginSignUpButton),
                     ),
                   ],
                 ),
@@ -403,7 +404,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                     Padding(
                       padding: const EdgeInsets.symmetric(horizontal: 16),
                       child: Text(
-                        'or',
+                        l10n.loginOrDivider,
                         style: Theme.of(context).textTheme.bodySmall,
                       ),
                     ),
@@ -419,7 +420,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                   child: OutlinedButton.icon(
                     onPressed: _isLoading ? null : _handleGoogleSignIn,
                     icon: const Text('🔵'),
-                    label: const Text('Sign in with Google'),
+                    label: Text(l10n.loginSignInWithGoogleButton),
                   ),
                 ),
                 const SizedBox(height: 12),
@@ -431,7 +432,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                   child: OutlinedButton.icon(
                     onPressed: _isLoading ? null : _handleAppleSignIn,
                     icon: const Text('🍎'),
-                    label: const Text('Sign in with Apple'),
+                    label: Text(l10n.loginSignInWithAppleButton),
                   ),
                 ),
               ],
@@ -439,4 +440,5 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
           ),
         ),
       );
+  }
 }
