@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../providers/match_history_provider.dart';
 import '../../widgets/animations/chart_entrance_animation.dart';
 import 'pgn_import_screen.dart';
+import '../../../l10n/app_localizations.dart';
 
 /// Screen for displaying match history with filtering and pagination
 class MatchHistoryScreen extends ConsumerStatefulWidget {
@@ -38,15 +39,16 @@ class _MatchHistoryScreenState extends ConsumerState<MatchHistoryScreen> {
   @override
   Widget build(BuildContext context) {
     final matchHistoryState = ref.watch(matchHistoryProvider);
+    final l10n = AppLocalizations.of(context);
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('対戦履歴'),
+        title: Text(l10n.matchHistoryTitle),
         elevation: 0,
         actions: [
           IconButton(
             icon: const Icon(Icons.upload_file_outlined),
-            tooltip: 'PGNをインポート',
+            tooltip: l10n.matchHistoryImportPgnTooltip,
             onPressed: () {
               Navigator.of(context).push(
                 MaterialPageRoute(builder: (_) => const PgnImportScreen()),
@@ -56,7 +58,7 @@ class _MatchHistoryScreenState extends ConsumerState<MatchHistoryScreen> {
         ],
       ),
       body: matchHistoryState.when(
-        data: (state) => _buildContent(context, ref, state),
+        data: (state) => _buildContent(context, ref, state, l10n),
         loading: () => const Center(
           child: CircularProgressIndicator(),
         ),
@@ -67,7 +69,7 @@ class _MatchHistoryScreenState extends ConsumerState<MatchHistoryScreen> {
               const Icon(Icons.error_outline, size: 64, color: Colors.red),
               const SizedBox(height: 16),
               Text(
-                '対戦履歴の取得に失敗しました',
+                l10n.matchHistoryLoadFailedMessage,
                 style: Theme.of(context).textTheme.titleMedium,
               ),
               const SizedBox(height: 24),
@@ -77,7 +79,7 @@ class _MatchHistoryScreenState extends ConsumerState<MatchHistoryScreen> {
                   ref.read(matchHistoryProvider.notifier).loadHistory(widget.playerId);
                 },
                 icon: const Icon(Icons.refresh),
-                label: const Text('再試行'),
+                label: Text(l10n.matchHistoryRetryButton),
               ),
             ],
           ),
@@ -90,13 +92,14 @@ class _MatchHistoryScreenState extends ConsumerState<MatchHistoryScreen> {
     BuildContext context,
     WidgetRef ref,
     dynamic state,
+    AppLocalizations l10n,
   ) =>
       Column(
         children: [
           // Filter controls
           Padding(
             padding: const EdgeInsets.all(16),
-            child: _buildFilterControls(context, ref),
+            child: _buildFilterControls(context, ref, l10n),
           ),
 
           // Match list
@@ -113,7 +116,7 @@ class _MatchHistoryScreenState extends ConsumerState<MatchHistoryScreen> {
                         ),
                         const SizedBox(height: 16),
                         Text(
-                          '対戦履歴がありません',
+                          l10n.matchHistoryNoMatchesMessage,
                           style: Theme.of(context).textTheme.titleMedium,
                         ),
                       ],
@@ -133,7 +136,7 @@ class _MatchHistoryScreenState extends ConsumerState<MatchHistoryScreen> {
                                   .read(matchHistoryProvider.notifier)
                                   .loadMore(playerId);
                             },
-                            child: const Text('さらに読み込む'),
+                            child: Text(l10n.matchHistoryLoadMoreButton),
                           ),
                         );
                       }
@@ -143,7 +146,7 @@ class _MatchHistoryScreenState extends ConsumerState<MatchHistoryScreen> {
                         duration: Duration(
                           milliseconds: 300 + (index * 50).clamp(0, 500),
                         ),
-                        child: _buildMatchCard(context, match),
+                        child: _buildMatchCard(context, match, l10n),
                       );
                     },
                   ),
@@ -151,16 +154,21 @@ class _MatchHistoryScreenState extends ConsumerState<MatchHistoryScreen> {
         ],
       );
 
-  Widget _buildFilterControls(BuildContext context, WidgetRef ref) => Row(
+  Widget _buildFilterControls(
+    BuildContext context,
+    WidgetRef ref,
+    AppLocalizations l10n,
+  ) =>
+      Row(
         children: [
           Expanded(
             child: OutlinedButton.icon(
               onPressed: () {
                 // Show filter dialog
-                _showFilterDialog(context, ref);
+                _showFilterDialog(context, ref, l10n);
               },
               icon: const Icon(Icons.filter_list),
-              label: const Text('フィルター'),
+              label: Text(l10n.matchHistoryFilterButton),
             ),
           ),
           const SizedBox(width: 8),
@@ -169,12 +177,16 @@ class _MatchHistoryScreenState extends ConsumerState<MatchHistoryScreen> {
               ref.read(matchHistoryProvider.notifier).resetFilters(playerId);
             },
             icon: const Icon(Icons.refresh),
-            label: const Text('リセット'),
+            label: Text(l10n.matchHistoryResetButton),
           ),
         ],
       );
 
-  Widget _buildMatchCard(BuildContext context, dynamic match) {
+  Widget _buildMatchCard(
+    BuildContext context,
+    dynamic match,
+    AppLocalizations l10n,
+  ) {
     final ratingChange = match.playerRatingAfter - match.playerRatingBefore;
     final ratingChangeText =
         ratingChange >= 0 ? '+$ratingChange' : '$ratingChange';
@@ -228,7 +240,10 @@ class _MatchHistoryScreenState extends ConsumerState<MatchHistoryScreen> {
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
                     Text(
-                      '${match.timeControl} • ${_getResultText(match.result)}',
+                      l10n.matchHistoryTimeControlAndResultLabel(
+                        match.timeControl,
+                        _getResultText(match.result, l10n),
+                      ),
                       style: Theme.of(context).textTheme.bodySmall,
                     ),
                     Text(
@@ -262,27 +277,31 @@ class _MatchHistoryScreenState extends ConsumerState<MatchHistoryScreen> {
     }
   }
 
-  String _getResultText(String result) {
+  String _getResultText(String result, AppLocalizations l10n) {
     switch (result) {
       case 'win':
-        return '勝利';
+        return l10n.matchHistoryResultWin;
       case 'loss':
-        return '敗北';
+        return l10n.matchHistoryResultLoss;
       case 'draw':
-        return '引き分け';
+        return l10n.matchHistoryResultDraw;
       default:
         return result;
     }
   }
 
-  void _showFilterDialog(BuildContext context, WidgetRef ref) {
+  void _showFilterDialog(
+    BuildContext context,
+    WidgetRef ref,
+    AppLocalizations l10n,
+  ) {
     String? selectedResult;
     String? selectedTimeControl;
 
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text('フィルター'),
+        title: Text(l10n.matchHistoryFilterDialogTitle),
         content: StatefulBuilder(
           builder: (context, setState) => SingleChildScrollView(
             child: Column(
@@ -290,35 +309,49 @@ class _MatchHistoryScreenState extends ConsumerState<MatchHistoryScreen> {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  '結果',
+                  l10n.matchHistoryResultLabel,
                   style: Theme.of(context).textTheme.titleSmall,
                 ),
                 const SizedBox(height: 8),
                 DropdownButton<String?>(
                   value: selectedResult,
                   isExpanded: true,
-                  items: const [
-                    DropdownMenuItem(value: null, child: Text('すべて')),
-                    DropdownMenuItem(value: 'win', child: Text('勝利')),
-                    DropdownMenuItem(value: 'loss', child: Text('敗北')),
-                    DropdownMenuItem(value: 'draw', child: Text('引き分け')),
+                  items: [
+                    DropdownMenuItem(
+                        value: null, child: Text(l10n.matchHistoryAllLabel)),
+                    DropdownMenuItem(
+                        value: 'win',
+                        child: Text(l10n.matchHistoryResultWin)),
+                    DropdownMenuItem(
+                        value: 'loss',
+                        child: Text(l10n.matchHistoryResultLoss)),
+                    DropdownMenuItem(
+                        value: 'draw',
+                        child: Text(l10n.matchHistoryResultDraw)),
                   ],
                   onChanged: (value) => setState(() => selectedResult = value),
                 ),
                 const SizedBox(height: 16),
                 Text(
-                  '時間制',
+                  l10n.matchHistoryTimeControlLabel,
                   style: Theme.of(context).textTheme.titleSmall,
                 ),
                 const SizedBox(height: 8),
                 DropdownButton<String?>(
                   value: selectedTimeControl,
                   isExpanded: true,
-                  items: const [
-                    DropdownMenuItem(value: null, child: Text('すべて')),
-                    DropdownMenuItem(value: 'bullet', child: Text('バレット')),
-                    DropdownMenuItem(value: 'blitz', child: Text('ブリッツ')),
-                    DropdownMenuItem(value: 'rapid', child: Text('ラピッド')),
+                  items: [
+                    DropdownMenuItem(
+                        value: null, child: Text(l10n.matchHistoryAllLabel)),
+                    DropdownMenuItem(
+                        value: 'bullet',
+                        child: Text(l10n.matchHistoryBulletLabel)),
+                    DropdownMenuItem(
+                        value: 'blitz',
+                        child: Text(l10n.matchHistoryBlitzLabel)),
+                    DropdownMenuItem(
+                        value: 'rapid',
+                        child: Text(l10n.matchHistoryRapidLabel)),
                   ],
                   onChanged: (value) =>
                       setState(() => selectedTimeControl = value),
@@ -330,7 +363,7 @@ class _MatchHistoryScreenState extends ConsumerState<MatchHistoryScreen> {
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context),
-            child: const Text('キャンセル'),
+            child: Text(l10n.matchHistoryCancelButton),
           ),
           ElevatedButton(
             onPressed: () {
@@ -341,7 +374,7 @@ class _MatchHistoryScreenState extends ConsumerState<MatchHistoryScreen> {
                   );
               Navigator.pop(context);
             },
-            child: const Text('適用'),
+            child: Text(l10n.matchHistoryApplyButton),
           ),
         ],
       ),
