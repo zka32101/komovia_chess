@@ -1,12 +1,16 @@
-import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:logger/logger.dart';
 
 /// RevenueCat configuration and API key management
 ///
-/// Supports multiple configuration sources:
-/// 1. GitHub Secrets (CI/CD environment)
-/// 2. .env file (local development)
-/// 3. Environment variables
+/// Source: a compile-time `--dart-define-from-file=.env` (or individual
+/// `--dart-define=REVENUEAT_API_KEY=...`), never a bundled `.env` asset -
+/// Flutter assets ship as plaintext files inside the APK/IPA (extractable
+/// with a plain `unzip`), so loading secrets from one at runtime baked the
+/// whole `.env` file - Firebase config, this key, anything else ever added
+/// to it - into every release build as an easily-scraped flat file. Compile-
+/// time dart-define constants are embedded into the binary instead, which
+/// is the standard Flutter approach for values like this that don't need
+/// to change without a rebuild.
 class RevenueCatConfig {
   // Private constructor to prevent instantiation
   RevenueCatConfig._();
@@ -15,11 +19,6 @@ class RevenueCatConfig {
   static late String _apiKey;
 
   /// Get RevenueCat Public SDK Key
-  ///
-  /// Source priority:
-  /// 1. Environment variable: REVENUEAT_API_KEY
-  /// 2. .env file: REVENUEAT_API_KEY
-  /// 3. Default: empty string (will fail on initialization)
   static String get apiKey => _apiKey;
 
   /// Initialize RevenueCat configuration
@@ -27,22 +26,14 @@ class RevenueCatConfig {
   /// This should be called early in app startup, before RevenueCat SDK initialization
   static Future<void> initialize() async {
     try {
-      // Load .env file for local development
-      await dotenv.load(fileName: '.env');
-
-      // Try to get API key from environment first (GitHub Secrets, etc.)
       _apiKey =
           const String.fromEnvironment('REVENUEAT_API_KEY', defaultValue: '');
-
-      // If not found, try .env file
-      if (_apiKey.isEmpty) {
-        _apiKey = dotenv.env['REVENUEAT_API_KEY'] ?? '';
-      }
 
       // Log status
       if (_apiKey.isEmpty) {
         _logger.w('RevenueCat API key not configured. '
-            'Set REVENUEAT_API_KEY environment variable or add to .env file');
+            'Build with --dart-define=REVENUEAT_API_KEY=... or '
+            '--dart-define-from-file=.env');
       } else {
         _logger.i('RevenueCat configuration loaded successfully');
         _logger.d('API Key prefix: ${_apiKey.substring(0, 8)}...');

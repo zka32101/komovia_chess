@@ -17,8 +17,15 @@ This repo was scaffolded by migrating the standalone `chess` app (`zka32101/ches
 ```bash
 flutter pub get
 cp .env.example .env   # fill in your Firebase/RevenueCat config
-flutter run
+flutter run --dart-define-from-file=.env
 ```
+
+`.env` is **not** bundled into the app - it's only read at build/run time via
+`--dart-define-from-file`, so its values get compiled into the binary as
+Dart constants instead of shipping as a plaintext file inside the APK/IPA.
+Always pass `--dart-define-from-file=.env` to `flutter run`/`flutter build`;
+without it, the app falls back to the placeholder values baked into
+`lib/firebase_options.dart`.
 
 Requires a Firebase project (Auth, Firestore, Realtime Database, Storage, Analytics, Crashlytics) configured via the values in `.env`.
 

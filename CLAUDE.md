@@ -25,7 +25,12 @@ The source repo's root and `docs/` directory contained a large number of fabrica
 - Flutter + Riverpod
 - Firebase (Auth, Firestore, Realtime Database, Storage, Analytics, Crashlytics)
 - `chess` package for move/rules logic, `stockfish` for engine analysis
-- `flutter_dotenv` for config (`.env`, not committed — see `.env.example`)
+- Config (`.env`, not committed — see `.env.example`) via compile-time
+  `--dart-define-from-file=.env`, NOT a bundled asset read at runtime —
+  `flutter_dotenv` was removed after Play-review-research-driven release
+  hardening found `.env` was listed as a `pubspec.yaml` asset, meaning
+  every release build shipped it as an unencrypted, `unzip`-able plaintext
+  file inside the APK/IPA (see `DefaultFirebaseOptions`/`RevenueCatConfig`)
 
 ## Firestore / Cloud Functions
 
