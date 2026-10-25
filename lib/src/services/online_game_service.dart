@@ -16,6 +16,7 @@ import 'match_history_service.dart';
 import 'rating_calculation_service.dart';
 import 'season_challenge_service.dart';
 import 'season_management_service.dart';
+import 'seasonal_event_service.dart';
 
 /// Manages online multiplayer games in real-time
 class OnlineGameService {
@@ -602,6 +603,16 @@ class OnlineGameService {
         playerId: playerId,
         seasonId: season.seasonId,
         experienceAmount: playerResult == 'win' ? 50 : 20,
+      );
+
+      // Best-effort: same dead-wiring gap - SeasonalEventService.
+      // updateEventScore was never called from anywhere, so every
+      // seasonal event's leaderboard/rank-gated rewards stayed frozen
+      // at currentScore: 0 for every participant regardless of play.
+      await SeasonalEventService().recordEventScoreProgress(
+        playerId: playerId,
+        seasonId: season.seasonId,
+        scoreIncrease: playerResult == 'win' ? 20 : 5,
       );
     } catch (_) {
       // Best-effort; never block the game from ending.
