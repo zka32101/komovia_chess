@@ -69,7 +69,6 @@ dependencies:
   intl: ^0.20.3
   logger: ^2.0.0
   dio: ^5.2.0
-  flutter_dotenv: ^5.0.0
 
   # Sharing (post-game GIF export)
   image: ^4.2.0
@@ -103,6 +102,11 @@ flutter:
   uses-material-design: true
 
   # Assets
+  # .env is intentionally NOT listed here: it used to be bundled as a
+  # Flutter asset (a plaintext file shipped unencrypted inside every
+  # APK/IPA, extractable with a plain `unzip`) and read at runtime via
+  # flutter_dotenv. Firebase/RevenueCat config now comes from
+  # --dart-define-from-file=.env at build time instead - see
+  # DefaultFirebaseOptions and RevenueCatConfig.
   assets:
-    - .env
     - assets/images/

@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'firebase_options.dart';
 import 'src/app.dart';
 import 'src/services/sound_service.dart';
@@ -9,16 +8,10 @@ import 'src/services/sound_service.dart';
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
-  // Load environment variables from .env file
-  // This is required for Firebase configuration
-  await dotenv.load(fileName: '.env').catchError(
-    (error) {
-      // If .env doesn't exist, continue with defaults
-      // This allows development/testing to work
-      debugPrint('Warning: .env file not found, using defaults. Error: $error');
-      return null;
-    },
-  );
+  // Firebase/RevenueCat configuration now comes from compile-time
+  // --dart-define-from-file=.env (see DefaultFirebaseOptions and
+  // RevenueCatConfig) instead of a bundled runtime asset, so there's
+  // nothing to load here anymore.
 
   // Initialize Firebase with configuration from environment
   try {
