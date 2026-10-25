@@ -294,5 +294,110 @@
     "placeholders": {
       "days": { "type": "int" }
     }
-  }
+  },
+
+  "tournamentsTitle": "Tournaments",
+  "tournamentsCreateTooltip": "Create tournament",
+  "tournamentsErrorMessage": "Error: {error}",
+  "@tournamentsErrorMessage": {
+    "placeholders": {
+      "error": { "type": "String" }
+    }
+  },
+  "tournamentsNoActiveTournamentsMessage": "No active tournaments right now.",
+  "tournamentsFormatAndPlayersLabel": "{format} · {current}/{max} players",
+  "@tournamentsFormatAndPlayersLabel": {
+    "placeholders": {
+      "format": { "type": "String" },
+      "current": { "type": "int" },
+      "max": { "type": "int" }
+    }
+  },
+  "tournamentsRegisteredChip": "Registered",
+  "tournamentsFullChip": "Full",
+  "tournamentsRegisterButton": "Register",
+  "tournamentsRegisteredForMessage": "Registered for {name}",
+  "@tournamentsRegisteredForMessage": {
+    "placeholders": {
+      "name": { "type": "String" }
+    }
+  },
+  "tournamentsFallbackTitle": "Tournament",
+  "tournamentsStandingsHeading": "Standings",
+  "tournamentsMatchesHeading": "Matches",
+  "tournamentsStartTournamentButton": "Start Tournament",
+  "tournamentsBracketGeneratedMessage": "Bracket generated",
+  "tournamentsFinishAndDistributePrizesButton": "Finish & Distribute Prizes",
+  "tournamentsDistributePrizesButton": "Distribute Prizes",
+  "tournamentsFinishedMessage": "Tournament finished",
+  "tournamentsFormatLabel": "Format: {format}",
+  "@tournamentsFormatLabel": {
+    "placeholders": {
+      "format": { "type": "String" }
+    }
+  },
+  "tournamentsTimeControlLabel": "Time control: {timeControl}",
+  "@tournamentsTimeControlLabel": {
+    "placeholders": {
+      "timeControl": { "type": "String" }
+    }
+  },
+  "tournamentsParticipantsLabel": "Participants: {current}/{max}",
+  "@tournamentsParticipantsLabel": {
+    "placeholders": {
+      "current": { "type": "int" },
+      "max": { "type": "int" }
+    }
+  },
+  "tournamentsPrizePoolLabel": "Prize pool: {prizePool}",
+  "@tournamentsPrizePoolLabel": {
+    "placeholders": {
+      "prizePool": { "type": "int" }
+    }
+  },
+  "tournamentsNoParticipantsYetMessage": "No participants yet.",
+  "tournamentsPointsAndRecordLabel": "{points} pts · {wins}W-{losses}L-{draws}D",
+  "@tournamentsPointsAndRecordLabel": {
+    "placeholders": {
+      "points": { "type": "int" },
+      "wins": { "type": "int" },
+      "losses": { "type": "int" },
+      "draws": { "type": "int" }
+    }
+  },
+  "tournamentsNoMatchesScheduledMessage": "No matches scheduled yet.",
+  "tournamentsByeLabel": "Bye",
+  "tournamentsTbdLabel": "TBD",
+  "tournamentsRoundLabel": "Round {round}",
+  "@tournamentsRoundLabel": {
+    "placeholders": {
+      "round": { "type": "int" }
+    }
+  },
+  "tournamentsVersusLabel": "{player1} vs {player2}",
+  "@tournamentsVersusLabel": {
+    "placeholders": {
+      "player1": { "type": "String" },
+      "player2": { "type": "String" }
+    }
+  },
+  "tournamentsRecordResultButton": "Record result",
+  "tournamentsWonLabel": "{name} won",
+  "@tournamentsWonLabel": {
+    "placeholders": {
+      "name": { "type": "String" }
+    }
+  },
+  "tournamentsWhoWonTitle": "Who won?",
+  "tournamentsResultRecordedMessage": "Result recorded",
+  "tournamentsCreateTitle": "Create Tournament",
+  "tournamentsNameLabel": "Name",
+  "tournamentsDescriptionLabel": "Description",
+  "tournamentsMaxParticipantsLabel": "Max participants",
+  "tournamentsStartDateLabel": "Start date",
+  "tournamentsEndDateLabel": "End date",
+  "tournamentsTimeControlFieldLabel": "Time control",
+  "tournamentsPrizePoolFieldLabel": "Prize pool",
+  "tournamentsCreateButton": "Create",
+  "tournamentsCreateFailedMessage": "Failed to create tournament"
 }

@@ -4,6 +4,7 @@ import 'package:komovia_core/komovia_core.dart';
 import '../../models/phase_k_models.dart' show TournamentRanking;
 import '../../providers/auth_provider.dart';
 import '../../providers/tournament_provider.dart';
+import '../../../l10n/app_localizations.dart';
 
 class TournamentsScreen extends ConsumerWidget {
   const TournamentsScreen({Key? key}) : super(key: key);
@@ -12,28 +13,30 @@ class TournamentsScreen extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final tournaments = ref.watch(activeTournamentsProvider);
     final me = ref.watch(currentUserProvider).value;
+    final l10n = AppLocalizations.of(context);
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Tournaments'),
+        title: Text(l10n.tournamentsTitle),
         centerTitle: true,
       ),
       floatingActionButton: FloatingActionButton(
         onPressed: () => Navigator.of(context).push(
           MaterialPageRoute(builder: (_) => const TournamentCreateScreen()),
         ),
-        tooltip: 'Create tournament',
+        tooltip: l10n.tournamentsCreateTooltip,
         child: const Icon(Icons.add),
       ),
       body: tournaments.when(
         loading: () => const Center(child: CircularProgressIndicator()),
-        error: (error, stack) => Center(child: Text('Error: $error')),
+        error: (error, stack) =>
+            Center(child: Text(l10n.tournamentsErrorMessage(error.toString()))),
         data: (list) {
           if (list.isEmpty) {
-            return const Center(
+            return Center(
               child: Padding(
-                padding: EdgeInsets.all(24),
-                child: Text('No active tournaments right now.'),
+                padding: const EdgeInsets.all(24),
+                child: Text(l10n.tournamentsNoActiveTournamentsMessage),
               ),
             );
           }
@@ -58,14 +61,18 @@ class TournamentsScreen extends ConsumerWidget {
                   ),
                   title: Text(tournament.name),
                   subtitle: Text(
-                    '${tournament.format} · '
-                    '${tournament.participantUids.length}/${tournament.maxParticipants} players',
+                    l10n.tournamentsFormatAndPlayersLabel(
+                      tournament.format,
+                      tournament.participantUids.length,
+                      tournament.maxParticipants,
+                    ),
                   ),
                   trailing: _buildActionWidget(
                     context,
                     ref,
                     tournament,
                     isRegistered: isRegistered,
+                    l10n: l10n,
                   ),
                 ),
               );
@@ -81,11 +88,12 @@ class TournamentsScreen extends ConsumerWidget {
     WidgetRef ref,
     Tournament tournament, {
     required bool isRegistered,
+    required AppLocalizations l10n,
   }) {
     if (isRegistered) {
-      return const Chip(
-        avatar: Icon(Icons.check, size: 16),
-        label: Text('Registered'),
+      return Chip(
+        avatar: const Icon(Icons.check, size: 16),
+        label: Text(l10n.tournamentsRegisteredChip),
       );
     }
 
@@ -94,7 +102,7 @@ class TournamentsScreen extends ConsumerWidget {
     }
 
     if (tournament.isFull) {
-      return const Chip(label: Text('Full'));
+      return Chip(label: Text(l10n.tournamentsFullChip));
     }
 
     return FilledButton(
@@ -104,11 +112,15 @@ class TournamentsScreen extends ConsumerWidget {
             );
         if (context.mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text('Registered for ${tournament.name}')),
+            SnackBar(
+              content: Text(
+                l10n.tournamentsRegisteredForMessage(tournament.name),
+              ),
+            ),
           );
         }
       },
-      child: const Text('Register'),
+      child: Text(l10n.tournamentsRegisterButton),
     );
   }
 }
@@ -126,44 +138,51 @@ class TournamentDetailScreen extends ConsumerWidget {
     final standings = ref.watch(tournamentStandingsProvider(tournamentId));
     final matches = ref.watch(tournamentMatchesProvider(tournamentId));
     final me = ref.watch(currentUserProvider).value;
+    final l10n = AppLocalizations.of(context);
 
     return Scaffold(
       appBar: AppBar(
-        title: Text(tournament.value?.name ?? 'Tournament'),
+        title: Text(tournament.value?.name ?? l10n.tournamentsFallbackTitle),
       ),
       body: tournament.when(
         loading: () => const Center(child: CircularProgressIndicator()),
-        error: (error, stack) => Center(child: Text('Error: $error')),
+        error: (error, stack) =>
+            Center(child: Text(l10n.tournamentsErrorMessage(error.toString()))),
         data: (data) {
           final isOrganizer = me != null && data.createdBy == me.uid;
 
           return ListView(
             padding: const EdgeInsets.all(16),
             children: [
-              _buildHeader(data, extras.value),
+              _buildHeader(data, extras.value, l10n),
               const SizedBox(height: 24),
               if (isOrganizer) ...[
-                _buildOrganizerActions(context, ref, data),
+                _buildOrganizerActions(context, ref, data, l10n),
                 const SizedBox(height: 24),
               ],
-              Text('Standings', style: Theme.of(context).textTheme.titleMedium),
+              Text(l10n.tournamentsStandingsHeading,
+                  style: Theme.of(context).textTheme.titleMedium),
               const SizedBox(height: 8),
               standings.when(
                 loading: () => const Center(child: CircularProgressIndicator()),
-                error: (error, stack) => Text('Error: $error'),
-                data: (data) => _buildStandings(data),
+                error: (error, stack) =>
+                    Text(l10n.tournamentsErrorMessage(error.toString())),
+                data: (data) => _buildStandings(data, l10n),
               ),
               const SizedBox(height: 24),
-              Text('Matches', style: Theme.of(context).textTheme.titleMedium),
+              Text(l10n.tournamentsMatchesHeading,
+                  style: Theme.of(context).textTheme.titleMedium),
               const SizedBox(height: 8),
               matches.when(
                 loading: () => const Center(child: CircularProgressIndicator()),
-                error: (error, stack) => Text('Error: $error'),
+                error: (error, stack) =>
+                    Text(l10n.tournamentsErrorMessage(error.toString())),
                 data: (matchList) => _buildMatches(
                   context,
                   ref,
                   matchList,
                   isOrganizer: isOrganizer,
+                  l10n: l10n,
                 ),
               ),
             ],
@@ -177,18 +196,19 @@ class TournamentDetailScreen extends ConsumerWidget {
     BuildContext context,
     WidgetRef ref,
     Tournament tournament,
+    AppLocalizations l10n,
   ) {
     if (tournament.isUpcoming) {
       return FilledButton.icon(
         icon: const Icon(Icons.play_arrow),
-        label: const Text('Start Tournament'),
+        label: Text(l10n.tournamentsStartTournamentButton),
         onPressed: () async {
           await ref
               .read(tournamentActionsProvider.notifier)
               .startTournament(tournament.id);
           if (context.mounted) {
             ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(content: Text('Bracket generated')),
+              SnackBar(content: Text(l10n.tournamentsBracketGeneratedMessage)),
             );
           }
         },
@@ -208,8 +228,8 @@ class TournamentDetailScreen extends ConsumerWidget {
         icon: const Icon(Icons.emoji_events),
         label: Text(
           tournament.isActive
-              ? 'Finish & Distribute Prizes'
-              : 'Distribute Prizes',
+              ? l10n.tournamentsFinishAndDistributePrizesButton
+              : l10n.tournamentsDistributePrizesButton,
         ),
         onPressed: () async {
           await ref
@@ -217,7 +237,7 @@ class TournamentDetailScreen extends ConsumerWidget {
               .finishTournament(tournament.id);
           if (context.mounted) {
             ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(content: Text('Tournament finished')),
+              SnackBar(content: Text(l10n.tournamentsFinishedMessage)),
             );
           }
         },
@@ -227,7 +247,11 @@ class TournamentDetailScreen extends ConsumerWidget {
     return const SizedBox.shrink();
   }
 
-  Widget _buildHeader(Tournament tournament, Map<String, dynamic>? extras) {
+  Widget _buildHeader(
+    Tournament tournament,
+    Map<String, dynamic>? extras,
+    AppLocalizations l10n,
+  ) {
     final timeControl = extras?['timeControl'] as String? ?? '';
     final prizePool = extras?['prizePool'] as int? ?? 0;
 
@@ -239,21 +263,29 @@ class TournamentDetailScreen extends ConsumerWidget {
           children: [
             Text(tournament.description),
             const SizedBox(height: 8),
-            Text('Format: ${tournament.format}'),
-            if (timeControl.isNotEmpty) Text('Time control: $timeControl'),
+            Text(l10n.tournamentsFormatLabel(tournament.format)),
+            if (timeControl.isNotEmpty)
+              Text(l10n.tournamentsTimeControlLabel(timeControl)),
             Text(
-              'Participants: ${tournament.participantUids.length}/${tournament.maxParticipants}',
+              l10n.tournamentsParticipantsLabel(
+                tournament.participantUids.length,
+                tournament.maxParticipants,
+              ),
             ),
-            if (prizePool > 0) Text('Prize pool: $prizePool'),
+            if (prizePool > 0)
+              Text(l10n.tournamentsPrizePoolLabel(prizePool)),
           ],
         ),
       ),
     );
   }
 
-  Widget _buildStandings(List<TournamentRanking> rankings) {
+  Widget _buildStandings(
+    List<TournamentRanking> rankings,
+    AppLocalizations l10n,
+  ) {
     if (rankings.isEmpty) {
-      return const Text('No participants yet.');
+      return Text(l10n.tournamentsNoParticipantsYetMessage);
     }
 
     return Column(
@@ -266,7 +298,12 @@ class TournamentDetailScreen extends ConsumerWidget {
                 ),
                 title: Text(r.username),
                 trailing: Text(
-                  '${r.points} pts · ${r.wins}W-${r.losses}L-${r.draws}D',
+                  l10n.tournamentsPointsAndRecordLabel(
+                    r.points,
+                    r.wins,
+                    r.losses,
+                    r.draws,
+                  ),
                 ),
               ))
           .toList(),
@@ -278,13 +315,16 @@ class TournamentDetailScreen extends ConsumerWidget {
     WidgetRef ref,
     List<TournamentMatch> matches, {
     required bool isOrganizer,
+    required AppLocalizations l10n,
   }) {
     if (matches.isEmpty) {
-      return const Text('No matches scheduled yet.');
+      return Text(l10n.tournamentsNoMatchesScheduledMessage);
     }
 
     String nameFor(String? uid, String? displayName) =>
-        displayName ?? uid?.substring(0, uid.length.clamp(0, 8)) ?? 'TBD';
+        displayName ??
+        uid?.substring(0, uid.length.clamp(0, 8)) ??
+        l10n.tournamentsTbdLabel;
 
     final byRound = <int, List<TournamentMatch>>{};
     for (final match in matches) {
@@ -299,12 +339,12 @@ class TournamentDetailScreen extends ConsumerWidget {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text('Round ${entry.key}',
+              Text(l10n.tournamentsRoundLabel(entry.key),
                   style: const TextStyle(fontWeight: FontWeight.bold)),
               ...entry.value.map((match) {
                 final p1 = nameFor(match.player1Uid, match.player1DisplayName);
                 final p2 = match.isBye
-                    ? 'Bye'
+                    ? l10n.tournamentsByeLabel
                     : nameFor(match.player2Uid, match.player2DisplayName);
                 final winnerName = match.winnerUid != null
                     ? nameFor(
@@ -322,7 +362,7 @@ class TournamentDetailScreen extends ConsumerWidget {
 
                 return ListTile(
                   dense: true,
-                  title: Text('$p1 vs $p2'),
+                  title: Text(l10n.tournamentsVersusLabel(p1, p2)),
                   trailing: canRecordResult
                       ? TextButton(
                           onPressed: () => _showRecordResultDialog(
@@ -331,12 +371,13 @@ class TournamentDetailScreen extends ConsumerWidget {
                             match,
                             p1Name: p1,
                             p2Name: p2,
+                            l10n: l10n,
                           ),
-                          child: const Text('Record result'),
+                          child: Text(l10n.tournamentsRecordResultButton),
                         )
                       : Text(
                           match.isCompleted && winnerName != null
-                              ? '$winnerName won'
+                              ? l10n.tournamentsWonLabel(winnerName)
                               : match.status,
                         ),
                 );
@@ -354,11 +395,12 @@ class TournamentDetailScreen extends ConsumerWidget {
     TournamentMatch match, {
     required String p1Name,
     required String p2Name,
+    required AppLocalizations l10n,
   }) async {
     final winnerUid = await showDialog<String>(
       context: context,
       builder: (dialogContext) => SimpleDialog(
-        title: const Text('Who won?'),
+        title: Text(l10n.tournamentsWhoWonTitle),
         children: [
           SimpleDialogOption(
             onPressed: () => Navigator.pop(dialogContext, match.player1Uid),
@@ -387,7 +429,7 @@ class TournamentDetailScreen extends ConsumerWidget {
 
     if (context.mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Result recorded')),
+        SnackBar(content: Text(l10n.tournamentsResultRecordedMessage)),
       );
     }
   }
@@ -484,92 +526,99 @@ class _TournamentCreateScreenState
     if (tournament != null) {
       Navigator.of(context).pop();
     } else {
+      final l10n = AppLocalizations.of(context);
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Failed to create tournament')),
+        SnackBar(content: Text(l10n.tournamentsCreateFailedMessage)),
       );
     }
   }
 
   @override
-  Widget build(BuildContext context) => Scaffold(
-        appBar: AppBar(title: const Text('Create Tournament')),
-        body: SingleChildScrollView(
-          padding: const EdgeInsets.all(16),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              TextField(
-                controller: _nameController,
-                decoration: const InputDecoration(labelText: 'Name'),
-              ),
-              const SizedBox(height: 12),
-              TextField(
-                controller: _descriptionController,
-                decoration: const InputDecoration(labelText: 'Description'),
-                maxLines: 2,
-              ),
-              const SizedBox(height: 16),
-              Text('Max participants',
-                  style: Theme.of(context).textTheme.labelMedium),
-              const SizedBox(height: 8),
-              Wrap(
-                spacing: 8,
-                children: [4, 8, 16, 32].map((size) {
-                  return ChoiceChip(
-                    label: Text('$size'),
-                    selected: _maxParticipants == size,
-                    onSelected: (_) =>
-                        setState(() => _maxParticipants = size),
-                  );
-                }).toList(),
-              ),
-              const SizedBox(height: 16),
-              Row(
-                children: [
-                  Expanded(
-                    child: ListTile(
-                      contentPadding: EdgeInsets.zero,
-                      title: const Text('Start date'),
-                      subtitle: Text(_formatDate(_startDate)),
-                      onTap: _pickStartDate,
-                      trailing: const Icon(Icons.calendar_today, size: 18),
-                    ),
+  Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
+
+    return Scaffold(
+      appBar: AppBar(title: Text(l10n.tournamentsCreateTitle)),
+      body: SingleChildScrollView(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            TextField(
+              controller: _nameController,
+              decoration: InputDecoration(labelText: l10n.tournamentsNameLabel),
+            ),
+            const SizedBox(height: 12),
+            TextField(
+              controller: _descriptionController,
+              decoration:
+                  InputDecoration(labelText: l10n.tournamentsDescriptionLabel),
+              maxLines: 2,
+            ),
+            const SizedBox(height: 16),
+            Text(l10n.tournamentsMaxParticipantsLabel,
+                style: Theme.of(context).textTheme.labelMedium),
+            const SizedBox(height: 8),
+            Wrap(
+              spacing: 8,
+              children: [4, 8, 16, 32].map((size) {
+                return ChoiceChip(
+                  label: Text('$size'),
+                  selected: _maxParticipants == size,
+                  onSelected: (_) => setState(() => _maxParticipants = size),
+                );
+              }).toList(),
+            ),
+            const SizedBox(height: 16),
+            Row(
+              children: [
+                Expanded(
+                  child: ListTile(
+                    contentPadding: EdgeInsets.zero,
+                    title: Text(l10n.tournamentsStartDateLabel),
+                    subtitle: Text(_formatDate(_startDate)),
+                    onTap: _pickStartDate,
+                    trailing: const Icon(Icons.calendar_today, size: 18),
                   ),
-                  Expanded(
-                    child: ListTile(
-                      contentPadding: EdgeInsets.zero,
-                      title: const Text('End date'),
-                      subtitle: Text(_formatDate(_endDate)),
-                      onTap: _pickEndDate,
-                      trailing: const Icon(Icons.calendar_today, size: 18),
-                    ),
+                ),
+                Expanded(
+                  child: ListTile(
+                    contentPadding: EdgeInsets.zero,
+                    title: Text(l10n.tournamentsEndDateLabel),
+                    subtitle: Text(_formatDate(_endDate)),
+                    onTap: _pickEndDate,
+                    trailing: const Icon(Icons.calendar_today, size: 18),
                   ),
-                ],
-              ),
-              const SizedBox(height: 12),
-              TextField(
-                controller: _timeControlController,
-                decoration: const InputDecoration(labelText: 'Time control'),
-              ),
-              const SizedBox(height: 12),
-              TextField(
-                controller: _prizePoolController,
-                decoration: const InputDecoration(labelText: 'Prize pool'),
-                keyboardType: TextInputType.number,
-              ),
-              const SizedBox(height: 24),
-              FilledButton(
-                onPressed: _isSubmitting ? null : _create,
-                child: _isSubmitting
-                    ? const SizedBox(
-                        width: 16,
-                        height: 16,
-                        child: CircularProgressIndicator(strokeWidth: 2),
-                      )
-                    : const Text('Create'),
-              ),
-            ],
-          ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 12),
+            TextField(
+              controller: _timeControlController,
+              decoration: InputDecoration(
+                  labelText: l10n.tournamentsTimeControlFieldLabel),
+            ),
+            const SizedBox(height: 12),
+            TextField(
+              controller: _prizePoolController,
+              decoration: InputDecoration(
+                  labelText: l10n.tournamentsPrizePoolFieldLabel),
+              keyboardType: TextInputType.number,
+            ),
+            const SizedBox(height: 24),
+            FilledButton(
+              onPressed: _isSubmitting ? null : _create,
+              child: _isSubmitting
+                  ? const SizedBox(
+                      width: 16,
+                      height: 16,
+                      child: CircularProgressIndicator(strokeWidth: 2),
+                    )
+                  : Text(l10n.tournamentsCreateButton),
+            ),
+          ],
         ),
-      );
+      ),
+    );
+  }
 }
