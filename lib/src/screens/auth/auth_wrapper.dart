@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../../../l10n/app_localizations.dart';
 import '../../providers/auth_provider.dart';
 import '../../widgets/notification_overlay.dart';
 import '../home/home_screen.dart';
@@ -19,6 +20,7 @@ class _AuthWrapperState extends ConsumerState<AuthWrapper> {
   @override
   Widget build(BuildContext context) {
     final authState = ref.watch(authStateNotifierProvider);
+    final l10n = AppLocalizations.of(context);
 
     return Stack(
       children: [
@@ -29,14 +31,14 @@ class _AuthWrapperState extends ConsumerState<AuthWrapper> {
             ),
           ),
           error: (error, stack) => Scaffold(
-            appBar: AppBar(title: const Text('Error')),
+            appBar: AppBar(title: Text(l10n.authErrorTitle)),
             body: Center(
               child: Column(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
                   const Icon(Icons.error_outline, size: 48, color: Colors.red),
                   const SizedBox(height: 16),
-                  Text('Error: $error'),
+                  Text(l10n.authErrorMessage(error.toString())),
                   const SizedBox(height: 24),
                   FilledButton(
                     onPressed: () {
@@ -44,7 +46,7 @@ class _AuthWrapperState extends ConsumerState<AuthWrapper> {
                         _showLoginScreen = true;
                       });
                     },
-                    child: const Text('Back to Login'),
+                    child: Text(l10n.authBackToLoginButton),
                   ),
                 ],
               ),

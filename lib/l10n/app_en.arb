@@ -32,5 +32,72 @@
   "homeFindOpponentButton": "Find Opponent",
   "homePlayCpuButton": "Play CPU",
   "homeRecentGamesTitle": "Recent Games",
-  "homeViewAllButton": "View All"
+  "homeViewAllButton": "View All",
+
+  "authErrorTitle": "Error",
+  "authErrorMessage": "Error: {error}",
+  "@authErrorMessage": {
+    "placeholders": {
+      "error": { "type": "String" }
+    }
+  },
+  "authBackToLoginButton": "Back to Login",
+
+  "loginTitle": "Sign In",
+  "loginAppTitle": "♟️ Chess Tactics Master",
+  "loginAppSubtitle": "Learn chess through tactics",
+  "loginEmailLabel": "Email",
+  "loginEmailHint": "your@email.com",
+  "loginPasswordLabel": "Password",
+  "loginPasswordHint": "Enter your password",
+  "loginForgotPasswordButton": "Forgot password?",
+  "loginSignInButton": "Sign In",
+  "loginNoAccountPrompt": "Don't have an account? ",
+  "loginSignUpButton": "Sign Up",
+  "loginOrDivider": "or",
+  "loginSignInWithGoogleButton": "Sign in with Google",
+  "loginSignInWithAppleButton": "Sign in with Apple",
+  "loginFillAllFieldsError": "Please fill in all fields",
+  "loginAppleNotAvailableError": "Sign in with Apple is not available on this device",
+  "loginUserNotFoundError": "No account found with this email",
+  "loginWrongPasswordError": "Incorrect password",
+  "loginInvalidEmailError": "Invalid email address",
+  "loginTooManyRequestsError": "Too many login attempts. Please try again later",
+  "loginGenericError": "Sign in failed. Please try again",
+  "loginResetPasswordTitle": "Reset Password",
+  "loginResetPasswordDescription": "Enter your account email and we'll send you a link to reset your password.",
+  "loginCancelButton": "Cancel",
+  "loginSendLinkButton": "Send Link",
+  "loginEnterEmailError": "Please enter your email",
+  "loginPasswordResetSentMessage": "Password reset email sent to {email}",
+  "@loginPasswordResetSentMessage": {
+    "placeholders": {
+      "email": { "type": "String" }
+    }
+  },
+
+  "registerTitle": "Create Account",
+  "registerHeading": "Join Chess Tactics Master",
+  "registerSubtitle": "Start your chess learning journey",
+  "registerNameLabel": "Full Name",
+  "registerNameHint": "Enter your name",
+  "registerEmailLabel": "Email",
+  "registerEmailHint": "your@email.com",
+  "registerPasswordLabel": "Password",
+  "registerPasswordHint": "At least 6 characters",
+  "registerConfirmPasswordLabel": "Confirm Password",
+  "registerConfirmPasswordHint": "Re-enter your password",
+  "registerAgreeToTermsLabel": "I agree to Terms & Conditions",
+  "registerCreateAccountButton": "Create Account",
+  "registerAlreadyHaveAccountPrompt": "Already have an account? ",
+  "registerSignInButton": "Sign In",
+  "registerFillAllFieldsError": "Please fill in all fields",
+  "registerPasswordsDoNotMatchError": "Passwords do not match",
+  "registerPasswordTooShortError": "Password must be at least 6 characters",
+  "registerMustAgreeToTermsError": "You must agree to the terms and conditions",
+  "registerEmailInUseError": "An account with this email already exists",
+  "registerInvalidEmailError": "Invalid email address",
+  "registerWeakPasswordError": "Password is too weak",
+  "registerOperationNotAllowedError": "Account creation is disabled",
+  "registerGenericError": "Sign up failed. Please try again"
 }
