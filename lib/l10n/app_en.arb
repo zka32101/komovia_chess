@@ -468,5 +468,75 @@
   "notificationsDeleteAllConfirmation": "This action cannot be undone.",
   "notificationsCancelButton": "Cancel",
   "notificationsDeleteButtonAction": "Delete",
-  "notificationsAllDeletedMessage": "All notifications deleted"
+  "notificationsAllDeletedMessage": "All notifications deleted",
+
+  "puzzleDailyLimitReachedMessage": "Reached today's free puzzle limit. Upgrade to Pro for unlimited puzzles.",
+  "puzzleUpgradeButton": "Upgrade",
+  "puzzleTitle": "Puzzles",
+  "puzzleRushTooltip": "Puzzle Rush",
+  "puzzleDailyChallengeTab": "Daily Challenge",
+  "puzzleByRatingTab": "By Rating",
+  "puzzleErrorMessage": "Error: {error}",
+  "@puzzleErrorMessage": {
+    "placeholders": {
+      "error": { "type": "String" }
+    }
+  },
+  "puzzleNoDailyChallengeMessage": "No daily challenge available",
+  "puzzleBrowsePuzzlesButton": "Browse Puzzles",
+  "puzzleYourProgressHeading": "Your Progress",
+  "puzzleSolvedLabel": "Solved",
+  "puzzleStreakLabel": "Streak",
+  "puzzleRatingLabel": "Rating",
+  "puzzleTodaysThemeLabel": "Today's Theme",
+  "puzzleCountLabel": "{count} puzzles",
+  "@puzzleCountLabel": {
+    "placeholders": {
+      "count": { "type": "int" }
+    }
+  },
+  "puzzleDescriptionLabel": "Description",
+  "puzzleStreakDescription": "Complete today's puzzle set to maintain your daily streak.",
+  "puzzleStartTodaysChallengeButton": "Start Today's Challenge",
+  "puzzleSelectDifficultyRangeHeading": "Select Difficulty Range",
+  "puzzleBeginnerLabel": "Beginner",
+  "puzzleIntermediateLabel": "Intermediate",
+  "puzzleAdvancedLabel": "Advanced",
+  "puzzleExpertLabel": "Expert",
+  "puzzleIndexOfTotalTitle": "Puzzle {current} of {total}",
+  "@puzzleIndexOfTotalTitle": {
+    "placeholders": {
+      "current": { "type": "int" },
+      "total": { "type": "int" }
+    }
+  },
+  "puzzleSkipButton": "Skip",
+  "puzzleRatingChipLabel": "Rating: {rating}",
+  "@puzzleRatingChipLabel": {
+    "placeholders": {
+      "rating": { "type": "int" }
+    }
+  },
+  "puzzleShareButton": "Share",
+  "puzzleFinishButton": "Finish",
+  "puzzleNextPuzzleButton": "Next Puzzle",
+  "puzzleShareFailedMessage": "Could not create share GIF: {error}",
+  "@puzzleShareFailedMessage": {
+    "placeholders": {
+      "error": { "type": "String" }
+    }
+  },
+  "puzzleNotFoundMessage": "Puzzle not found",
+  "puzzleCorrectFeedback": "Correct!",
+  "puzzleWrongFeedback": "Not quite — try again",
+  "puzzleSolvedFeedback": "Puzzle solved!",
+  "puzzleFindBestMoveMessage": "Find the best move for the side to play",
+  "puzzleNoPuzzlesFoundMessage": "No puzzles found in this range",
+  "puzzleFallbackName": "Puzzle",
+  "puzzleMovesToSolveLabel": "{count} moves to solve",
+  "@puzzleMovesToSolveLabel": {
+    "placeholders": {
+      "count": { "type": "int" }
+    }
+  }
 }
