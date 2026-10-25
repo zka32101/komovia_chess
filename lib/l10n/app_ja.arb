@@ -293,5 +293,27 @@
   "puzzleFindBestMoveMessage": "手番側にとって最善の一手を見つけてください",
   "puzzleNoPuzzlesFoundMessage": "この範囲のパズルが見つかりませんでした",
   "puzzleFallbackName": "パズル",
-  "puzzleMovesToSolveLabel": "{count}手で解ける"
+  "puzzleMovesToSolveLabel": "{count}手で解ける",
+
+  "matchHistoryTitle": "対戦履歴",
+  "matchHistoryImportPgnTooltip": "PGNをインポート",
+  "matchHistoryLoadFailedMessage": "対戦履歴の取得に失敗しました",
+  "matchHistoryRetryButton": "再試行",
+  "matchHistoryNoMatchesMessage": "対戦履歴がありません",
+  "matchHistoryLoadMoreButton": "さらに読み込む",
+  "matchHistoryFilterButton": "フィルター",
+  "matchHistoryResetButton": "リセット",
+  "matchHistoryTimeControlAndResultLabel": "{timeControl} • {result}",
+  "matchHistoryResultWin": "勝利",
+  "matchHistoryResultLoss": "敗北",
+  "matchHistoryResultDraw": "引き分け",
+  "matchHistoryFilterDialogTitle": "フィルター",
+  "matchHistoryResultLabel": "結果",
+  "matchHistoryAllLabel": "すべて",
+  "matchHistoryTimeControlLabel": "時間制",
+  "matchHistoryBulletLabel": "バレット",
+  "matchHistoryBlitzLabel": "ブリッツ",
+  "matchHistoryRapidLabel": "ラピッド",
+  "matchHistoryCancelButton": "キャンセル",
+  "matchHistoryApplyButton": "適用"
 }

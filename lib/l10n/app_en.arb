@@ -538,5 +538,33 @@
     "placeholders": {
       "count": { "type": "int" }
     }
-  }
+  },
+
+  "matchHistoryTitle": "Match History",
+  "matchHistoryImportPgnTooltip": "Import PGN",
+  "matchHistoryLoadFailedMessage": "Failed to load match history",
+  "matchHistoryRetryButton": "Retry",
+  "matchHistoryNoMatchesMessage": "No match history",
+  "matchHistoryLoadMoreButton": "Load more",
+  "matchHistoryFilterButton": "Filter",
+  "matchHistoryResetButton": "Reset",
+  "matchHistoryTimeControlAndResultLabel": "{timeControl} • {result}",
+  "@matchHistoryTimeControlAndResultLabel": {
+    "placeholders": {
+      "timeControl": { "type": "String" },
+      "result": { "type": "String" }
+    }
+  },
+  "matchHistoryResultWin": "Win",
+  "matchHistoryResultLoss": "Loss",
+  "matchHistoryResultDraw": "Draw",
+  "matchHistoryFilterDialogTitle": "Filter",
+  "matchHistoryResultLabel": "Result",
+  "matchHistoryAllLabel": "All",
+  "matchHistoryTimeControlLabel": "Time Control",
+  "matchHistoryBulletLabel": "Bullet",
+  "matchHistoryBlitzLabel": "Blitz",
+  "matchHistoryRapidLabel": "Rapid",
+  "matchHistoryCancelButton": "Cancel",
+  "matchHistoryApplyButton": "Apply"
 }
