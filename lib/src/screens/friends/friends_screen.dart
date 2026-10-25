@@ -5,6 +5,7 @@ import '../../providers/auth_provider.dart';
 import '../../providers/friend_provider.dart';
 import '../../providers/challenge_provider.dart';
 import '../messages/chat_screen.dart';
+import '../../../l10n/app_localizations.dart';
 
 class FriendsScreen extends ConsumerStatefulWidget {
   const FriendsScreen({Key? key}) : super(key: key);
@@ -18,24 +19,25 @@ class _FriendsScreenState extends ConsumerState<FriendsScreen> {
   Widget build(BuildContext context) {
     final pendingRequests = ref.watch(pendingFriendRequestsProvider);
     final requestCount = pendingRequests.value?.length ?? 0;
+    final l10n = AppLocalizations.of(context);
 
     return DefaultTabController(
       length: 5,
       child: Scaffold(
         appBar: AppBar(
-          title: const Text('Friends'),
+          title: Text(l10n.friendsTitle),
           centerTitle: true,
           bottom: TabBar(
             isScrollable: true,
             tabs: [
-              const Tab(text: 'Friends'),
+              Tab(text: l10n.friendsTabFriends),
               Tab(
                   text: requestCount > 0
-                      ? 'Requests ($requestCount)'
-                      : 'Requests'),
-              const Tab(text: 'Add Friend'),
-              const Tab(text: 'Activity'),
-              const Tab(text: 'Blocked'),
+                      ? l10n.friendsTabRequestsWithCount(requestCount)
+                      : l10n.friendsTabRequests),
+              Tab(text: l10n.friendsTabAddFriend),
+              Tab(text: l10n.friendsTabActivity),
+              Tab(text: l10n.friendsTabBlocked),
             ],
           ),
         ),
@@ -60,16 +62,18 @@ class _FriendsListTab extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final friends = ref.watch(userFriendsProvider);
     final me = ref.watch(currentUserProvider).value;
+    final l10n = AppLocalizations.of(context);
 
     return friends.when(
       loading: () => const Center(child: CircularProgressIndicator()),
-      error: (error, stack) => Center(child: Text('Error: $error')),
+      error: (error, stack) =>
+          Center(child: Text(l10n.friendsErrorMessage(error.toString()))),
       data: (list) {
         if (list.isEmpty) {
-          return const Center(
+          return Center(
             child: Padding(
-              padding: EdgeInsets.all(24),
-              child: Text('No friends yet. Add one from the "Add Friend" tab.'),
+              padding: const EdgeInsets.all(24),
+              child: Text(l10n.friendsNoFriendsYetMessage),
             ),
           );
         }
@@ -84,13 +88,14 @@ class _FriendsListTab extends ConsumerWidget {
               child: ListTile(
                 leading: const CircleAvatar(child: Icon(Icons.person)),
                 title: Text(friend.displayName),
-                subtitle: Text('Friends since ${_dateLabel(friend.addedAt)}'),
+                subtitle:
+                    Text(l10n.friendsSinceLabel(_dateLabel(friend.addedAt))),
                 trailing: Row(
                   mainAxisSize: MainAxisSize.min,
                   children: [
                     IconButton(
                       icon: const Icon(Icons.chat_bubble_outline),
-                      tooltip: 'Message',
+                      tooltip: l10n.friendsMessageTooltip,
                       onPressed: me == null
                           ? null
                           : () => Navigator.push(
@@ -98,8 +103,8 @@ class _FriendsListTab extends ConsumerWidget {
                                 MaterialPageRoute(
                                   builder: (_) => ChatScreen(
                                     currentUid: me.uid,
-                                    currentDisplayName:
-                                        me.displayName ?? 'Player',
+                                    currentDisplayName: me.displayName ??
+                                        l10n.homePlayerFallbackName,
                                     friendUid: friend.friendUid,
                                     friendDisplayName: friend.displayName,
                                   ),
@@ -108,25 +113,25 @@ class _FriendsListTab extends ConsumerWidget {
                     ),
                     IconButton(
                       icon: const Icon(Icons.bolt_outlined),
-                      tooltip: 'Challenge',
-                      onPressed: () => _sendChallenge(context, ref, friend),
+                      tooltip: l10n.friendsChallengeTooltip,
+                      onPressed: () => _sendChallenge(context, ref, friend, l10n),
                     ),
                     PopupMenuButton<String>(
                       onSelected: (value) {
                         if (value == 'remove') {
-                          _confirmRemove(context, ref, friend);
+                          _confirmRemove(context, ref, friend, l10n);
                         } else if (value == 'block') {
-                          _confirmBlock(context, ref, friend);
+                          _confirmBlock(context, ref, friend, l10n);
                         }
                       },
-                      itemBuilder: (context) => const [
+                      itemBuilder: (context) => [
                         PopupMenuItem(
                           value: 'remove',
-                          child: Text('Remove friend'),
+                          child: Text(l10n.friendsRemoveFriendMenuItem),
                         ),
                         PopupMenuItem(
                           value: 'block',
-                          child: Text('Block'),
+                          child: Text(l10n.friendsBlockMenuItem),
                         ),
                       ],
                     ),
@@ -147,6 +152,7 @@ class _FriendsListTab extends ConsumerWidget {
     BuildContext context,
     WidgetRef ref,
     Friendship friend,
+    AppLocalizations l10n,
   ) async {
     await ref.read(challengeActionsProvider.notifier).sendChallenge(
           toUserId: friend.friendUid,
@@ -154,54 +160,68 @@ class _FriendsListTab extends ConsumerWidget {
         );
     if (context.mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Challenge sent to ${friend.displayName}')),
+        SnackBar(
+          content:
+              Text(l10n.friendsChallengeSentMessage(friend.displayName)),
+        ),
       );
     }
   }
 
-  void _confirmRemove(BuildContext context, WidgetRef ref, Friendship friend) {
+  void _confirmRemove(
+    BuildContext context,
+    WidgetRef ref,
+    Friendship friend,
+    AppLocalizations l10n,
+  ) {
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text('Remove Friend?'),
-        content: Text('Remove ${friend.displayName} from your friends?'),
+        title: Text(l10n.friendsRemoveFriendTitle),
+        content: Text(
+          l10n.friendsRemoveFriendConfirmation(friend.displayName),
+        ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context),
-            child: const Text('Cancel'),
+            child: Text(l10n.friendsCancelButton),
           ),
           TextButton(
             onPressed: () {
               Navigator.pop(context);
               ref.read(friendActionsProvider.notifier).removeFriend(friend);
             },
-            child: const Text('Remove'),
+            child: Text(l10n.friendsRemoveButton),
           ),
         ],
       ),
     );
   }
 
-  void _confirmBlock(BuildContext context, WidgetRef ref, Friendship friend) {
+  void _confirmBlock(
+    BuildContext context,
+    WidgetRef ref,
+    Friendship friend,
+    AppLocalizations l10n,
+  ) {
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text('Block User?'),
+        title: Text(l10n.friendsBlockUserTitle),
         content: Text(
-          '${friend.displayName} will no longer be able to message, '
-          'challenge, or see you as a friend.',
+          l10n.friendsBlockUserConfirmation(friend.displayName),
         ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context),
-            child: const Text('Cancel'),
+            child: Text(l10n.friendsCancelButton),
           ),
           TextButton(
             onPressed: () {
               Navigator.pop(context);
               ref.read(friendActionsProvider.notifier).blockFriend(friend);
             },
-            child: const Text('Block'),
+            child: Text(l10n.friendsBlockButton),
           ),
         ],
       ),
@@ -215,16 +235,18 @@ class _BlockedUsersTab extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final blocked = ref.watch(blockedUsersProvider);
+    final l10n = AppLocalizations.of(context);
 
     return blocked.when(
       loading: () => const Center(child: CircularProgressIndicator()),
-      error: (error, stack) => Center(child: Text('Error: $error')),
+      error: (error, stack) =>
+          Center(child: Text(l10n.friendsErrorMessage(error.toString()))),
       data: (list) {
         if (list.isEmpty) {
-          return const Center(
+          return Center(
             child: Padding(
-              padding: EdgeInsets.all(24),
-              child: Text('No blocked users.'),
+              padding: const EdgeInsets.all(24),
+              child: Text(l10n.friendsNoBlockedUsersMessage),
             ),
           );
         }
@@ -243,7 +265,7 @@ class _BlockedUsersTab extends ConsumerWidget {
                   onPressed: () => ref
                       .read(friendActionsProvider.notifier)
                       .unblockFriend(friend),
-                  child: const Text('Unblock'),
+                  child: Text(l10n.friendsUnblockButton),
                 ),
               ),
             );
@@ -261,13 +283,15 @@ class _RequestsTab extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final requests = ref.watch(pendingFriendRequestsProvider);
     final me = ref.watch(currentUserProvider).value;
+    final l10n = AppLocalizations.of(context);
 
     return requests.when(
       loading: () => const Center(child: CircularProgressIndicator()),
-      error: (error, stack) => Center(child: Text('Error: $error')),
+      error: (error, stack) =>
+          Center(child: Text(l10n.friendsErrorMessage(error.toString()))),
       data: (list) {
         if (list.isEmpty || me == null) {
-          return const Center(child: Text('No pending friend requests'));
+          return Center(child: Text(l10n.friendsNoPendingRequestsMessage));
         }
 
         return ListView.separated(
@@ -284,13 +308,14 @@ class _RequestsTab extends ConsumerWidget {
               child: ListTile(
                 leading: const CircleAvatar(child: Icon(Icons.person)),
                 title: Text(request.displayName),
-                subtitle: isOutgoing ? const Text('Request sent') : null,
+                subtitle:
+                    isOutgoing ? Text(l10n.friendsRequestSentLabel) : null,
                 trailing: isOutgoing
                     ? TextButton(
                         onPressed: () => ref
                             .read(friendActionsProvider.notifier)
                             .rejectRequest(request),
-                        child: const Text('Cancel'),
+                        child: Text(l10n.friendsCancelRequestButton),
                       )
                     : Row(
                         mainAxisSize: MainAxisSize.min,
@@ -298,14 +323,14 @@ class _RequestsTab extends ConsumerWidget {
                           IconButton(
                             icon: const Icon(Icons.check_circle,
                                 color: Colors.green),
-                            tooltip: 'Accept',
+                            tooltip: l10n.friendsAcceptTooltip,
                             onPressed: () => ref
                                 .read(friendActionsProvider.notifier)
                                 .acceptRequest(request),
                           ),
                           IconButton(
                             icon: const Icon(Icons.cancel, color: Colors.red),
-                            tooltip: 'Decline',
+                            tooltip: l10n.friendsDeclineTooltip,
                             onPressed: () => ref
                                 .read(friendActionsProvider.notifier)
                                 .rejectRequest(request),
@@ -342,6 +367,7 @@ class _AddFriendTabState extends ConsumerState<_AddFriendTab> {
   Widget build(BuildContext context) {
     final currentUser = ref.watch(currentUserProvider).value;
     final results = ref.watch(userSearchProvider(_query));
+    final l10n = AppLocalizations.of(context);
 
     return Padding(
       padding: const EdgeInsets.all(16),
@@ -350,10 +376,10 @@ class _AddFriendTabState extends ConsumerState<_AddFriendTab> {
         children: [
           TextField(
             controller: _controller,
-            decoration: const InputDecoration(
-              labelText: 'Search by display name',
-              prefixIcon: Icon(Icons.search),
-              border: OutlineInputBorder(),
+            decoration: InputDecoration(
+              labelText: l10n.friendsSearchByDisplayNameLabel,
+              prefixIcon: const Icon(Icons.search),
+              border: const OutlineInputBorder(),
             ),
             onSubmitted: (value) => setState(() => _query = value),
             onChanged: (value) => setState(() => _query = value),
@@ -361,18 +387,20 @@ class _AddFriendTabState extends ConsumerState<_AddFriendTab> {
           const SizedBox(height: 16),
           Expanded(
             child: _query.trim().isEmpty
-                ? const Center(child: Text('Type a name to search'))
+                ? Center(child: Text(l10n.friendsTypeNameToSearchMessage))
                 : results.when(
                     loading: () =>
                         const Center(child: CircularProgressIndicator()),
-                    error: (error, stack) =>
-                        Center(child: Text('Error: $error')),
+                    error: (error, stack) => Center(
+                        child:
+                            Text(l10n.friendsErrorMessage(error.toString()))),
                     data: (users) {
                       final others = users
                           .where((u) => u.uid != currentUser?.uid)
                           .toList();
                       if (others.isEmpty) {
-                        return const Center(child: Text('No users found'));
+                        return Center(
+                            child: Text(l10n.friendsNoUsersFoundMessage));
                       }
 
                       return ListView.separated(
@@ -390,8 +418,10 @@ class _AddFriendTabState extends ConsumerState<_AddFriendTab> {
                                     ? const Icon(Icons.person)
                                     : null,
                               ),
-                              title: Text(user.displayName ?? 'Anonymous'),
-                              subtitle: Text('Rating: ${user.rating}'),
+                              title: Text(user.displayName ??
+                                  l10n.friendsAnonymousFallbackName),
+                              subtitle:
+                                  Text(l10n.friendsRatingLabel(user.rating)),
                               trailing: FilledButton(
                                 onPressed: () {
                                   ref
@@ -400,12 +430,15 @@ class _AddFriendTabState extends ConsumerState<_AddFriendTab> {
                                   ScaffoldMessenger.of(context).showSnackBar(
                                     SnackBar(
                                       content: Text(
-                                        'Friend request sent to ${user.displayName ?? "user"}',
+                                        l10n.friendsRequestSentToMessage(
+                                          user.displayName ??
+                                              l10n.friendsUserFallbackName,
+                                        ),
                                       ),
                                     ),
                                   );
                                 },
-                                child: const Text('Add'),
+                                child: Text(l10n.friendsAddButton),
                               ),
                             ),
                           );
@@ -426,18 +459,18 @@ class _ActivityFeedTab extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final activity = ref.watch(activityFeedProvider);
+    final l10n = AppLocalizations.of(context);
 
     return activity.when(
       loading: () => const Center(child: CircularProgressIndicator()),
-      error: (error, stack) => Center(child: Text('Error: $error')),
+      error: (error, stack) =>
+          Center(child: Text(l10n.friendsErrorMessage(error.toString()))),
       data: (list) {
         if (list.isEmpty) {
-          return const Center(
+          return Center(
             child: Padding(
-              padding: EdgeInsets.all(24),
-              child: Text(
-                'No activity yet. Games your friends finish will show up here.',
-              ),
+              padding: const EdgeInsets.all(24),
+              child: Text(l10n.friendsNoActivityYetMessage),
             ),
           );
         }
@@ -452,7 +485,7 @@ class _ActivityFeedTab extends ConsumerWidget {
               child: ListTile(
                 leading: Icon(_iconFor(activity.activityType)),
                 title: Text(activity.description),
-                subtitle: Text(_timeAgo(activity.timestamp)),
+                subtitle: Text(_timeAgo(activity.timestamp, l10n)),
               ),
             );
           },
@@ -474,11 +507,11 @@ class _ActivityFeedTab extends ConsumerWidget {
     }
   }
 
-  String _timeAgo(DateTime timestamp) {
+  String _timeAgo(DateTime timestamp, AppLocalizations l10n) {
     final diff = DateTime.now().difference(timestamp);
-    if (diff.inMinutes < 1) return 'just now';
-    if (diff.inHours < 1) return '${diff.inMinutes}m ago';
-    if (diff.inDays < 1) return '${diff.inHours}h ago';
-    return '${diff.inDays}d ago';
+    if (diff.inMinutes < 1) return l10n.friendsJustNowLabel;
+    if (diff.inHours < 1) return l10n.friendsMinutesAgoLabel(diff.inMinutes);
+    if (diff.inDays < 1) return l10n.friendsHoursAgoLabel(diff.inHours);
+    return l10n.friendsDaysAgoLabel(diff.inDays);
   }
 }
