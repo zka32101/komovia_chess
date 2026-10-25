@@ -9,7 +9,7 @@ import 'sound_preferences_screen.dart';
 import 'legal_documents_screen.dart';
 import 'board_themes_screen.dart';
 import '../../providers/board_theme_provider.dart';
-import '../../l10n/app_localizations.dart';
+import '../../../l10n/app_localizations.dart';
 
 class SettingsScreen extends ConsumerWidget {
   const SettingsScreen({Key? key}) : super(key: key);
