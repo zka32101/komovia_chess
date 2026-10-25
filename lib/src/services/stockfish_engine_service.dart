@@ -7,25 +7,38 @@ import 'ai_opponent_engine.dart' show AIDifficulty;
 /// engine play at a deliberately weaker, more human-like level instead of
 /// just capping search depth.
 extension AIDifficultyStockfishExt on AIDifficulty {
+  /// Stockfish clamps `UCI_Elo` to its own internal floor (roughly 1320 on
+  /// modern versions) regardless of what's requested below that - so
+  /// `beginner` requests the floor here, but is actually made weak by
+  /// `AIDifficulty.blunderProbability`'s random-move substitution
+  /// (CpuGameNotifier._requestAiMove), not by this Elo value alone.
   int get stockfishElo {
     switch (this) {
+      case AIDifficulty.beginner:
+        return 1320;
       case AIDifficulty.easy:
         return 800;
       case AIDifficulty.medium:
         return 1500;
       case AIDifficulty.hard:
         return 2200;
+      case AIDifficulty.master:
+        return 2800;
     }
   }
 
   int get stockfishMoveTimeMs {
     switch (this) {
+      case AIDifficulty.beginner:
+        return 150;
       case AIDifficulty.easy:
         return 300;
       case AIDifficulty.medium:
         return 800;
       case AIDifficulty.hard:
         return 2000;
+      case AIDifficulty.master:
+        return 3500;
     }
   }
 }

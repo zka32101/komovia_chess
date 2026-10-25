@@ -184,11 +184,13 @@ class _CPUGameSelectionScreenState
     required AIDifficulty difficulty,
   }) {
     final isSelected = _selectedDifficulty == difficulty;
-    final Icon icon = difficulty == AIDifficulty.easy
-        ? const Icon(Icons.psychology_alt)
-        : difficulty == AIDifficulty.medium
-            ? const Icon(Icons.trending_up)
-            : const Icon(Icons.star);
+    final Icon icon = switch (difficulty) {
+      AIDifficulty.beginner => const Icon(Icons.sentiment_satisfied_alt),
+      AIDifficulty.easy => const Icon(Icons.psychology_alt),
+      AIDifficulty.medium => const Icon(Icons.trending_up),
+      AIDifficulty.hard => const Icon(Icons.star),
+      AIDifficulty.master => const Icon(Icons.military_tech),
+    };
 
     return GestureDetector(
       onTap: () => setState(() => _selectedDifficulty = difficulty),

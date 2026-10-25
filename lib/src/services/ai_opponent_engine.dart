@@ -3,67 +3,119 @@ import 'package:chess/chess.dart' as chess_lib;
 import 'chess_engine_service.dart';
 import 'opening_book.dart';
 
-/// Enumeration for AI difficulty levels
+/// Enumeration for AI difficulty levels.
+///
+/// Widened from the original 3 levels (easy/medium/hard) to 5 after Google
+/// Play review research (see komovia repo-family handoff docs) found "even
+/// the weakest level is too strong" and "can no longer choose fine-grained
+/// strength" among the most common low-rating complaints across every
+/// Komovia board-game app, not just chess. [beginner] additionally gets a
+/// genuine weakening below what Stockfish's own `UCI_Elo` floor can reach
+/// (modern Stockfish refuses to play below roughly 1320 Elo even with
+/// `UCI_LimitStrength`) via [blunderProbability] - see
+/// `CpuGameNotifier._requestAiMove`'s blunder-injection step, which
+/// occasionally substitutes a random legal move for the engine's own choice
+/// instead of relying on the engine alone to play weakly.
 enum AIDifficulty {
+  beginner,
   easy,
   medium,
   hard,
+  master,
 }
 
 /// Extension to get AI parameters based on difficulty
 extension AIDifficultyExt on AIDifficulty {
   int get searchDepth {
     switch (this) {
+      case AIDifficulty.beginner:
+        return 1;
       case AIDifficulty.easy:
         return 2;
       case AIDifficulty.medium:
         return 3;
       case AIDifficulty.hard:
         return 4;
+      case AIDifficulty.master:
+        return 5;
     }
   }
 
   int get thinkingTimeMs {
     switch (this) {
+      case AIDifficulty.beginner:
+        return 250;
       case AIDifficulty.easy:
         return 500;
       case AIDifficulty.medium:
         return 1500;
       case AIDifficulty.hard:
         return 3000;
+      case AIDifficulty.master:
+        return 5000;
+    }
+  }
+
+  /// Chance (0-1) that the AI's chosen move is discarded in favor of a
+  /// random legal move instead - the mechanism that makes [beginner]
+  /// genuinely weak regardless of which engine (Stockfish or the local
+  /// fallback) actually picked the move. Zero for every level at or above
+  /// [medium]: those levels should always play their best available move.
+  double get blunderProbability {
+    switch (this) {
+      case AIDifficulty.beginner:
+        return 0.35;
+      case AIDifficulty.easy:
+        return 0.12;
+      case AIDifficulty.medium:
+      case AIDifficulty.hard:
+      case AIDifficulty.master:
+        return 0.0;
     }
   }
 
   String get displayName {
     switch (this) {
+      case AIDifficulty.beginner:
+        return 'Beginner';
       case AIDifficulty.easy:
         return 'Easy';
       case AIDifficulty.medium:
         return 'Medium';
       case AIDifficulty.hard:
         return 'Hard';
+      case AIDifficulty.master:
+        return 'Master';
     }
   }
 
   String get description {
     switch (this) {
+      case AIDifficulty.beginner:
+        return 'For absolute beginners. AI plays weak moves and makes frequent mistakes on purpose.';
       case AIDifficulty.easy:
         return 'Perfect for beginners. AI plays basic moves.';
       case AIDifficulty.medium:
         return 'Good challenge. AI plays with strategy.';
       case AIDifficulty.hard:
         return 'Very challenging. AI plays strongly.';
+      case AIDifficulty.master:
+        return 'Master level. AI plays at expert competitive strength.';
     }
   }
 
   double get estimatedWinRate {
     switch (this) {
+      case AIDifficulty.beginner:
+        return 0.15;
       case AIDifficulty.easy:
         return 0.35;
       case AIDifficulty.medium:
         return 0.55;
       case AIDifficulty.hard:
         return 0.65;
+      case AIDifficulty.master:
+        return 0.80;
     }
   }
 }
