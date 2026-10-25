@@ -145,6 +145,14 @@ class _MatchmakingScreenState extends ConsumerState<MatchmakingScreen> {
           return _buildErrorState('Matchmaking entry no longer exists');
         }
 
+        // Previously nothing ever checked this - the "Waiting for
+        // opponent..." spinner kept polling tryMatch indefinitely with
+        // no feedback, even well past the 30s timeoutAt this entry was
+        // created with.
+        if (entry.status == 'waiting' && entry.isExpired) {
+          return _buildTimedOutState();
+        }
+
         if (entry.status == 'matched' && entry.matchedGameId != null) {
           // Game created, navigate to game screen
           WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -191,6 +199,62 @@ class _MatchmakingScreenState extends ConsumerState<MatchmakingScreen> {
       loading: () => const Center(child: CircularProgressIndicator()),
       error: (err, st) => _buildErrorState(err),
     );
+  }
+
+  /// Shown once the queue entry's own timeoutAt has passed with no match
+  /// found - lets the player retry instead of staring at an endless
+  /// spinner or needing to notice Cancel on their own.
+  Widget _buildTimedOutState() => Center(
+        child: Padding(
+          padding: const EdgeInsets.all(16),
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(Icons.search_off, size: 64, color: Colors.grey[400]),
+              const SizedBox(height: 16),
+              const Text(
+                'No opponent found',
+                style: TextStyle(fontSize: 18, fontWeight: FontWeight.w500),
+              ),
+              const SizedBox(height: 8),
+              Text(
+                'Nobody matching your rating/time control was available.',
+                style: TextStyle(color: Colors.grey[600]),
+                textAlign: TextAlign.center,
+              ),
+              const SizedBox(height: 24),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  OutlinedButton.icon(
+                    onPressed: _cancelSearch,
+                    icon: const Icon(Icons.close),
+                    label: const Text('Cancel'),
+                  ),
+                  const SizedBox(width: 16),
+                  FilledButton.icon(
+                    onPressed: _requeue,
+                    icon: const Icon(Icons.refresh),
+                    label: const Text('Try Again'),
+                  ),
+                ],
+              ),
+            ],
+          ),
+        ),
+      );
+
+  /// Leaves the now-expired queue entry and immediately starts a fresh
+  /// search, without popping the screen the way [_cancelSearch] does.
+  Future<void> _requeue() async {
+    _matchingTimer?.cancel();
+    final queueId = _currentQueueId;
+    if (queueId != null) {
+      await ref.read(matchmakingNotifierProvider.notifier).leaveQueue(queueId);
+    }
+    if (!mounted) return;
+    setState(() => _currentQueueId = null);
+    await _startSearch();
   }
 
   /// Build queue wait information widget

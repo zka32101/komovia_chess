@@ -254,6 +254,14 @@ class MatchmakingService {
       if (doc.id == mine.queueId) continue;
       final candidate = MatchmakingQueueEntry.fromJson(doc.data());
       if (candidate.playerId == mine.playerId) continue;
+      // cleanupExpiredEntries is meant to sweep these but is never
+      // actually invoked by anything in this app (no Cloud Function,
+      // no client scheduler) - without this check, a genuinely
+      // abandoned queue entry (app killed/network dropped without
+      // calling leaveQueue) could still be matched against a live
+      // player minutes or hours later, silently creating a game whose
+      // "opponent" never shows up.
+      if (candidate.isExpired) continue;
       if (!myRange.contains(candidate.currentRating)) continue;
 
       final theirRange =
