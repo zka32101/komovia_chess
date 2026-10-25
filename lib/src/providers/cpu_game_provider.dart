@@ -1,4 +1,5 @@
 import 'dart:async' show unawaited;
+import 'dart:math' show Random;
 import 'package:flutter/foundation.dart' show debugPrint;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
@@ -105,6 +106,7 @@ class CpuGameNotifier extends StateNotifier<CpuGameState> {
   }
 
   bool _stockfishFailed = false;
+  final Random _random = Random();
 
   /// Request AI to make a move
   Future<void> makeAIMove() async {
@@ -132,6 +134,24 @@ class CpuGameNotifier extends StateNotifier<CpuGameState> {
 
     // Fallback: hand-rolled minimax/alpha-beta engine.
     bestMove ??= _aiEngine.getBestMove();
+
+    // Deliberately substitute a random legal move for the engine's own
+    // choice sometimes, at a rate set by AIDifficulty.blunderProbability.
+    // This is what actually makes `beginner`/`easy` weak: Stockfish's own
+    // `UCI_Elo` floor (~1320, see AIDifficultyStockfishExt.stockfishElo's
+    // doc comment) can't reach a true beginner strength on its own, and
+    // the hand-rolled minimax fallback has no difficulty-aware randomness
+    // either.
+    if (bestMove != null && state.difficulty.blunderProbability > 0) {
+      final legalMoves = _chess.getLegalMoves();
+      if (legalMoves.isNotEmpty &&
+          _random.nextDouble() < state.difficulty.blunderProbability) {
+        final randomMove = legalMoves[_random.nextInt(legalMoves.length)];
+        bestMove = randomMove.fromAlgebraic +
+            randomMove.toAlgebraic +
+            (randomMove.promotion?.name ?? '');
+      }
+    }
 
     if (bestMove == null) {
       _endGame();

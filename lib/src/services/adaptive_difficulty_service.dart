@@ -86,7 +86,7 @@ class AdaptiveDifficultyService {
     final winRate = wins / atCurrentDifficulty.length;
 
     if (winRate >= _promoteWinRateThreshold &&
-        currentDifficulty != AIDifficulty.hard) {
+        currentDifficulty != AIDifficulty.master) {
       return DifficultyRecommendation(
         difficulty: _promote(currentDifficulty),
         reason: 'strong',
@@ -96,7 +96,7 @@ class AdaptiveDifficultyService {
     }
 
     if (winRate <= _demoteWinRateThreshold &&
-        currentDifficulty != AIDifficulty.easy) {
+        currentDifficulty != AIDifficulty.beginner) {
       return DifficultyRecommendation(
         difficulty: _demote(currentDifficulty),
         reason: 'struggling',
@@ -124,14 +124,18 @@ class AdaptiveDifficultyService {
   }
 
   AIDifficulty _promote(AIDifficulty d) => switch (d) {
+        AIDifficulty.beginner => AIDifficulty.easy,
         AIDifficulty.easy => AIDifficulty.medium,
         AIDifficulty.medium => AIDifficulty.hard,
-        AIDifficulty.hard => AIDifficulty.hard,
+        AIDifficulty.hard => AIDifficulty.master,
+        AIDifficulty.master => AIDifficulty.master,
       };
 
   AIDifficulty _demote(AIDifficulty d) => switch (d) {
-        AIDifficulty.easy => AIDifficulty.easy,
+        AIDifficulty.beginner => AIDifficulty.beginner,
+        AIDifficulty.easy => AIDifficulty.beginner,
         AIDifficulty.medium => AIDifficulty.easy,
         AIDifficulty.hard => AIDifficulty.medium,
+        AIDifficulty.master => AIDifficulty.hard,
       };
 }
