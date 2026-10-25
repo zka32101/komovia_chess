@@ -12,6 +12,23 @@ class SeasonManagementService {
   static const String _playerSeasonsCollection = 'player_seasons';
 
   /// Get current active season
+  ///
+  /// Nothing anywhere in this app (nor any Cloud Function) has ever
+  /// created a document in the `seasons` collection - there's no
+  /// season-lifecycle job and no admin tooling to seed one, so this
+  /// query always returned zero documents in a real deployment. Every
+  /// consumer that already correctly gates on `getCurrentSeason()` being
+  /// non-null before calling into battle pass XP, season challenges, or
+  /// seasonal event score (see cpu_game_provider.dart/
+  /// online_game_service.dart/puzzle_provider.dart, and
+  /// seasonal_hub_screen.dart's "No active season" branch) was therefore
+  /// permanently dead code, regardless of how correctly any of it was
+  /// wired up. Falls back to a synthesized "current calendar month"
+  /// season when the collection is empty - same bootstrap-fallback
+  /// pattern AchievementService._bootstrapDefinitions already uses for
+  /// its own never-seeded curated collection, kept purely in-memory
+  /// (never written back) since `seasons` is genuinely admin/curated
+  /// content this service has no business writing to.
   Future<Season?> getCurrentSeason() async {
     try {
       final now = DateTime.now();
@@ -25,7 +42,7 @@ class SeasonManagementService {
           .get();
 
       if (snapshot.docs.isEmpty) {
-        return null;
+        return _bootstrapCurrentSeason();
       }
 
       return Season.fromJson(snapshot.docs.first.data());
@@ -42,6 +59,13 @@ class SeasonManagementService {
           await _firestore.collection(_seasonsCollection).doc(seasonId).get();
 
       if (!doc.exists) {
+        // The one id getCurrentSeason() can ever hand out when `seasons`
+        // is empty - keeps SeasonProgressCard's own getSeasonById(season.
+        // seasonId) re-lookup (seasonal_hub_screen.dart's real UI path)
+        // from seeing a real season from getCurrentSeason() but then a
+        // null from this method for the exact same id.
+        final bootstrap = _bootstrapCurrentSeason();
+        if (bootstrap.seasonId == seasonId) return bootstrap;
         return null;
       }
 
@@ -50,6 +74,32 @@ class SeasonManagementService {
       _logger.e('Failed to get season', error: e, stackTrace: st);
       rethrow;
     }
+  }
+
+  /// A deterministic, in-memory "current calendar month" season - stable
+  /// across calls within the same month (so battle pass XP/challenge/
+  /// event progress keyed by this seasonId doesn't fragment across
+  /// different synthetic ids), never persisted to Firestore.
+  Season _bootstrapCurrentSeason() {
+    final now = DateTime.now();
+    final start = DateTime(now.year, now.month, 1);
+    final end = DateTime(now.year, now.month + 1, 1)
+        .subtract(const Duration(seconds: 1));
+    final seasonId =
+        'bootstrap-${now.year}-${now.month.toString().padLeft(2, '0')}';
+    return Season(
+      seasonId: seasonId,
+      name: '${now.year}年${now.month}月シーズン',
+      description: 'このシーズンの対局・パズル・イベントに挑戦しよう',
+      seasonNumber: now.year * 12 + now.month,
+      startDate: start,
+      endDate: end,
+      status: 'active',
+      theme: 'default',
+      maxLevel: 50,
+      createdAt: start,
+      updatedAt: start,
+    );
   }
 
   /// Get player's seasonal progress
