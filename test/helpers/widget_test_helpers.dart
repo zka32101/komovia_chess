@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:komovia_chess/l10n/app_localizations.dart';
 import 'package:komovia_chess/src/models/online_game.dart';
 import 'dart:math';
 
@@ -208,7 +210,13 @@ Widget createTestApp({
       body: child,
     ),
     theme: theme ?? ThemeData(useMaterial3: true),
-    localizationsDelegates: const [],
+    localizationsDelegates: const [
+      AppLocalizations.delegate,
+      GlobalMaterialLocalizations.delegate,
+      GlobalWidgetsLocalizations.delegate,
+      GlobalCupertinoLocalizations.delegate,
+    ],
+    supportedLocales: AppLocalizations.supportedLocales,
   );
 }
 

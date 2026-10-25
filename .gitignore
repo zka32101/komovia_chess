@@ -150,3 +150,7 @@ tools/leonardo-image-generator/generated_assets/
 tools/leonardo-image-generator/*.pyc
 tools/leonardo-image-generator/__pycache__/
 tools/leonardo-image-generator/generation_results.json
+
+# l10n output - regenerated from lib/l10n/*.arb by `flutter gen-l10n`
+lib/l10n/app_localizations.dart
+lib/l10n/app_localizations_*.dart
