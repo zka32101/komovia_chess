@@ -345,5 +345,25 @@
   "matchmakingGoBackButton": "戻る",
   "matchmakingDailyLimitReachedMessage": "本日の無料対局数の上限に達しました。無制限に対局するにはProにアップグレードしてください。",
   "matchmakingUpgradeButton": "アップグレード",
-  "matchmakingAnonymousFallbackName": "匿名ユーザー"
+  "matchmakingAnonymousFallbackName": "匿名ユーザー",
+
+  "challengesTitle": "チャレンジ",
+  "challengesPendingTab": "保留中",
+  "challengesPendingTabWithCount": "保留中（{count}）",
+  "challengesActiveTab": "進行中",
+  "challengesStreakTab": "連勝記録",
+  "challengesErrorMessage": "エラー: {error}",
+  "challengesNoPendingMessage": "保留中のチャレンジはありません",
+  "challengesChallengedYouLabel": "{name}があなたにチャレンジしました",
+  "challengesWaitingOnLabel": "{name}の返答を待っています",
+  "challengesAcceptTooltip": "承認",
+  "challengesDeclineTooltip": "拒否",
+  "challengesCancelTooltip": "キャンセル",
+  "challengesNoActiveMessage": "進行中のチャレンジはありません",
+  "challengesVersusLabel": "対 {name}",
+  "challengesSignInToSeeStreakMessage": "連勝記録を見るにはサインインしてください",
+  "challengesCurrentStreakLabel": "現在の連勝数: {count}",
+  "challengesBestStreakLabel": "最高連勝数: {count}",
+  "challengesRecordLabel": "成績: {wins}勝{losses}敗",
+  "challengesWinRateLabel": "勝率: {percent}%"
 }
