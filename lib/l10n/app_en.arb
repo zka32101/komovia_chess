@@ -566,5 +566,66 @@
   "matchHistoryBlitzLabel": "Blitz",
   "matchHistoryRapidLabel": "Rapid",
   "matchHistoryCancelButton": "Cancel",
-  "matchHistoryApplyButton": "Apply"
+  "matchHistoryApplyButton": "Apply",
+
+  "matchmakingFindOpponentTitle": "Find Opponent",
+  "matchmakingTimeControlSectionTitle": "Time Control",
+  "matchmakingPreferredColorSectionTitle": "Preferred Color",
+  "matchmakingQueueStatusSectionTitle": "Queue Status",
+  "matchmakingErrorMessage": "Error: {error}",
+  "@matchmakingErrorMessage": {
+    "placeholders": {
+      "error": { "type": "String" }
+    }
+  },
+  "matchmakingFindOpponentButton": "Find Opponent",
+  "matchmakingSearchingForOpponentMessage": "Searching for opponent...",
+  "matchmakingTimeControlLabel": "Time Control: {timeControl}",
+  "@matchmakingTimeControlLabel": {
+    "placeholders": {
+      "timeControl": { "type": "String" }
+    }
+  },
+  "matchmakingCancelButton": "Cancel",
+  "matchmakingEntryNoLongerExistsMessage": "Matchmaking entry no longer exists",
+  "matchmakingWaitingForOpponentMessage": "Waiting for opponent...",
+  "matchmakingNoOpponentFoundMessage": "No opponent found",
+  "matchmakingNoOpponentAvailableMessage": "Nobody matching your rating/time control was available.",
+  "matchmakingTryAgainButton": "Try Again",
+  "matchmakingWaitTimeLabel": "Wait Time: {minutes}m {seconds}s",
+  "@matchmakingWaitTimeLabel": {
+    "placeholders": {
+      "minutes": { "type": "int" },
+      "seconds": { "type": "int" }
+    }
+  },
+  "matchmakingSearchingRangeLabel": "Searching: ±{range}",
+  "@matchmakingSearchingRangeLabel": {
+    "placeholders": {
+      "range": { "type": "String" }
+    }
+  },
+  "matchmakingCorrespondenceLabel": "Correspondence",
+  "matchmakingDayLabel": "{count} day",
+  "@matchmakingDayLabel": {
+    "placeholders": {
+      "count": { "type": "String" }
+    }
+  },
+  "matchmakingDaysLabel": "{count} days",
+  "@matchmakingDaysLabel": {
+    "placeholders": {
+      "count": { "type": "String" }
+    }
+  },
+  "matchmakingColorWhite": "White",
+  "matchmakingColorBlack": "Black",
+  "matchmakingColorRandom": "Random",
+  "matchmakingTotalWaitingLabel": "Total Waiting",
+  "matchmakingByTimeControlLabel": "By Time Control:",
+  "matchmakingAvgWaitTimeLabel": "Avg Wait Time",
+  "matchmakingGoBackButton": "Go Back",
+  "matchmakingDailyLimitReachedMessage": "Reached today's free online-game limit. Upgrade to Pro for unlimited games.",
+  "matchmakingUpgradeButton": "Upgrade",
+  "matchmakingAnonymousFallbackName": "Anonymous"
 }
