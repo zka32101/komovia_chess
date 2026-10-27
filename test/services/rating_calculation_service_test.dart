@@ -1,5 +1,6 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:komovia_chess/src/services/rating_calculation_service.dart';
+import 'package:komovia_core/komovia_core.dart' as core;
 
 void main() {
   group('RatingCalculationService', () {
@@ -472,6 +473,49 @@ void main() {
         }
 
         expect(currentRating, lessThan(1520)); // At least 80+ points lost
+      });
+    });
+
+    group('delegates to komovia_core.computeEloDelta', () {
+      test('calculateRatingDelta matches core.computeEloDelta exactly for '
+          'the same tiered K-factor', () {
+        for (final playerRating in [1000, 1600, 2000]) {
+          const opponentRating = 1500;
+          for (final result in [0.0, 0.5, 1.0]) {
+            final viaService = RatingCalculationService.calculateRatingDelta(
+              playerRating,
+              opponentRating,
+              result,
+            );
+            final viaCore = core.computeEloDelta(
+              currentRating: playerRating,
+              opponentRating: opponentRating,
+              score: result,
+              kFactor: RatingCalculationService.getKFactor(playerRating),
+            );
+            expect(viaService, viaCore);
+          }
+        }
+      });
+
+      test('calculateNewRating adds the same delta core.computeEloDelta '
+          'would, then clamps', () {
+        const playerRating = 1600;
+        const opponentRating = 1600;
+        final delta = core.computeEloDelta(
+          currentRating: playerRating,
+          opponentRating: opponentRating,
+          score: 1.0,
+          kFactor: RatingCalculationService.getKFactor(playerRating),
+        );
+
+        final newRating = RatingCalculationService.calculateNewRating(
+          playerRating,
+          opponentRating,
+          1.0,
+        );
+
+        expect(newRating, playerRating + delta);
       });
     });
   });
