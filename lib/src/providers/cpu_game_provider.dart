@@ -92,15 +92,13 @@ class CpuGameNotifier extends StateNotifier<CpuGameState> {
 
   /// 中断・再開機能: 保存済みスナップショットから対局状態を復元する。
   /// [initGame]とは違い盤面を初形にリセットするのではなく、保存されて
-  /// いたFENをそのまま読み込む。指し手履歴(`moves`)はFENからは復元
-  /// できないため空から始まる — 再開直後は「待った」できる手がまだ
-  /// 無い状態になる（komovia_shogiの、ハンディキャップ付き対局での
-  /// 「待った」の制約と同種のトレードオフ）。
+  /// いた指し手履歴(UCI)を[startingFen]から順に打ち直して盤面を再構成
+  /// する — `zka32101/kouki-shogi`の`game_screen.dart`
+  /// `_restoreGameSnapshot`（棋譜を初期局面から再生して盤面を復旧）と
+  /// 同じ考え方。FENのみを保存する設計と違い、再開後も「待った」が
+  /// 通常の対局と同じだけ遡れる。
   void resumeFrom(ActiveCpuGame saved) {
     _chess.initGame(fen: saved.startingFen);
-    if (saved.fen.isNotEmpty) {
-      _chess.loadFromFen(saved.fen);
-    }
     final difficulty = AIDifficulty.values
         .where((d) => d.name == saved.difficultyName)
         .firstOrNull ??
@@ -108,33 +106,61 @@ class CpuGameNotifier extends StateNotifier<CpuGameState> {
     _aiEngine = AIOpponentEngine(_chess, difficulty);
     _stockfishFailed = false;
 
+    final replayedMoves = <chess_lib.Move>[];
+    for (final uci in saved.moveUcis) {
+      if (uci.length < 4) continue; // 破損データ guard
+      final from = uci.substring(0, 2);
+      final to = uci.substring(2, 4);
+      // Captured BEFORE applying the move - see makePlayerMove's comment.
+      final preMoveLegalMoves = _chess.getLegalMoves();
+      _chess.makeMoveUCI(uci);
+      final lastMove = preMoveLegalMoves
+          .where((m) => m.fromAlgebraic == from && m.toAlgebraic == to)
+          .firstOrNull;
+      if (lastMove != null) {
+        replayedMoves.add(lastMove);
+      }
+    }
+
     state = CpuGameState(
       gameState: _chess.rawChess,
       difficulty: difficulty,
-      moves: [],
+      moves: replayedMoves,
       startTime: saved.startTime,
       playerIsWhite: saved.playerIsWhite,
       startingFen: saved.startingFen,
     );
   }
 
+  /// [move]をUCI形式の文字列に変換する（`makeAIMove`が
+  /// `_chess.makeMoveUCI`へ渡す形式と同じ: from+to+promotion）。
+  /// 中断・再開機能の保存で使う。
+  String _moveToUci(chess_lib.Move move) =>
+      move.fromAlgebraic + move.toAlgebraic + (move.promotion?.name ?? '');
+
   /// Make a player move
   void makePlayerMove(String from, String to, {String? promotion}) {
     if (!state.isPlayerTurn || state.isGameOver) return;
+
+    // Captured BEFORE applying the move: getLegalMoves() reports moves
+    // for the side to move in the CURRENT position. Querying it after
+    // _chess.makeMove() (as this previously did) looks for a move whose
+    // `from` square matches a square that - in the new, post-move
+    // position - is already empty (the piece just left it), so the
+    // lookup below essentially never matched, and CpuGameState.moves
+    // (used for "待った"/undo and for the chess_lib.Move history this
+    // app's resume feature replays) stayed perpetually empty.
+    final preMoveLegalMoves = _chess.getLegalMoves();
 
     final success = _chess.makeMove(from, to, promotion: promotion);
     if (!success) return;
 
     final newMoves = List<chess_lib.Move>.from(state.moves);
-    final allMoves = _chess.getLegalMoves();
-    if (allMoves.isNotEmpty) {
-      // Get the last move from legal moves (the one we just made)
-      final lastMove = allMoves
-          .where((m) => m.fromAlgebraic == from && m.toAlgebraic == to)
-          .firstOrNull;
-      if (lastMove != null) {
-        newMoves.add(lastMove);
-      }
+    final lastMove = preMoveLegalMoves
+        .where((m) => m.fromAlgebraic == from && m.toAlgebraic == to)
+        .firstOrNull;
+    if (lastMove != null) {
+      newMoves.add(lastMove);
     }
 
     _updateGameState(newMoves);
@@ -200,22 +226,21 @@ class CpuGameNotifier extends StateNotifier<CpuGameState> {
       return;
     }
 
+    // Captured BEFORE applying the move - see makePlayerMove's comment on
+    // why querying legal moves after the move was applied never matched.
+    final preMoveLegalMoves = _chess.getLegalMoves();
+
     // Apply the move
     _chess.makeMoveUCI(bestMove);
     final newMoves = List<chess_lib.Move>.from(state.moves);
-    final allMoves = _chess.getLegalMoves();
-    if (allMoves.isNotEmpty) {
-      // Find the move we just made
-      final parts = bestMove.split('');
-      if (parts.length >= 4) {
-        final from = bestMove.substring(0, 2);
-        final to = bestMove.substring(2, 4);
-        final lastMove = allMoves
-            .where((m) => m.fromAlgebraic == from && m.toAlgebraic == to)
-            .firstOrNull;
-        if (lastMove != null) {
-          newMoves.add(lastMove);
-        }
+    if (bestMove.length >= 4) {
+      final from = bestMove.substring(0, 2);
+      final to = bestMove.substring(2, 4);
+      final lastMove = preMoveLegalMoves
+          .where((m) => m.fromAlgebraic == from && m.toAlgebraic == to)
+          .firstOrNull;
+      if (lastMove != null) {
+        newMoves.add(lastMove);
       }
     }
 
@@ -371,7 +396,7 @@ class CpuGameNotifier extends StateNotifier<CpuGameState> {
 
       final game = ActiveCpuGame(
         uid: user.uid,
-        fen: _chess.getCurrentFen(),
+        moveUcis: state.moves.map(_moveToUci).toList(),
         difficultyName: state.difficulty.name,
         playerIsWhite: state.playerIsWhite,
         startingFen: state.startingFen,

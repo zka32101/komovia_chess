@@ -4,16 +4,25 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 ///
 /// komovia_go/komovia_shogiの`ActiveAiGame`/`ActiveShogiGame`と同じ設計
 /// — 1ユーザーにつき同時に進行中のCPU対局は1つのみという前提で、
-/// FirestoreのドキュメントIDは常に`uid`そのもの。チェスは`chess`パッケージ
-/// が標準でFEN（現在の盤面）のエクスポート/読み込みをサポートしている
-/// ため、将棋のKIF棋譜のような独自の指し手再生は不要 — 現在のFENだけ
-/// あれば盤面をそのまま復元できる。ただし指し手の履歴そのもの
-/// （`chess_lib.Move`のリスト）はFENからは復元できないため、再開直後は
-/// 「待った」の対象になる手がまだ無い状態になる（将棋版の、ハンディ
-/// キャップ付き対局での「待った」の制約と同種のトレードオフ）。
+/// FirestoreのドキュメントIDは常に`uid`そのもの。
+///
+/// 盤面の最終FENだけではなく、指し手の履歴そのもの（UCI文字列のリスト）
+/// を保存する — `zka32101/kouki-shogi`の`game_screen.dart`
+/// `_saveGameSnapshot`/`_restoreGameSnapshot`が、クラッシュ復旧用に
+/// 棋譜全体をJSONで保存し初期局面から打ち直して盤面を再構成している
+/// のと同じ考え方（komovia_shogiのKIF棋譜保存とも同種）。これにより
+/// 再開後も「待った」が通常の対局と同じだけ遡れる — 最終FENのみを
+/// 保存する設計では、再開直後は「待った」できる手が一つも無い状態に
+/// なってしまう。
 class ActiveCpuGame {
   final String uid;
-  final String fen;
+
+  /// 指し手の履歴。各要素はUCI形式（例: "e2e4"、プロモーションありなら
+  /// "e7e8q"）— `chess_lib.Move.fromAlgebraic`/`toAlgebraic`/`promotion`
+  /// から組み立てたもので、`CpuGameNotifier.makeAIMove`が
+  /// `_chess.makeMoveUCI`へ渡す形式と同じ。[startingFen]からこの順で
+  /// 打ち直すことで盤面を再構成する。
+  final List<String> moveUcis;
   final String difficultyName;
   final bool playerIsWhite;
 
@@ -25,7 +34,7 @@ class ActiveCpuGame {
 
   ActiveCpuGame({
     required this.uid,
-    required this.fen,
+    required this.moveUcis,
     required this.difficultyName,
     required this.playerIsWhite,
     this.startingFen,
@@ -37,9 +46,12 @@ class ActiveCpuGame {
     DocumentSnapshot<Map<String, dynamic>> doc,
   ) {
     final data = doc.data() ?? {};
+    final rawMoves = data['moveUcis'] as List<dynamic>?;
     return ActiveCpuGame(
       uid: doc.id,
-      fen: data['fen'] as String? ?? '',
+      moveUcis: rawMoves != null
+          ? rawMoves.map((m) => m as String).toList()
+          : const [],
       difficultyName: data['difficultyName'] as String? ?? 'medium',
       playerIsWhite: data['playerIsWhite'] as bool? ?? true,
       startingFen: data['startingFen'] as String?,
@@ -54,7 +66,7 @@ class ActiveCpuGame {
 
   Map<String, dynamic> toFirestore() {
     return {
-      'fen': fen,
+      'moveUcis': moveUcis,
       'difficultyName': difficultyName,
       'playerIsWhite': playerIsWhite,
       'startingFen': startingFen,

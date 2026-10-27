@@ -6,19 +6,18 @@ import 'package:komovia_chess/src/services/ai_opponent_engine.dart';
 
 void main() {
   group('CpuGameNotifier.resumeFrom', () {
-    test('restores the saved FEN, difficulty, and player color', () {
+    test(
+        'replays the saved move list from the start, restoring the '
+        'position, difficulty, and player color', () {
       final container = ProviderContainer();
       addTearDown(container.dispose);
       final notifier = container.read(cpuGameProvider.notifier);
 
-      // A position after 1.e4 e5 2.Nf3, black to move.
-      const savedFen =
-          'rnbqkbnr/pppp1ppp/8/4p3/4P3/5N2/PPPP1PPP/RNBQKB1R b KQkq - 1 2';
-
+      // 1.e4 e5 2.Nf3, black to move.
       notifier.resumeFrom(
         ActiveCpuGame(
           uid: 'u1',
-          fen: savedFen,
+          moveUcis: const ['e2e4', 'e7e5', 'g1f3'],
           difficultyName: 'hard',
           playerIsWhite: false,
           startTime: DateTime(2026, 1, 1),
@@ -26,12 +25,65 @@ void main() {
       );
 
       final state = container.read(cpuGameProvider);
-      expect(state.gameState.fen, savedFen);
+      expect(
+        state.gameState.fen,
+        'rnbqkbnr/pppp1ppp/8/4p3/4P3/5N2/PPPP1PPP/RNBQKB1R b KQkq - 1 2',
+      );
       expect(state.difficulty, AIDifficulty.hard);
       expect(state.playerIsWhite, isFalse);
-      expect(state.moves, isEmpty);
       expect(state.isGameOver, isFalse);
       expect(state.startingFen, isNull);
+    });
+
+    test('a resumed game keeps enough move history for undo to work', () {
+      final container = ProviderContainer();
+      addTearDown(container.dispose);
+      final notifier = container.read(cpuGameProvider.notifier);
+
+      notifier.resumeFrom(
+        ActiveCpuGame(
+          uid: 'u1',
+          moveUcis: const ['e2e4', 'e7e5'],
+          difficultyName: 'medium',
+          playerIsWhite: true,
+          startTime: DateTime(2026, 1, 1),
+        ),
+      );
+
+      expect(container.read(cpuGameProvider).moves, hasLength(2));
+
+      notifier.undoMove();
+
+      final afterUndo = container.read(cpuGameProvider);
+      expect(afterUndo.moves, isEmpty);
+      expect(
+        afterUndo.gameState.fen,
+        'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1',
+      );
+    });
+
+    test('an empty move list (just-started, no moves yet) restores the '
+        'initial position', () {
+      final container = ProviderContainer();
+      addTearDown(container.dispose);
+      final notifier = container.read(cpuGameProvider.notifier);
+
+      notifier.resumeFrom(
+        ActiveCpuGame(
+          uid: 'u1',
+          moveUcis: const [],
+          difficultyName: 'easy',
+          playerIsWhite: true,
+          startTime: DateTime(2026, 1, 1),
+        ),
+      );
+
+      final state = container.read(cpuGameProvider);
+      expect(
+        state.gameState.fen,
+        'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1',
+      );
+      expect(state.moves, isEmpty);
     });
 
     test('restores a custom starting position (practice FEN) correctly',
@@ -44,7 +96,7 @@ void main() {
       notifier.resumeFrom(
         ActiveCpuGame(
           uid: 'u1',
-          fen: startingFen,
+          moveUcis: const [],
           difficultyName: 'medium',
           playerIsWhite: true,
           startingFen: startingFen,
@@ -65,7 +117,7 @@ void main() {
       notifier.resumeFrom(
         ActiveCpuGame(
           uid: 'u1',
-          fen: 'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1',
+          moveUcis: const [],
           difficultyName: 'not-a-real-difficulty',
           playerIsWhite: true,
           startTime: DateTime(2026, 1, 1),
@@ -84,7 +136,7 @@ void main() {
       notifier.resumeFrom(
         ActiveCpuGame(
           uid: 'u1',
-          fen: 'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1',
+          moveUcis: const [],
           difficultyName: 'easy',
           playerIsWhite: true,
           startTime: originalStart,
@@ -92,6 +144,25 @@ void main() {
       );
 
       expect(container.read(cpuGameProvider).startTime, originalStart);
+    });
+
+    test('a malformed move string is skipped rather than throwing', () {
+      final container = ProviderContainer();
+      addTearDown(container.dispose);
+      final notifier = container.read(cpuGameProvider.notifier);
+
+      expect(
+        () => notifier.resumeFrom(
+          ActiveCpuGame(
+            uid: 'u1',
+            moveUcis: const ['e2e4', 'x', 'e7e5'],
+            difficultyName: 'medium',
+            playerIsWhite: true,
+            startTime: DateTime(2026, 1, 1),
+          ),
+        ),
+        returnsNormally,
+      );
     });
   });
 }

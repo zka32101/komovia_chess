@@ -10,7 +10,7 @@ void main() {
       final service = ActiveCpuGameService(firestore: firestore);
       final game = ActiveCpuGame(
         uid: 'u1',
-        fen: 'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1',
+        moveUcis: const ['e2e4', 'e7e5', 'g1f3'],
         difficultyName: 'hard',
         playerIsWhite: false,
         startTime: DateTime(2026, 1, 1),
@@ -21,7 +21,7 @@ void main() {
 
       expect(fetched, isNotNull);
       expect(fetched!.uid, 'u1');
-      expect(fetched.fen, game.fen);
+      expect(fetched.moveUcis, game.moveUcis);
       expect(fetched.difficultyName, 'hard');
       expect(fetched.playerIsWhite, isFalse);
       expect(fetched.startingFen, isNull);
@@ -40,7 +40,7 @@ void main() {
       await service.save(
         ActiveCpuGame(
           uid: 'u1',
-          fen: 'fen-placeholder',
+          moveUcis: const ['e2e4'],
           difficultyName: 'easy',
           playerIsWhite: true,
           startTime: DateTime.now(),
@@ -59,7 +59,7 @@ void main() {
       await service.save(
         ActiveCpuGame(
           uid: 'u1',
-          fen: 'v1',
+          moveUcis: const ['e2e4'],
           difficultyName: 'easy',
           playerIsWhite: true,
           startTime: DateTime.now(),
@@ -68,7 +68,7 @@ void main() {
       await service.save(
         ActiveCpuGame(
           uid: 'u1',
-          fen: 'v2',
+          moveUcis: const ['e2e4', 'e7e5'],
           difficultyName: 'hard',
           playerIsWhite: false,
           startTime: DateTime.now(),
@@ -76,8 +76,26 @@ void main() {
       );
 
       final fetched = await service.getActive('u1');
-      expect(fetched!.fen, 'v2');
+      expect(fetched!.moveUcis, ['e2e4', 'e7e5']);
       expect(fetched.difficultyName, 'hard');
+    });
+
+    test('a promotion move round-trips with its promotion-piece suffix',
+        () async {
+      final firestore = FakeFirebaseFirestore();
+      final service = ActiveCpuGameService(firestore: firestore);
+      await service.save(
+        ActiveCpuGame(
+          uid: 'u1',
+          moveUcis: const ['e7e8q'],
+          difficultyName: 'medium',
+          playerIsWhite: true,
+          startTime: DateTime.now(),
+        ),
+      );
+
+      final fetched = await service.getActive('u1');
+      expect(fetched!.moveUcis, ['e7e8q']);
     });
 
     test('a custom starting position (practice FEN) round-trips too',
@@ -88,7 +106,7 @@ void main() {
       await service.save(
         ActiveCpuGame(
           uid: 'u1',
-          fen: startingFen,
+          moveUcis: const [],
           difficultyName: 'medium',
           playerIsWhite: true,
           startingFen: startingFen,
@@ -112,7 +130,7 @@ void main() {
       final game = ActiveCpuGame.fromFirestore(doc);
 
       expect(game.uid, 'u1');
-      expect(game.fen, '');
+      expect(game.moveUcis, isEmpty);
       expect(game.difficultyName, 'medium');
       expect(game.playerIsWhite, isTrue);
       expect(game.startingFen, isNull);
