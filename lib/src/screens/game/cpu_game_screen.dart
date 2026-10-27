@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:komovia_core/komovia_core.dart' hide GameResult;
+import '../../models/active_cpu_game.dart';
 import '../../models/cpu_game_state.dart';
 import '../../models/online_game.dart';
 import '../../services/ai_opponent_engine.dart';
@@ -22,6 +23,7 @@ class CPUGameScreen extends ConsumerStatefulWidget {
     this.difficulty = AIDifficulty.medium,
     this.playerIsWhite = true,
     this.startingFen,
+    this.resumeGame,
   }) : super(key: key);
   final AIDifficulty difficulty;
   final bool playerIsWhite;
@@ -29,6 +31,11 @@ class CPUGameScreen extends ConsumerStatefulWidget {
   /// Begin the game from this position instead of the standard starting
   /// array, when given (see CPUGameSelectionScreen's position picker).
   final String? startingFen;
+
+  /// 中断・再開機能: 指定した場合、[difficulty]/[playerIsWhite]/
+  /// [startingFen]を無視してこの保存済みスナップショットから対局を
+  /// 再開する（CPUGameSelectionScreenの「続きから」ボタン用）。
+  final ActiveCpuGame? resumeGame;
 
   @override
   ConsumerState<CPUGameScreen> createState() => _CPUGameScreenState();
@@ -44,11 +51,16 @@ class _CPUGameScreenState extends ConsumerState<CPUGameScreen> {
     super.initState();
     // Initialize game on first build
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      ref.read(cpuGameProvider.notifier).initGame(
-            difficulty: widget.difficulty,
-            playerIsWhite: widget.playerIsWhite,
-            startingFen: widget.startingFen,
-          );
+      final resumeGame = widget.resumeGame;
+      if (resumeGame != null) {
+        ref.read(cpuGameProvider.notifier).resumeFrom(resumeGame);
+      } else {
+        ref.read(cpuGameProvider.notifier).initGame(
+              difficulty: widget.difficulty,
+              playerIsWhite: widget.playerIsWhite,
+              startingFen: widget.startingFen,
+            );
+      }
     });
   }
 

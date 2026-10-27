@@ -87,6 +87,7 @@ dev_dependencies:
   freezed: ^4.0.1
   json_serializable: ^6.14.1
   flutter_launcher_icons: ^0.13.1
+  fake_cloud_firestore: ^2.5.2
 
 # `flutter pub run flutter_launcher_icons` regenerates every Android
 # mipmap-*/ic_launcher.png from assets/images/app_icon_master.png - those

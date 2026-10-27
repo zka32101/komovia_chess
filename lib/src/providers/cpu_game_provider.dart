@@ -18,6 +18,8 @@ import '../services/match_history_service.dart';
 import '../services/analytics_dashboard_service_impl.dart';
 import '../services/rating_calculation_service.dart';
 import '../models/match_record.dart';
+import '../models/active_cpu_game.dart';
+import '../services/active_cpu_game_service.dart';
 
 
 // ============================================================================
@@ -40,6 +42,15 @@ class CpuGameNotifier extends StateNotifier<CpuGameState> {
   }
   late ChessEngineService _chess;
   late AIOpponentEngine _aiEngine;
+  // Lazily constructed: ActiveCpuGameService's constructor touches
+  // FirebaseFirestore.instance, which throws synchronously if no
+  // Firebase app has been initialized (e.g. a plain unit test that
+  // never calls Firebase.initializeApp()) - a field initializer would
+  // make *every* CpuGameNotifier unconstructable in that case, not just
+  // the persist/clear paths that actually need Firestore.
+  ActiveCpuGameService? _activeGameServiceInstance;
+  ActiveCpuGameService get _activeGameService =>
+      _activeGameServiceInstance ??= ActiveCpuGameService();
 
   /// Initialize a new game.
   ///
@@ -76,6 +87,35 @@ class CpuGameNotifier extends StateNotifier<CpuGameState> {
       playerIsWhite: playerIsWhite,
       startingFen: startingFen,
     );
+    _persistActiveGame();
+  }
+
+  /// 中断・再開機能: 保存済みスナップショットから対局状態を復元する。
+  /// [initGame]とは違い盤面を初形にリセットするのではなく、保存されて
+  /// いたFENをそのまま読み込む。指し手履歴(`moves`)はFENからは復元
+  /// できないため空から始まる — 再開直後は「待った」できる手がまだ
+  /// 無い状態になる（komovia_shogiの、ハンディキャップ付き対局での
+  /// 「待った」の制約と同種のトレードオフ）。
+  void resumeFrom(ActiveCpuGame saved) {
+    _chess.initGame(fen: saved.startingFen);
+    if (saved.fen.isNotEmpty) {
+      _chess.loadFromFen(saved.fen);
+    }
+    final difficulty = AIDifficulty.values
+        .where((d) => d.name == saved.difficultyName)
+        .firstOrNull ??
+        AIDifficulty.medium;
+    _aiEngine = AIOpponentEngine(_chess, difficulty);
+    _stockfishFailed = false;
+
+    state = CpuGameState(
+      gameState: _chess.rawChess,
+      difficulty: difficulty,
+      moves: [],
+      startTime: saved.startTime,
+      playerIsWhite: saved.playerIsWhite,
+      startingFen: saved.startingFen,
+    );
   }
 
   /// Make a player move
@@ -98,6 +138,7 @@ class CpuGameNotifier extends StateNotifier<CpuGameState> {
     }
 
     _updateGameState(newMoves);
+    _persistActiveGame();
 
     // Check if game is over after player move
     if (_isGameOver()) {
@@ -180,6 +221,7 @@ class CpuGameNotifier extends StateNotifier<CpuGameState> {
 
     _updateGameState(newMoves);
     state = state.copyWith(isAIThinking: false);
+    _persistActiveGame();
 
     // Check if game is over after AI move
     if (_isGameOver()) {
@@ -208,6 +250,7 @@ class CpuGameNotifier extends StateNotifier<CpuGameState> {
         : <chess_lib.Move>[];
 
     _updateGameState(newMoves);
+    _persistActiveGame();
   }
 
   /// Resign the game
@@ -222,6 +265,7 @@ class CpuGameNotifier extends StateNotifier<CpuGameState> {
       endTime: DateTime.now(),
     );
     _recordResult('loss');
+    _clearActiveGame();
   }
 
   /// Offer a draw (simplified - auto-accept)
@@ -235,6 +279,7 @@ class CpuGameNotifier extends StateNotifier<CpuGameState> {
       endTime: DateTime.now(),
     );
     _recordResult('draw');
+    _clearActiveGame();
   }
 
   /// Reset the game - back to [CpuGameState.startingFen] when the current
@@ -312,6 +357,52 @@ class CpuGameNotifier extends StateNotifier<CpuGameState> {
     if (result != null) {
       final playerWon = (result == 'white_win') == state.playerIsWhite;
       _recordResult(result == 'draw' ? 'draw' : (playerWon ? 'win' : 'loss'));
+    }
+    _clearActiveGame();
+  }
+
+  /// 中断・再開機能: 現在の対局状態をFirestoreへbest-effortで保存する。
+  /// 失敗してもゲームプレイ自体をブロックしない — 未サインインなら
+  /// 保存先（uid）が無いのでそのまま何もしない。
+  void _persistActiveGame() {
+    try {
+      final user = FirebaseAuth.instance.currentUser;
+      if (user == null) return;
+
+      final game = ActiveCpuGame(
+        uid: user.uid,
+        fen: _chess.getCurrentFen(),
+        difficultyName: state.difficulty.name,
+        playerIsWhite: state.playerIsWhite,
+        startingFen: state.startingFen,
+        startTime: state.startTime,
+      );
+
+      unawaited(
+        _activeGameService.save(game).catchError((e) {
+          debugPrint('中断・再開: 進行中対局の保存に失敗（non-fatal): $e');
+        }),
+      );
+    } catch (e) {
+      debugPrint('中断・再開: 進行中対局の保存に失敗（non-fatal): $e');
+    }
+  }
+
+  /// 中断・再開機能: 対局が終局・投了・引き分け合意した直後に呼ぶ。
+  /// 保存済みの進行中対局レコードを消す（終局した対局は「続きから」の
+  /// 対象ではないため）。
+  void _clearActiveGame() {
+    try {
+      final user = FirebaseAuth.instance.currentUser;
+      if (user == null) return;
+
+      unawaited(
+        _activeGameService.clear(user.uid).catchError((e) {
+          debugPrint('中断・再開: 進行中対局の削除に失敗（non-fatal): $e');
+        }),
+      );
+    } catch (e) {
+      debugPrint('中断・再開: 進行中対局の削除に失敗（non-fatal): $e');
     }
   }
 

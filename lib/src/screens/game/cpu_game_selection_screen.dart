@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../data/cpu_starting_positions.dart';
+import '../../models/active_cpu_game.dart';
+import '../../providers/active_cpu_game_provider.dart';
 import '../../providers/adaptive_difficulty_provider.dart';
 import '../../services/adaptive_difficulty_service.dart';
 import '../../services/ai_opponent_engine.dart';
@@ -44,6 +46,8 @@ class _CPUGameSelectionScreenState
       });
     });
 
+    final activeGameAsync = ref.watch(activeCpuGameProvider);
+
     return Scaffold(
         appBar: AppBar(
           title: const Text('Play vs Computer'),
@@ -57,6 +61,13 @@ class _CPUGameSelectionScreenState
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
+                  // 中断・再開機能: 進行中の対局があれば一番上に「続きから」
+                  // を出す（無ければ何も表示しない）。
+                  if (activeGameAsync.valueOrNull != null) ...[
+                    _buildResumeCard(activeGameAsync.valueOrNull!),
+                    const SizedBox(height: 32),
+                  ],
+
                   // Difficulty section
                   Text(
                     'Select Difficulty',
@@ -387,6 +398,26 @@ class _CPUGameSelectionScreenState
           difficulty: _selectedDifficulty,
           playerIsWhite: _playerIsWhite,
           startingFen: _selectedStartingPosition.fen,
+        ),
+      ),
+    );
+  }
+
+  Widget _buildResumeCard(ActiveCpuGame activeGame) {
+    return Card(
+      color: Theme.of(context).colorScheme.primaryContainer,
+      child: ListTile(
+        leading: const Icon(Icons.play_circle_outline),
+        title: const Text('続きから (Resume game)'),
+        subtitle: Text(
+          '${activeGame.playerIsWhite ? "White" : "Black"} · '
+          '${activeGame.difficultyName}',
+        ),
+        trailing: const Icon(Icons.chevron_right),
+        onTap: () => Navigator.of(context).push(
+          SmoothPageTransition(
+            page: CPUGameScreen(resumeGame: activeGame),
+          ),
         ),
       ),
     );
