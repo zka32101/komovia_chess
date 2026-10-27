@@ -41,6 +41,27 @@ extension AIDifficultyStockfishExt on AIDifficulty {
         return 3500;
     }
   }
+
+  /// クイック対局（[cpuQuickGameProvider]がtrue）時に使うAIの着手時間。
+  /// 通常の[stockfishMoveTimeMs]より短く固定し、一局全体の所要時間を
+  /// 読みやすくする（komovia_shogiの`ShogiDifficultyExt.quickTimeBudget`
+  /// と同じ、将棋版で先に採った「持ち時間を短くする」アプローチ）。
+  /// 強い設定ほど長め — 難易度の選択自体は、クイック対局中も「読みの質」
+  /// として意味を持つ。
+  int get quickMoveTimeMs {
+    switch (this) {
+      case AIDifficulty.beginner:
+        return 80;
+      case AIDifficulty.easy:
+        return 150;
+      case AIDifficulty.medium:
+        return 250;
+      case AIDifficulty.hard:
+        return 400;
+      case AIDifficulty.master:
+        return 600;
+    }
+  }
 }
 
 /// Wraps the `stockfish` plugin (native Stockfish binary via FFI/process on

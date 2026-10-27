@@ -21,6 +21,7 @@ class _CPUGameSelectionScreenState
     extends ConsumerState<CPUGameSelectionScreen> {
   late AIDifficulty _selectedDifficulty;
   bool _playerIsWhite = true;
+  bool _quickGame = false;
   CpuStartingPosition _selectedStartingPosition = CpuStartingPosition.opening;
 
   /// Guards against re-applying the recommendation after the player has
@@ -120,7 +121,19 @@ class _CPUGameSelectionScreenState
                           color: Colors.grey.shade600,
                         ),
                   ),
-                  const SizedBox(height: 40),
+                  const SizedBox(height: 16),
+
+                  // クイック対局（持ち時間短縮）
+                  CheckboxListTile(
+                    value: _quickGame,
+                    onChanged: (value) =>
+                        setState(() => _quickGame = value ?? false),
+                    title: const Text('クイック対局'),
+                    subtitle: const Text('AIの考慮時間を短くし、短時間で一局を終えられるようにします。'),
+                    controlAffinity: ListTileControlAffinity.leading,
+                    contentPadding: EdgeInsets.zero,
+                  ),
+                  const SizedBox(height: 24),
 
                   // Start button
                   SizedBox(
@@ -398,6 +411,7 @@ class _CPUGameSelectionScreenState
           difficulty: _selectedDifficulty,
           playerIsWhite: _playerIsWhite,
           startingFen: _selectedStartingPosition.fen,
+          quickGame: _quickGame,
         ),
       ),
     );

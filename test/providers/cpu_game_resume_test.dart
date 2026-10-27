@@ -164,5 +164,40 @@ void main() {
         returnsNormally,
       );
     });
+
+    test('restores a saved quickGame flag', () {
+      final container = ProviderContainer();
+      addTearDown(container.dispose);
+      final notifier = container.read(cpuGameProvider.notifier);
+
+      expect(notifier.isQuickGame, isFalse);
+
+      notifier.resumeFrom(
+        ActiveCpuGame(
+          uid: 'u1',
+          moveUcis: const [],
+          difficultyName: 'medium',
+          playerIsWhite: true,
+          startTime: DateTime(2026, 1, 1),
+          quickGame: true,
+        ),
+      );
+
+      expect(notifier.isQuickGame, isTrue);
+    });
+  });
+
+  group('CpuGameNotifier.initGame', () {
+    test('quickGame defaults to false and is settable', () {
+      final container = ProviderContainer();
+      addTearDown(container.dispose);
+      final notifier = container.read(cpuGameProvider.notifier);
+
+      notifier.initGame();
+      expect(notifier.isQuickGame, isFalse);
+
+      notifier.initGame(quickGame: true);
+      expect(notifier.isQuickGame, isTrue);
+    });
   });
 }

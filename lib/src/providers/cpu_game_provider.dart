@@ -66,9 +66,11 @@ class CpuGameNotifier extends StateNotifier<CpuGameState> {
     AIDifficulty difficulty = AIDifficulty.medium,
     bool playerIsWhite = true,
     String? startingFen,
+    bool quickGame = false,
   }) {
     _chess.initGame(fen: startingFen);
     _aiEngine = AIOpponentEngine(_chess, difficulty);
+    _quickGame = quickGame;
     // cpuGameProvider has no autoDispose, so this notifier (and
     // _stockfishFailed) persists for the whole app session, not just
     // one game - without resetting it here, a single transient
@@ -105,6 +107,7 @@ class CpuGameNotifier extends StateNotifier<CpuGameState> {
         AIDifficulty.medium;
     _aiEngine = AIOpponentEngine(_chess, difficulty);
     _stockfishFailed = false;
+    _quickGame = saved.quickGame;
 
     final replayedMoves = <chess_lib.Move>[];
     for (final uci in saved.moveUcis) {
@@ -173,6 +176,12 @@ class CpuGameNotifier extends StateNotifier<CpuGameState> {
   }
 
   bool _stockfishFailed = false;
+
+  /// クイック対局モード。trueの間、AIの着手探索は[AIDifficultyExt.
+  /// stockfishMoveTimeMs]ではなく短い[AIDifficultyStockfishExt.
+  /// quickMoveTimeMs]で打ち切られる。
+  bool _quickGame = false;
+  bool get isQuickGame => _quickGame;
   final Random _random = Random();
 
   /// Request AI to make a move
@@ -191,7 +200,9 @@ class CpuGameNotifier extends StateNotifier<CpuGameState> {
         await stockfish.configureDifficulty(state.difficulty);
         bestMove = await stockfish.getBestMove(
           _chess.getCurrentFen(),
-          moveTimeMs: state.difficulty.stockfishMoveTimeMs,
+          moveTimeMs: _quickGame
+              ? state.difficulty.quickMoveTimeMs
+              : state.difficulty.stockfishMoveTimeMs,
         );
       } catch (e) {
         _stockfishFailed = true;
@@ -401,6 +412,7 @@ class CpuGameNotifier extends StateNotifier<CpuGameState> {
         playerIsWhite: state.playerIsWhite,
         startingFen: state.startingFen,
         startTime: state.startTime,
+        quickGame: _quickGame,
       );
 
       unawaited(
