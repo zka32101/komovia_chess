@@ -18,6 +18,8 @@ import '../services/match_history_service.dart';
 import '../services/analytics_dashboard_service_impl.dart';
 import '../services/rating_calculation_service.dart';
 import '../models/match_record.dart';
+import '../models/active_cpu_game.dart';
+import '../services/active_cpu_game_service.dart';
 
 
 // ============================================================================
@@ -40,6 +42,15 @@ class CpuGameNotifier extends StateNotifier<CpuGameState> {
   }
   late ChessEngineService _chess;
   late AIOpponentEngine _aiEngine;
+  // Lazily constructed: ActiveCpuGameService's constructor touches
+  // FirebaseFirestore.instance, which throws synchronously if no
+  // Firebase app has been initialized (e.g. a plain unit test that
+  // never calls Firebase.initializeApp()) - a field initializer would
+  // make *every* CpuGameNotifier unconstructable in that case, not just
+  // the persist/clear paths that actually need Firestore.
+  ActiveCpuGameService? _activeGameServiceInstance;
+  ActiveCpuGameService get _activeGameService =>
+      _activeGameServiceInstance ??= ActiveCpuGameService();
 
   /// Initialize a new game.
   ///
@@ -76,28 +87,84 @@ class CpuGameNotifier extends StateNotifier<CpuGameState> {
       playerIsWhite: playerIsWhite,
       startingFen: startingFen,
     );
+    _persistActiveGame();
   }
+
+  /// 中断・再開機能: 保存済みスナップショットから対局状態を復元する。
+  /// [initGame]とは違い盤面を初形にリセットするのではなく、保存されて
+  /// いた指し手履歴(UCI)を[startingFen]から順に打ち直して盤面を再構成
+  /// する — `zka32101/kouki-shogi`の`game_screen.dart`
+  /// `_restoreGameSnapshot`（棋譜を初期局面から再生して盤面を復旧）と
+  /// 同じ考え方。FENのみを保存する設計と違い、再開後も「待った」が
+  /// 通常の対局と同じだけ遡れる。
+  void resumeFrom(ActiveCpuGame saved) {
+    _chess.initGame(fen: saved.startingFen);
+    final difficulty = AIDifficulty.values
+        .where((d) => d.name == saved.difficultyName)
+        .firstOrNull ??
+        AIDifficulty.medium;
+    _aiEngine = AIOpponentEngine(_chess, difficulty);
+    _stockfishFailed = false;
+
+    final replayedMoves = <chess_lib.Move>[];
+    for (final uci in saved.moveUcis) {
+      if (uci.length < 4) continue; // 破損データ guard
+      final from = uci.substring(0, 2);
+      final to = uci.substring(2, 4);
+      // Captured BEFORE applying the move - see makePlayerMove's comment.
+      final preMoveLegalMoves = _chess.getLegalMoves();
+      _chess.makeMoveUCI(uci);
+      final lastMove = preMoveLegalMoves
+          .where((m) => m.fromAlgebraic == from && m.toAlgebraic == to)
+          .firstOrNull;
+      if (lastMove != null) {
+        replayedMoves.add(lastMove);
+      }
+    }
+
+    state = CpuGameState(
+      gameState: _chess.rawChess,
+      difficulty: difficulty,
+      moves: replayedMoves,
+      startTime: saved.startTime,
+      playerIsWhite: saved.playerIsWhite,
+      startingFen: saved.startingFen,
+    );
+  }
+
+  /// [move]をUCI形式の文字列に変換する（`makeAIMove`が
+  /// `_chess.makeMoveUCI`へ渡す形式と同じ: from+to+promotion）。
+  /// 中断・再開機能の保存で使う。
+  String _moveToUci(chess_lib.Move move) =>
+      move.fromAlgebraic + move.toAlgebraic + (move.promotion?.name ?? '');
 
   /// Make a player move
   void makePlayerMove(String from, String to, {String? promotion}) {
     if (!state.isPlayerTurn || state.isGameOver) return;
 
+    // Captured BEFORE applying the move: getLegalMoves() reports moves
+    // for the side to move in the CURRENT position. Querying it after
+    // _chess.makeMove() (as this previously did) looks for a move whose
+    // `from` square matches a square that - in the new, post-move
+    // position - is already empty (the piece just left it), so the
+    // lookup below essentially never matched, and CpuGameState.moves
+    // (used for "待った"/undo and for the chess_lib.Move history this
+    // app's resume feature replays) stayed perpetually empty.
+    final preMoveLegalMoves = _chess.getLegalMoves();
+
     final success = _chess.makeMove(from, to, promotion: promotion);
     if (!success) return;
 
     final newMoves = List<chess_lib.Move>.from(state.moves);
-    final allMoves = _chess.getLegalMoves();
-    if (allMoves.isNotEmpty) {
-      // Get the last move from legal moves (the one we just made)
-      final lastMove = allMoves
-          .where((m) => m.fromAlgebraic == from && m.toAlgebraic == to)
-          .firstOrNull;
-      if (lastMove != null) {
-        newMoves.add(lastMove);
-      }
+    final lastMove = preMoveLegalMoves
+        .where((m) => m.fromAlgebraic == from && m.toAlgebraic == to)
+        .firstOrNull;
+    if (lastMove != null) {
+      newMoves.add(lastMove);
     }
 
     _updateGameState(newMoves);
+    _persistActiveGame();
 
     // Check if game is over after player move
     if (_isGameOver()) {
@@ -159,27 +226,27 @@ class CpuGameNotifier extends StateNotifier<CpuGameState> {
       return;
     }
 
+    // Captured BEFORE applying the move - see makePlayerMove's comment on
+    // why querying legal moves after the move was applied never matched.
+    final preMoveLegalMoves = _chess.getLegalMoves();
+
     // Apply the move
     _chess.makeMoveUCI(bestMove);
     final newMoves = List<chess_lib.Move>.from(state.moves);
-    final allMoves = _chess.getLegalMoves();
-    if (allMoves.isNotEmpty) {
-      // Find the move we just made
-      final parts = bestMove.split('');
-      if (parts.length >= 4) {
-        final from = bestMove.substring(0, 2);
-        final to = bestMove.substring(2, 4);
-        final lastMove = allMoves
-            .where((m) => m.fromAlgebraic == from && m.toAlgebraic == to)
-            .firstOrNull;
-        if (lastMove != null) {
-          newMoves.add(lastMove);
-        }
+    if (bestMove.length >= 4) {
+      final from = bestMove.substring(0, 2);
+      final to = bestMove.substring(2, 4);
+      final lastMove = preMoveLegalMoves
+          .where((m) => m.fromAlgebraic == from && m.toAlgebraic == to)
+          .firstOrNull;
+      if (lastMove != null) {
+        newMoves.add(lastMove);
       }
     }
 
     _updateGameState(newMoves);
     state = state.copyWith(isAIThinking: false);
+    _persistActiveGame();
 
     // Check if game is over after AI move
     if (_isGameOver()) {
@@ -208,6 +275,7 @@ class CpuGameNotifier extends StateNotifier<CpuGameState> {
         : <chess_lib.Move>[];
 
     _updateGameState(newMoves);
+    _persistActiveGame();
   }
 
   /// Resign the game
@@ -222,6 +290,7 @@ class CpuGameNotifier extends StateNotifier<CpuGameState> {
       endTime: DateTime.now(),
     );
     _recordResult('loss');
+    _clearActiveGame();
   }
 
   /// Offer a draw (simplified - auto-accept)
@@ -235,6 +304,7 @@ class CpuGameNotifier extends StateNotifier<CpuGameState> {
       endTime: DateTime.now(),
     );
     _recordResult('draw');
+    _clearActiveGame();
   }
 
   /// Reset the game - back to [CpuGameState.startingFen] when the current
@@ -312,6 +382,52 @@ class CpuGameNotifier extends StateNotifier<CpuGameState> {
     if (result != null) {
       final playerWon = (result == 'white_win') == state.playerIsWhite;
       _recordResult(result == 'draw' ? 'draw' : (playerWon ? 'win' : 'loss'));
+    }
+    _clearActiveGame();
+  }
+
+  /// 中断・再開機能: 現在の対局状態をFirestoreへbest-effortで保存する。
+  /// 失敗してもゲームプレイ自体をブロックしない — 未サインインなら
+  /// 保存先（uid）が無いのでそのまま何もしない。
+  void _persistActiveGame() {
+    try {
+      final user = FirebaseAuth.instance.currentUser;
+      if (user == null) return;
+
+      final game = ActiveCpuGame(
+        uid: user.uid,
+        moveUcis: state.moves.map(_moveToUci).toList(),
+        difficultyName: state.difficulty.name,
+        playerIsWhite: state.playerIsWhite,
+        startingFen: state.startingFen,
+        startTime: state.startTime,
+      );
+
+      unawaited(
+        _activeGameService.save(game).catchError((e) {
+          debugPrint('中断・再開: 進行中対局の保存に失敗（non-fatal): $e');
+        }),
+      );
+    } catch (e) {
+      debugPrint('中断・再開: 進行中対局の保存に失敗（non-fatal): $e');
+    }
+  }
+
+  /// 中断・再開機能: 対局が終局・投了・引き分け合意した直後に呼ぶ。
+  /// 保存済みの進行中対局レコードを消す（終局した対局は「続きから」の
+  /// 対象ではないため）。
+  void _clearActiveGame() {
+    try {
+      final user = FirebaseAuth.instance.currentUser;
+      if (user == null) return;
+
+      unawaited(
+        _activeGameService.clear(user.uid).catchError((e) {
+          debugPrint('中断・再開: 進行中対局の削除に失敗（non-fatal): $e');
+        }),
+      );
+    } catch (e) {
+      debugPrint('中断・再開: 進行中対局の削除に失敗（non-fatal): $e');
     }
   }
 
