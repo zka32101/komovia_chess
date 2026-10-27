@@ -24,6 +24,7 @@ class CPUGameScreen extends ConsumerStatefulWidget {
     this.playerIsWhite = true,
     this.startingFen,
     this.resumeGame,
+    this.quickGame = false,
   }) : super(key: key);
   final AIDifficulty difficulty;
   final bool playerIsWhite;
@@ -31,6 +32,11 @@ class CPUGameScreen extends ConsumerStatefulWidget {
   /// Begin the game from this position instead of the standard starting
   /// array, when given (see CPUGameSelectionScreen's position picker).
   final String? startingFen;
+
+  /// クイック対局（持ち時間を短くするモード）を有効にして開始する
+  /// かどうか（CPUGameSelectionScreenのチェックボックス用）。
+  /// [resumeGame]を指定した場合は無視され、保存済みの値を使う。
+  final bool quickGame;
 
   /// 中断・再開機能: 指定した場合、[difficulty]/[playerIsWhite]/
   /// [startingFen]を無視してこの保存済みスナップショットから対局を
@@ -59,6 +65,7 @@ class _CPUGameScreenState extends ConsumerState<CPUGameScreen> {
               difficulty: widget.difficulty,
               playerIsWhite: widget.playerIsWhite,
               startingFen: widget.startingFen,
+              quickGame: widget.quickGame,
             );
       }
     });

@@ -32,6 +32,10 @@ class ActiveCpuGame {
   final DateTime startTime;
   final DateTime? updatedAt;
 
+  /// クイック対局（AIの着手を短い持ち時間で打ち切るモード）中だったか
+  /// どうか。再開時も同じ体験になるよう復元する。
+  final bool quickGame;
+
   ActiveCpuGame({
     required this.uid,
     required this.moveUcis,
@@ -40,6 +44,7 @@ class ActiveCpuGame {
     this.startingFen,
     required this.startTime,
     this.updatedAt,
+    this.quickGame = false,
   });
 
   factory ActiveCpuGame.fromFirestore(
@@ -61,6 +66,7 @@ class ActiveCpuGame {
       updatedAt: data['updatedAt'] != null
           ? (data['updatedAt'] as Timestamp).toDate()
           : null,
+      quickGame: data['quickGame'] as bool? ?? false,
     );
   }
 
@@ -72,6 +78,7 @@ class ActiveCpuGame {
       'startingFen': startingFen,
       'startTime': Timestamp.fromDate(startTime),
       'updatedAt': Timestamp.fromDate(updatedAt ?? DateTime.now()),
+      'quickGame': quickGame,
     };
   }
 }
