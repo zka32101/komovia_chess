@@ -1,5 +1,7 @@
 import 'dart:math';
 
+import 'package:komovia_core/komovia_core.dart' as core;
+
 /// Exception thrown when rating calculation fails.
 class RatingCalculationException implements Exception {
   RatingCalculationException(this.message);
@@ -72,14 +74,16 @@ class RatingCalculationService {
       );
     }
 
-    // Get appropriate K-factor for player's rating
-    final K = getKFactor(playerRating);
-
-    // Calculate expected score
-    final expectedScore = calculateExpectedScore(playerRating, opponentRating);
-
-    // Calculate rating change
-    final ratingChange = (K * (result - expectedScore)).round();
+    // Rating-tier K-factor selection is this app's own policy; the actual
+    // Elo delta formula is komovia_core's shared `computeEloDelta`, used by
+    // every Komovia app's single-player rating (see komovia_go's
+    // `lib/utils/ai_rating.dart` for the same split).
+    final ratingChange = core.computeEloDelta(
+      currentRating: playerRating,
+      opponentRating: opponentRating,
+      score: result,
+      kFactor: getKFactor(playerRating),
+    );
 
     // Calculate new rating and clamp to valid range
     final newRating = playerRating + ratingChange;
@@ -157,9 +161,12 @@ class RatingCalculationService {
     int opponentRating,
     double result,
   ) {
-    final K = getKFactor(playerRating);
-    final expectedScore = calculateExpectedScore(playerRating, opponentRating);
-    return (K * (result - expectedScore)).round();
+    return core.computeEloDelta(
+      currentRating: playerRating,
+      opponentRating: opponentRating,
+      score: result,
+      kFactor: getKFactor(playerRating),
+    );
   }
 
   /// Gets color/emoji representation of rating tier for UI display.
