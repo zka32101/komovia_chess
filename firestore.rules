@@ -229,6 +229,19 @@ service cloud.firestore {
       match /daily_limits/{dateKey} {
         allow read, write: if isOwner(userId);
       }
+
+      // Per-user cloud-synced game history (FirebaseGameHistoryService) and
+      // its aggregated statistics (overall/byDifficulty docs), both read by
+      // AnalyticsDashboardScreen's providers. Had no rule at all before
+      // this - every save/read fell through to the file's default-deny, so
+      // game history was never actually persisted to Firestore for any
+      // real user despite being fully wired client-side.
+      match /games/{gameId} {
+        allow read, write: if isOwner(userId);
+      }
+      match /statistics/{statKey} {
+        allow read, write: if isOwner(userId);
+      }
     }
 
     // ============================================
@@ -1010,6 +1023,51 @@ service cloud.firestore {
       match /matches/{matchId} {
         allow read: if isSignedIn();
         allow create: if isSignedIn() && request.resource.data.playerId == playerId;
+        allow update, delete: if false;
+      }
+    }
+
+    // ActiveCpuGameService: one in-progress CPU game per user, document id
+    // always the owner's own uid (save/getActive/clear all key by uid).
+    // Had no rule at all before this, so resuming/persisting an
+    // in-progress CPU game always failed in production despite being
+    // fully wired client-side.
+    match /active_cpu_games/{uid} {
+      allow read, write: if isOwner(uid);
+    }
+
+    // PerformanceService.recordDailyProgression: per-player daily rating
+    // snapshots for the progression chart. No reachable caller anywhere
+    // in the app yet (same "wired but never actually called" category as
+    // player_matchups/match_history were before they got real callers) -
+    // owner-only, so adding this now costs nothing and avoids rediscovering
+    // the same missing-rule bug the day a screen does call it.
+    match /performance_stats/{playerId} {
+      match /progression_30days/{dayKey} {
+        allow read, write: if isOwner(playerId);
+      }
+    }
+
+    // SeasonalEventService.distributeEventRewards: writes into the
+    // RECIPIENT's own reward history, not necessarily the caller's -
+    // same cross-user client-trusted pattern as user_rewards/match_history
+    // above. No reachable caller anywhere in the app yet either (same
+    // category as performance_stats just above), but the create shape is
+    // narrowed to this method's exact fields regardless, so a future
+    // caller doesn't hit a stale/missing rule.
+    match /player_reward_history/{playerId} {
+      match /rewards/{rewardId} {
+        allow read: if isOwner(playerId);
+        allow create: if isSignedIn() &&
+          request.resource.data.playerId == playerId &&
+          request.resource.data.isClaimed == false &&
+          request.resource.data.keys().hasOnly(
+            ['playerId', 'eventId', 'seasonId', 'rank', 'reward', 'claimedAt', 'isClaimed', 'source']
+          );
+        // No reachable caller claims a reward (flips isClaimed) yet either -
+        // narrower than inventing an update rule for a write path that
+        // doesn't exist, matching match_history's same "read/create only"
+        // shape above.
         allow update, delete: if false;
       }
     }
