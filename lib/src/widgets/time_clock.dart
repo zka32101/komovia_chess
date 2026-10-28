@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:komovia_core/komovia_core.dart' as core;
 
 /// Time clock widget for displaying remaining time in online games
 ///
@@ -107,28 +108,35 @@ class _TimeClockState extends State<TimeClock>
       return '${hours}h ${minutes.toString().padLeft(2, '0')}m';
     }
 
-    final minutes = totalSeconds ~/ 60;
-    final seconds = totalSeconds % 60;
-    final centiseconds = (ms % 1000) ~/ 10;
-
-    // Show centiseconds only when < 60 seconds and showCentiseconds is true
-    if (widget.showCentiseconds && totalSeconds < 60) {
-      return '$minutes:${seconds.toString().padLeft(2, '0')}.${centiseconds.toString().padLeft(2, '0')}';
-    } else {
-      return '$minutes:${seconds.toString().padLeft(2, '0')}';
-    }
+    // Under an hour: komovia_core's formatClock owns the mm:ss(.cs) digit
+    // math and the 60s centiseconds cutoff, so this widget doesn't
+    // duplicate it (days/hours above stay local - formatClock has no
+    // concept of either, since no other sibling app's clock runs that
+    // long).
+    return core.formatClock(
+      Duration(milliseconds: ms),
+      showCentiseconds: widget.showCentiseconds,
+    );
   }
+
+  /// [widget.timeMs]'s warning level via komovia_core's shared thresholds
+  /// (critical < 10s, low < 1 minute) - same values this widget already
+  /// used, now the single source of truth shared with komovia_go's own
+  /// clock display.
+  core.ClockWarningLevel get _warningLevel =>
+      core.warningLevelFor(Duration(milliseconds: widget.timeMs));
 
   /// Get time display color based on remaining time and theme
   Color _getTimeColor(BuildContext context) {
     final isDarkMode = Theme.of(context).brightness == Brightness.dark;
 
-    if (widget.timeMs < 10000) {
-      return Colors.red; // < 10 seconds (same in both themes)
-    } else if (widget.timeMs < 60000) {
-      return Colors.orange; // < 1 minute (same in both themes)
-    } else {
-      return isDarkMode ? Colors.white70 : Colors.black87;
+    switch (_warningLevel) {
+      case core.ClockWarningLevel.critical:
+        return Colors.red; // < 10 seconds (same in both themes)
+      case core.ClockWarningLevel.low:
+        return Colors.orange; // < 1 minute (same in both themes)
+      case core.ClockWarningLevel.normal:
+        return isDarkMode ? Colors.white70 : Colors.black87;
     }
   }
 
@@ -136,9 +144,9 @@ class _TimeClockState extends State<TimeClock>
   Color _getBackgroundColor(BuildContext context) {
     final isDarkMode = Theme.of(context).brightness == Brightness.dark;
 
-    if (widget.timeMs < 10000) {
+    if (_warningLevel == core.ClockWarningLevel.critical) {
       return Colors.red.withOpacity(0.2); // < 10 seconds
-    } else if (widget.timeMs < 60000) {
+    } else if (_warningLevel == core.ClockWarningLevel.low) {
       return Colors.orange.withOpacity(0.15); // < 1 minute
     } else if (widget.isCurrentPlayer) {
       return isDarkMode
@@ -163,7 +171,7 @@ class _TimeClockState extends State<TimeClock>
 
   @override
   Widget build(BuildContext context) {
-    final isLowTime = widget.timeMs < 10000;
+    final isLowTime = _warningLevel == core.ClockWarningLevel.critical;
     final timeColor = _getTimeColor(context);
     final backgroundColor = _getBackgroundColor(context);
     final fontSize = _getFontSize();
@@ -209,7 +217,7 @@ class _TimeClockState extends State<TimeClock>
             ),
           ),
           // Optional: Low time indicator
-          if (widget.timeMs < 60000 && widget.timeMs > 0)
+          if (_warningLevel != core.ClockWarningLevel.normal && widget.timeMs > 0)
             Padding(
               padding: const EdgeInsets.only(top: 4),
               child: Text(
