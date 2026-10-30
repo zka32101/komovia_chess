@@ -533,6 +533,7 @@
   "puzzleFindBestMoveMessage": "Find the best move for the side to play",
   "puzzleNoPuzzlesFoundMessage": "No puzzles found in this range",
   "puzzleFallbackName": "Puzzle",
+  "puzzleThemeFilterAllLabel": "All",
   "puzzleMovesToSolveLabel": "{count} moves to solve",
   "@puzzleMovesToSolveLabel": {
     "placeholders": {

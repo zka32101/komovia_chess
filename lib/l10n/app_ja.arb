@@ -293,6 +293,7 @@
   "puzzleFindBestMoveMessage": "手番側にとって最善の一手を見つけてください",
   "puzzleNoPuzzlesFoundMessage": "この範囲のパズルが見つかりませんでした",
   "puzzleFallbackName": "パズル",
+  "puzzleThemeFilterAllLabel": "すべて",
   "puzzleMovesToSolveLabel": "{count}手で解ける",
 
   "matchHistoryTitle": "対戦履歴",

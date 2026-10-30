@@ -850,7 +850,7 @@ class _FeedbackBanner extends StatelessWidget {
 
 /// Lists puzzles within a rating range; tapping one starts solving from that
 /// puzzle onward through the rest of the filtered list.
-class PuzzleListScreen extends ConsumerWidget {
+class PuzzleListScreen extends ConsumerStatefulWidget {
   const PuzzleListScreen({
     required this.minRating,
     required this.maxRating,
@@ -862,49 +862,108 @@ class PuzzleListScreen extends ConsumerWidget {
   final String title;
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<PuzzleListScreen> createState() => _PuzzleListScreenState();
+}
+
+class _PuzzleListScreenState extends ConsumerState<PuzzleListScreen> {
+  /// null means "all themes" - no filter applied.
+  String? _selectedTheme;
+
+  @override
+  Widget build(BuildContext context) {
     final puzzlesAsync = ref.watch(
-      puzzlesByRatingProvider((minRating: minRating, maxRating: maxRating)),
+      puzzlesByRatingProvider(
+          (minRating: widget.minRating, maxRating: widget.maxRating)),
     );
     final l10n = AppLocalizations.of(context);
 
     return Scaffold(
       appBar: AppBar(
-        title: Text(title),
+        title: Text(widget.title),
         centerTitle: true,
       ),
       body: puzzlesAsync.when(
         loading: () => const Center(child: CircularProgressIndicator()),
         error: (error, stack) =>
             Center(child: Text(l10n.puzzleErrorMessage(error.toString()))),
-        data: (puzzles) {
-          if (puzzles.isEmpty) {
+        data: (allPuzzles) {
+          if (allPuzzles.isEmpty) {
             return Center(child: Text(l10n.puzzleNoPuzzlesFoundMessage));
           }
 
-          return ListView.separated(
-            padding: const EdgeInsets.all(16),
-            itemCount: puzzles.length,
-            separatorBuilder: (_, __) => const SizedBox(height: 8),
-            itemBuilder: (context, index) {
-              final puzzle = puzzles[index];
-              return Card(
-                child: ListTile(
-                  leading: CircleAvatar(child: Text('${puzzle.rating}')),
-                  title: Text(puzzle.themes.isNotEmpty
-                      ? puzzle.themes.join(', ')
-                      : l10n.puzzleFallbackName),
-                  subtitle:
-                      Text(l10n.puzzleMovesToSolveLabel(puzzle.moves.length)),
-                  trailing: const Icon(Icons.chevron_right),
-                  onTap: () => _startPuzzle(
-                    context,
-                    ref,
-                    puzzles.skip(index).map((p) => p.id).toList(),
+          // Every theme is already present on each puzzle - no separate
+          // query needed, just drill the already-fetched set client-side.
+          final themes = allPuzzles.expand((p) => p.themes).toSet().toList()
+            ..sort();
+          final puzzles = _selectedTheme == null
+              ? allPuzzles
+              : allPuzzles
+                  .where((p) => p.themes.contains(_selectedTheme))
+                  .toList();
+
+          return Column(
+            children: [
+              if (themes.isNotEmpty)
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
+                  child: SizedBox(
+                    height: 36,
+                    child: ListView(
+                      scrollDirection: Axis.horizontal,
+                      children: [
+                        Padding(
+                          padding: const EdgeInsets.only(right: 8),
+                          child: ChoiceChip(
+                            label: Text(l10n.puzzleThemeFilterAllLabel),
+                            selected: _selectedTheme == null,
+                            onSelected: (_) =>
+                                setState(() => _selectedTheme = null),
+                          ),
+                        ),
+                        for (final theme in themes)
+                          Padding(
+                            padding: const EdgeInsets.only(right: 8),
+                            child: ChoiceChip(
+                              label: Text(theme),
+                              selected: _selectedTheme == theme,
+                              onSelected: (_) =>
+                                  setState(() => _selectedTheme = theme),
+                            ),
+                          ),
+                      ],
+                    ),
                   ),
                 ),
-              );
-            },
+              Expanded(
+                child: puzzles.isEmpty
+                    ? Center(child: Text(l10n.puzzleNoPuzzlesFoundMessage))
+                    : ListView.separated(
+                        padding: const EdgeInsets.all(16),
+                        itemCount: puzzles.length,
+                        separatorBuilder: (_, __) => const SizedBox(height: 8),
+                        itemBuilder: (context, index) {
+                          final puzzle = puzzles[index];
+                          return Card(
+                            child: ListTile(
+                              leading:
+                                  CircleAvatar(child: Text('${puzzle.rating}')),
+                              title: Text(puzzle.themes.isNotEmpty
+                                  ? puzzle.themes.join(', ')
+                                  : l10n.puzzleFallbackName),
+                              subtitle: Text(l10n
+                                  .puzzleMovesToSolveLabel(puzzle.moves.length)),
+                              trailing: const Icon(Icons.chevron_right),
+                              onTap: () => _startPuzzle(
+                                context,
+                                ref,
+                                puzzles.skip(index).map((p) => p.id).toList(),
+                              ),
+                            ),
+                          );
+                        },
+                      ),
+              ),
+            ],
           );
         },
       ),
