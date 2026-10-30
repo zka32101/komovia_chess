@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:chess/chess.dart' as chess_lib;
 import '../models/board_theme.dart';
 import '../services/chess_engine_service.dart';
+import 'piece_glyph.dart';
 
 typedef OnMoveMade = void Function(String from, String to);
 
@@ -129,15 +130,12 @@ class _ChessBoardState extends State<ChessBoard> {
                   borderRadius: BorderRadius.circular(4),
                 ),
                 child: Center(
-                  child: Text(
-                    _getPieceSymbol(piece),
-                    style: TextStyle(
-                      fontSize: squareSize * 0.6,
-                      fontWeight: FontWeight.bold,
-                      color: piece.color == chess_lib.Color.WHITE
-                          ? widget.theme.whitePieceColor
-                          : widget.theme.blackPieceColor,
-                    ),
+                  child: PieceGlyph(
+                    type: piece.type.name,
+                    isWhite: piece.color == chess_lib.Color.WHITE,
+                    fontSize: squareSize * 0.6,
+                    whiteColor: widget.theme.whitePieceColor,
+                    blackColor: widget.theme.blackPieceColor,
                   ),
                 ),
               ),
@@ -233,31 +231,6 @@ class _ChessBoardState extends State<ChessBoard> {
     }
   }
 
-  String _getPieceSymbol(chess_lib.Piece piece) {
-    // Not `const`: PieceType overrides hashCode/==, which Dart disallows
-    // for constant map keys.
-    final whitePieces = {
-      chess_lib.PieceType.KING: '♔',
-      chess_lib.PieceType.QUEEN: '♕',
-      chess_lib.PieceType.ROOK: '♖',
-      chess_lib.PieceType.BISHOP: '♗',
-      chess_lib.PieceType.KNIGHT: '♘',
-      chess_lib.PieceType.PAWN: '♙',
-    };
-
-    final blackPieces = {
-      chess_lib.PieceType.KING: '♚',
-      chess_lib.PieceType.QUEEN: '♛',
-      chess_lib.PieceType.ROOK: '♜',
-      chess_lib.PieceType.BISHOP: '♝',
-      chess_lib.PieceType.KNIGHT: '♞',
-      chess_lib.PieceType.PAWN: '♟',
-    };
-
-    final pieceMap =
-        piece.color == chess_lib.Color.WHITE ? whitePieces : blackPieces;
-    return pieceMap[piece.type] ?? '?';
-  }
 }
 
 /// Custom painter for chess board
