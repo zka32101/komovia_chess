@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:chess/chess.dart' as chess_lib;
+import 'piece_glyph.dart';
 
 /// Display captured pieces for both sides
 class CapturedPieces extends StatelessWidget {
@@ -37,8 +38,28 @@ class CapturedPieces extends StatelessWidget {
   int _calculateMaterialValue(List<chess_lib.Piece> pieces) =>
       pieces.fold(0, (sum, piece) => sum + _getMaterialValue(piece));
 
-  /// Get symbol for display
-  String _getSymbol(chess_lib.Piece piece) => piece.type.name.toUpperCase();
+  /// Small icon-row rendering for one side's captured pieces: a tight
+  /// row of tiny [PieceGlyph]s (same glyph rendering the board itself
+  /// uses) rather than a full-sized [Chip] per piece - the previous
+  /// per-piece `Chip` (label + CircleAvatar) rendered each captured
+  /// piece far larger than this compact summary needs.
+  Widget _buildIconRow(List<chess_lib.Piece> pieces, bool rowIsWhite) {
+    const iconSize = 14.0;
+    return Wrap(
+      spacing: 1,
+      children: pieces
+          .map(
+            (piece) => PieceGlyph(
+              type: piece.type.name,
+              isWhite: rowIsWhite,
+              fontSize: iconSize,
+              whiteColor: Colors.grey[300]!,
+              blackColor: Colors.grey[700]!,
+            ),
+          )
+          .toList(),
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -58,39 +79,25 @@ class CapturedPieces extends StatelessWidget {
     final materialDifference = (whiteMaterial - blackMaterial).abs();
     final isWhiteAdvantage = blackMaterial > whiteMaterial;
 
-    return Column(
+    return Row(
+      mainAxisSize: MainAxisSize.min,
       children: [
-        // Black captured pieces (displayed at top)
+        // Black's losses (white's captures) - small icon row.
         if (blackCapturedPieces.isNotEmpty)
           Padding(
-            padding: const EdgeInsets.symmetric(vertical: 8),
-            child: Wrap(
-              spacing: 4,
-              children: blackCapturedPieces
-                  .map((piece) => Chip(
-                        label: Text(_getSymbol(piece)),
-                        avatar: CircleAvatar(
-                          backgroundColor: Colors.grey[700],
-                          child: Text(
-                            _getSymbol(piece),
-                            style: const TextStyle(color: Colors.white),
-                          ),
-                        ),
-                        backgroundColor: Colors.grey[300],
-                      ))
-                  .toList(),
-            ),
+            padding: const EdgeInsets.symmetric(horizontal: 4),
+            child: _buildIconRow(blackCapturedPieces, false),
           ),
 
         // Material advantage indicator
         if (materialDifference > 0)
           Padding(
-            padding: const EdgeInsets.symmetric(vertical: 8),
+            padding: const EdgeInsets.symmetric(horizontal: 6),
             child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1),
               decoration: BoxDecoration(
                 color: isWhiteAdvantage ? Colors.grey[300] : Colors.grey[700],
-                borderRadius: BorderRadius.circular(8),
+                borderRadius: BorderRadius.circular(6),
               ),
               child: Text(
                 isWhiteAdvantage
@@ -98,32 +105,18 @@ class CapturedPieces extends StatelessWidget {
                     : '-$materialDifference',
                 style: TextStyle(
                   fontWeight: FontWeight.bold,
+                  fontSize: 11,
                   color: isWhiteAdvantage ? Colors.black : Colors.white,
                 ),
               ),
             ),
           ),
 
-        // White captured pieces (displayed at bottom)
+        // White's losses (black's captures) - small icon row.
         if (whiteCapturedPieces.isNotEmpty)
           Padding(
-            padding: const EdgeInsets.symmetric(vertical: 8),
-            child: Wrap(
-              spacing: 4,
-              children: whiteCapturedPieces
-                  .map((piece) => Chip(
-                        label: Text(_getSymbol(piece)),
-                        avatar: CircleAvatar(
-                          backgroundColor: Colors.grey[300],
-                          child: Text(
-                            _getSymbol(piece),
-                            style: const TextStyle(color: Colors.black),
-                          ),
-                        ),
-                        backgroundColor: Colors.grey[100],
-                      ))
-                  .toList(),
-            ),
+            padding: const EdgeInsets.symmetric(horizontal: 4),
+            child: _buildIconRow(whiteCapturedPieces, true),
           ),
       ],
     );

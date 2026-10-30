@@ -233,6 +233,7 @@ class _RepertoireReviewScreenState
               onMove: _handleMove,
               isPlayerTurn: _isPlayerTurn,
               showMaterial: false,
+              flipped: !line.playerIsWhite,
             ),
           ],
         ),

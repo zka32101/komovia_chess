@@ -113,7 +113,7 @@ class _CPUGameScreenState extends ConsumerState<CPUGameScreen> {
 
     return SingleChildScrollView(
       child: Padding(
-        padding: const EdgeInsets.all(16),
+        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 16),
         child: Column(
           children: [
             // Turn indicator and status
@@ -125,6 +125,7 @@ class _CPUGameScreenState extends ConsumerState<CPUGameScreen> {
               gameState: gameState.gameState,
               theme: boardTheme,
               showCoordinates: showCoordinates,
+              flipped: !gameState.playerIsWhite,
               blindfold: ref.watch(blindfoldModeProvider),
               onMove: (from, to, {promotion}) {
                 ref.read(cpuGameProvider.notifier).makePlayerMove(
@@ -183,6 +184,7 @@ class _CPUGameScreenState extends ConsumerState<CPUGameScreen> {
                     gameState: gameState.gameState,
                     theme: boardTheme,
                     showCoordinates: showCoordinates,
+                    flipped: !gameState.playerIsWhite,
                     blindfold: ref.watch(blindfoldModeProvider),
                     onMove: (from, to, {promotion}) {
                       ref.read(cpuGameProvider.notifier).makePlayerMove(
