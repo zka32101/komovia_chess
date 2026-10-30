@@ -4,6 +4,7 @@ import '../../../l10n/app_localizations.dart';
 import '../../models/game_analysis.dart';
 import '../../models/online_game.dart';
 import '../../providers/auth_provider.dart';
+import '../../providers/fair_play_provider.dart';
 import '../../providers/weakness_analysis_provider.dart';
 import '../../services/chess_analysis_service.dart';
 import '../../services/move_commentary_service.dart';
@@ -72,6 +73,7 @@ class _GameAnalysisScreenState extends ConsumerState<GameAnalysisScreen> {
       );
       if (mounted) setState(() => _result = result);
       await _recordWeaknessAnalysis(result);
+      await _recordFairPlaySignals(result);
     } catch (e) {
       if (mounted) setState(() => _error = e.toString());
     }
@@ -112,6 +114,43 @@ class _GameAnalysisScreenState extends ConsumerState<GameAnalysisScreen> {
           isWhitePlayer: isWhitePlayer,
         );
     ref.invalidate(weaknessProfileProvider);
+  }
+
+  /// Best-effort: computes and persists a backend-only fair-play review
+  /// signal (see FairPlayService) for BOTH real players of this game -
+  /// unlike [_recordWeaknessAnalysis], which only records for the
+  /// currently signed-in viewer, this isn't gated on who's looking at
+  /// the screen, since the signal itself is never shown to either
+  /// player and the whole point is to also cover the case where the
+  /// viewer is the *other* side (or a moderator re-running analysis).
+  ///
+  /// Skipped entirely for CpuGameScreen's synthetic games (whiteId or
+  /// blackId == the 'player'/'cpu' sentinel - see
+  /// `_recordWeaknessAnalysis`'s own comment) - there's no second real
+  /// account to flag in a CPU game, so there's nothing to compute this
+  /// for.
+  Future<void> _recordFairPlaySignals(GameAnalysis result) async {
+    final gameId = widget.gameId;
+    final whiteId = widget.whitePlayerId;
+    final blackId = widget.blackPlayerId;
+    if (gameId == null || whiteId == null || blackId == null) return;
+    if (whiteId == 'player' || whiteId == 'cpu' || blackId == 'player' || blackId == 'cpu') {
+      return;
+    }
+
+    final service = ref.read(fairPlayServiceProvider);
+    await service.recordGameSignal(
+      uid: whiteId,
+      gameId: gameId,
+      analysis: result,
+      isWhitePlayer: true,
+    );
+    await service.recordGameSignal(
+      uid: blackId,
+      gameId: gameId,
+      analysis: result,
+      isWhitePlayer: false,
+    );
   }
 
   @override

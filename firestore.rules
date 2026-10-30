@@ -638,6 +638,45 @@ service cloud.firestore {
         allow read: if isParticipant(gameParticipants());
         allow create, update, delete: if false;
       }
+
+      // Fair-play review signal (FairPlayService.recordGameSignal) -
+      // engine-correlation suspicion stats computed per player per
+      // game, purely for a human moderator to review later. Sensitive
+      // precisely because it's ABOUT the two players, not something
+      // either of them should see about themselves or each other - so
+      // this deliberately does NOT reuse isGameParticipant() for read
+      // the way every other subcollection here does.
+      //
+      // This app has no moderator/reviewer role beyond isAdmin() (see
+      // security_audit/{document=**} above for the identical
+      // write-by-anyone/read-by-admin-only shape) and no moderator UI
+      // exists yet to consume this - so, same as that collection, this
+      // is write-only from the client's perspective for now: a signed
+      // in participant may write their own computed signal (never
+      // someone else's uid, never a result for a game they aren't in),
+      // nobody can read it back except isAdmin() (direct Firestore
+      // console access, until real moderator tooling exists), and it
+      // can never be altered or deleted once written (matching
+      // security_audit's append-only intent for this kind of record).
+      match /fair_play_signals/{uid} {
+        function gamePlayers() {
+          return [
+            get(/databases/$(database)/documents/games/$(gameId)).data.whitePlayerId,
+            get(/databases/$(database)/documents/games/$(gameId)).data.blackPlayerId
+          ];
+        }
+
+        allow read: if isAdmin();
+        // Either participant's client may write EITHER player's signal
+        // (GameAnalysisScreen computes and writes both sides' signals
+        // from whichever client ran the analysis) - but the doc id
+        // (uid) must itself be one of this game's two real players,
+        // never an arbitrary uid.
+        allow create: if isParticipant(gamePlayers()) &&
+          request.resource.data.uid == uid &&
+          uid in gamePlayers();
+        allow update, delete: if false;
+      }
     }
 
     // ============================================
