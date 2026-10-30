@@ -71,7 +71,7 @@ class ChessAnalysisService {
         evalBeforeCp: evalBefore,
         evalAfterCp: evalAfterWhite,
         centipawnLoss: centipawnLoss,
-        quality: MoveQuality.fromCentipawnLoss(centipawnLoss),
+        quality: classifyMoveQuality(centipawnLoss.toDouble()),
       ));
 
       evalBefore = evalAfterWhite;

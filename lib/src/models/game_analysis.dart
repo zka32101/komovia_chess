@@ -1,3 +1,7 @@
+import 'package:komovia_core/komovia_core.dart' show MoveQuality, classifyMoveQuality;
+
+export 'package:komovia_core/komovia_core.dart' show MoveQuality, classifyMoveQuality;
+
 /// Engine-based post-game analysis. "AI" here means Stockfish's own
 /// evaluation (already wired into this app via StockfishEngineService for
 /// the live eval bar) classifying how much each move cost the player who
@@ -5,24 +9,12 @@
 /// backend. Named to match the family's "Phase J" vocabulary
 /// (game analysis, move classification) without claiming more than what's
 /// actually computed.
-enum MoveQuality {
-  best,
-  good,
-  inaccuracy,
-  mistake,
-  blunder;
-
-  /// Centipawn-loss thresholds a move's quality is classified by -
-  /// loosely modeled on how most chess apps bucket this (chess.com,
-  /// lichess), not an exact match to either.
-  static MoveQuality fromCentipawnLoss(int loss) {
-    if (loss >= 300) return MoveQuality.blunder;
-    if (loss >= 100) return MoveQuality.mistake;
-    if (loss >= 50) return MoveQuality.inaccuracy;
-    if (loss >= 15) return MoveQuality.good;
-    return MoveQuality.best;
-  }
-
+///
+/// [MoveQuality]/[classifyMoveQuality] now live in komovia_core (generalized
+/// from this app's own original scheme, same 300/100/50/15 centipawn-loss
+/// thresholds) so komovia_shogi's review feature can share it instead of
+/// reimplementing it - see komovia_core's review.dart doc comment.
+extension MoveQualityLabel on MoveQuality {
   String get label {
     switch (this) {
       case MoveQuality.best:
