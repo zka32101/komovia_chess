@@ -109,10 +109,10 @@ Send feedback: support@chessmaster.app
 
   /// Android Google Play information
   static const String androidPlayStoreUrl =
-      'https://play.google.com/store/apps/details?id=com.yourwish.chess';
+      'https://play.google.com/store/apps/details?id=com.yourwish.komovia_chess';
 
-  static const String androidPackageName = 'com.yourwish.chess';
-  static const String androidApplicationId = 'com.yourwish.chess';
+  static const String androidPackageName = 'com.yourwish.komovia_chess';
+  static const String androidApplicationId = 'com.yourwish.komovia_chess';
 
   // ============================================================================
   // MONITORING & ANALYTICS

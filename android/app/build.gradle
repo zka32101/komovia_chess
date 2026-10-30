@@ -6,7 +6,7 @@ plugins {
 }
 
 android {
-    namespace = "com.yourwish.chess"
+    namespace = "com.yourwish.komovia_chess"
     compileSdk = flutter.compileSdkVersion
     ndkVersion = flutter.ndkVersion
 
@@ -20,7 +20,7 @@ android {
     }
 
     defaultConfig {
-        applicationId = "com.yourwish.chess"
+        applicationId = "com.yourwish.komovia_chess"
         // Android 7.0 (API 24), matching DeploymentConfig.minAndroidApiLevel and
         // the "Android 7+" target platform documented in CLAUDE.md.
         minSdk = 24

@@ -1,4 +1,4 @@
-package com.yourwish.chess
+package com.yourwish.komovia_chess
 
 import io.flutter.embedding.android.FlutterActivity
 

@@ -2,7 +2,7 @@
   "indexes": [
     {
       "collectionGroup": "games",
-      "queryScope": "Collection",
+      "queryScope": "COLLECTION",
       "fields": [
         {
           "fieldPath": "type",
@@ -20,7 +20,7 @@
     },
     {
       "collectionGroup": "leaderboards",
-      "queryScope": "Collection",
+      "queryScope": "COLLECTION",
       "fields": [
         {
           "fieldPath": "rating",
@@ -34,7 +34,7 @@
     },
     {
       "collectionGroup": "leaderboards",
-      "queryScope": "Collection",
+      "queryScope": "COLLECTION",
       "fields": [
         {
           "fieldPath": "lastUpdated",
@@ -48,7 +48,7 @@
     },
     {
       "collectionGroup": "leaderboards",
-      "queryScope": "Collection",
+      "queryScope": "COLLECTION",
       "fields": [
         {
           "fieldPath": "period",
@@ -62,7 +62,7 @@
     },
     {
       "collectionGroup": "friend_challenges",
-      "queryScope": "Collection",
+      "queryScope": "COLLECTION",
       "fields": [
         {
           "fieldPath": "challengeeUserId",
@@ -80,7 +80,7 @@
     },
     {
       "collectionGroup": "friend_challenges",
-      "queryScope": "Collection",
+      "queryScope": "COLLECTION",
       "fields": [
         {
           "fieldPath": "status",
@@ -94,7 +94,7 @@
     },
     {
       "collectionGroup": "challenge_streaks",
-      "queryScope": "Collection",
+      "queryScope": "COLLECTION",
       "fields": [
         {
           "fieldPath": "currentStreak",
@@ -108,7 +108,7 @@
     },
     {
       "collectionGroup": "tournaments",
-      "queryScope": "Collection",
+      "queryScope": "COLLECTION",
       "fields": [
         {
           "fieldPath": "status",
@@ -122,7 +122,7 @@
     },
     {
       "collectionGroup": "participants",
-      "queryScope": "Collection",
+      "queryScope": "COLLECTION",
       "fields": [
         {
           "fieldPath": "points",
@@ -136,7 +136,7 @@
     },
     {
       "collectionGroup": "matches",
-      "queryScope": "Collection",
+      "queryScope": "COLLECTION",
       "fields": [
         {
           "fieldPath": "round",
@@ -150,7 +150,7 @@
     },
     {
       "collectionGroup": "matches",
-      "queryScope": "Collection",
+      "queryScope": "COLLECTION",
       "fields": [
         {
           "fieldPath": "opponentId",
@@ -164,7 +164,7 @@
     },
     {
       "collectionGroup": "matches",
-      "queryScope": "Collection",
+      "queryScope": "COLLECTION",
       "fields": [
         {
           "fieldPath": "result",
@@ -178,7 +178,7 @@
     },
     {
       "collectionGroup": "matches",
-      "queryScope": "Collection",
+      "queryScope": "COLLECTION",
       "fields": [
         {
           "fieldPath": "timeControl",
@@ -192,7 +192,7 @@
     },
     {
       "collectionGroup": "matches",
-      "queryScope": "Collection",
+      "queryScope": "COLLECTION",
       "fields": [
         {
           "fieldPath": "result",
@@ -210,7 +210,7 @@
     },
     {
       "collectionGroup": "message_threads",
-      "queryScope": "Collection",
+      "queryScope": "COLLECTION",
       "fields": [
         {
           "fieldPath": "participantUids",
@@ -224,7 +224,7 @@
     },
     {
       "collectionGroup": "games",
-      "queryScope": "Collection",
+      "queryScope": "COLLECTION",
       "fields": [
         {
           "fieldPath": "status",
@@ -238,7 +238,7 @@
     },
     {
       "collectionGroup": "games",
-      "queryScope": "Collection",
+      "queryScope": "COLLECTION",
       "fields": [
         {
           "fieldPath": "status",
@@ -252,7 +252,7 @@
     },
     {
       "collectionGroup": "games",
-      "queryScope": "Collection",
+      "queryScope": "COLLECTION",
       "fields": [
         {
           "fieldPath": "whitePlayerId",
@@ -266,7 +266,7 @@
     },
     {
       "collectionGroup": "games",
-      "queryScope": "Collection",
+      "queryScope": "COLLECTION",
       "fields": [
         {
           "fieldPath": "blackPlayerId",
@@ -280,7 +280,7 @@
     },
     {
       "collectionGroup": "seasons",
-      "queryScope": "Collection",
+      "queryScope": "COLLECTION",
       "fields": [
         {
           "fieldPath": "status",
@@ -298,7 +298,7 @@
     },
     {
       "collectionGroup": "seasonal_events",
-      "queryScope": "Collection",
+      "queryScope": "COLLECTION",
       "fields": [
         {
           "fieldPath": "seasonId",
@@ -330,7 +330,7 @@
     },
     {
       "collectionGroup": "list",
-      "queryScope": "Collection",
+      "queryScope": "COLLECTION",
       "fields": [
         {
           "fieldPath": "challengeeUserId",
@@ -348,7 +348,7 @@
     },
     {
       "collectionGroup": "challenge_results",
-      "queryScope": "Collection",
+      "queryScope": "COLLECTION",
       "fields": [
         {
           "fieldPath": "winnerId",
@@ -362,7 +362,7 @@
     },
     {
       "collectionGroup": "matchmaking_queue",
-      "queryScope": "Collection",
+      "queryScope": "COLLECTION",
       "fields": [
         {
           "fieldPath": "status",
@@ -376,7 +376,7 @@
     },
     {
       "collectionGroup": "matchmaking_queue",
-      "queryScope": "Collection",
+      "queryScope": "COLLECTION",
       "fields": [
         {
           "fieldPath": "playerId",
@@ -395,7 +395,7 @@
       "fieldPath": "rating",
       "indexes": [
         {
-          "queryScope": "Collection",
+          "queryScope": "COLLECTION",
           "order": "DESCENDING"
         }
       ]
@@ -405,7 +405,7 @@
       "fieldPath": "currentStreak",
       "indexes": [
         {
-          "queryScope": "Collection",
+          "queryScope": "COLLECTION",
           "order": "DESCENDING"
         }
       ]
