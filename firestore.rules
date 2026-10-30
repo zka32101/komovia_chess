@@ -1027,6 +1027,19 @@ service cloud.firestore {
       }
     }
 
+    // RepertoireService: saved opening-repertoire lines for the
+    // spaced-repetition trainer (repertoire_screen.dart/
+    // repertoire_review_screen.dart). Purely private per-user data -
+    // unlike match_history above, nothing else in the app ever needs to
+    // read another player's repertoire, so this is plain owner-only
+    // read/write rather than that collection's open-read/cross-user-write
+    // shape.
+    match /repertoire_lines/{uid} {
+      match /lines/{lineId} {
+        allow read, write: if isOwner(uid);
+      }
+    }
+
     // ActiveCpuGameService: one in-progress CPU game per user, document id
     // always the owner's own uid (save/getActive/clear all key by uid).
     // Had no rule at all before this, so resuming/persisting an
