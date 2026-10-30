@@ -3,6 +3,7 @@ import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'firebase_options.dart';
 import 'src/app.dart';
+import 'src/services/event_config_service.dart';
 import 'src/services/sound_service.dart';
 
 void main() async {
@@ -24,6 +25,10 @@ void main() async {
     debugPrint('Please configure Firebase credentials in .env file');
     // Continue anyway - app can still run without Firebase in development
   }
+
+  // Remote Config drives time-limited novelty events (shogi mode, hybrid
+  // battle). Failures leave the defaults in place = every event hidden.
+  await EventConfigService.initialize();
 
   // Initialize sound service for audio effects
   try {

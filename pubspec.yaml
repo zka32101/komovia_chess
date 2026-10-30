@@ -78,6 +78,7 @@ dependencies:
 
   # Cross-promotion (opening a sibling Komovia app's store listing)
   url_launcher: ^6.3.1
+  firebase_remote_config: ^4.4.7
 
 dev_dependencies:
   flutter_test:

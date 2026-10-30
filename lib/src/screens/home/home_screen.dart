@@ -21,6 +21,8 @@ import '../online/live_games_screen.dart';
 import '../tournaments/tournaments_screen.dart';
 import '../clubs/clubs_screen.dart';
 import '../../shogi/shogi_screen.dart';
+import '../../hybrid_battle/hybrid_battle_screen.dart';
+import '../../providers/event_provider.dart';
 
 class HomeScreen extends ConsumerStatefulWidget {
   const HomeScreen({Key? key}) : super(key: key);
@@ -249,6 +251,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                 // rules mode, deliberately kept separate from the chess
                 // game modes above.
                 const _ShogiSection(),
+                const _HybridBattleSection(),
 
                 // Recent Games Section
                 const _RecentGamesSection(),
@@ -655,49 +658,116 @@ class _ShogiSection extends StatelessWidget {
   const _ShogiSection();
 
   @override
-  Widget build(BuildContext context) => Padding(
-        padding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
-        child: Card(
-          color: Theme.of(context).colorScheme.secondaryContainer.withOpacity(0.4),
-          child: InkWell(
-            borderRadius: BorderRadius.circular(12),
-            onTap: () {
-              Navigator.of(context).push(
-                SmoothPageTransition(page: const ShogiScreen()),
-              );
-            },
-            child: Padding(
-              padding: const EdgeInsets.all(16),
-              child: Row(
-                children: [
-                  const Text('将', style: TextStyle(fontSize: 28)),
-                  const SizedBox(width: 16),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          AppLocalizations.of(context).homeShogiSectionTitle,
-                          style:
-                              Theme.of(context).textTheme.titleMedium?.copyWith(
-                                    fontWeight: FontWeight.bold,
-                                  ),
-                        ),
-                        const SizedBox(height: 4),
-                        Text(
-                          AppLocalizations.of(context).homeShogiSectionSubtitle,
-                          style: Theme.of(context).textTheme.bodySmall,
-                        ),
-                      ],
-                    ),
+  Widget build(BuildContext context) => _NoveltyEventCard(
+        event: NoveltyEvent.shogi,
+        icon: '将',
+        title: AppLocalizations.of(context).homeShogiSectionTitle,
+        subtitle: AppLocalizations.of(context).homeShogiSectionSubtitle,
+        page: const ShogiScreen(),
+      );
+}
+
+class _HybridBattleSection extends StatelessWidget {
+  const _HybridBattleSection();
+
+  @override
+  Widget build(BuildContext context) => _NoveltyEventCard(
+        event: NoveltyEvent.hybridBattle,
+        icon: '♞',
+        title: AppLocalizations.of(context).hybridHomeTitle,
+        subtitle: AppLocalizations.of(context).hybridHomeSubtitle,
+        page: const HybridBattleScreen(),
+      );
+}
+
+/// Home card for a Remote-Config-gated, time-limited novelty mode. Renders
+/// nothing unless the event window is active (fail closed), and carries a
+/// "期間限定" badge plus remaining time while it is.
+class _NoveltyEventCard extends ConsumerWidget {
+  const _NoveltyEventCard({
+    required this.event,
+    required this.icon,
+    required this.title,
+    required this.subtitle,
+    required this.page,
+  });
+
+  final NoveltyEvent event;
+  final String icon;
+  final String title;
+  final String subtitle;
+  final Widget page;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    if (!ref.watch(eventActiveProvider(event))) return const SizedBox.shrink();
+    final l10n = AppLocalizations.of(context);
+    final theme = Theme.of(context);
+    final remaining =
+        ref.watch(eventWindowProvider(event))!.remaining(ref.watch(eventClockProvider)());
+    final remainingText = remaining.inDays >= 1
+        ? l10n.eventRemainingDays(remaining.inDays)
+        : l10n.eventRemainingHours(remaining.inHours < 1 ? 1 : remaining.inHours);
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
+      child: Card(
+        color: theme.colorScheme.secondaryContainer.withOpacity(0.4),
+        child: InkWell(
+          borderRadius: BorderRadius.circular(12),
+          onTap: () {
+            Navigator.of(context).push(SmoothPageTransition(page: page));
+          },
+          child: Padding(
+            padding: const EdgeInsets.all(16),
+            child: Row(
+              children: [
+                Text(icon, style: const TextStyle(fontSize: 28)),
+                const SizedBox(width: 16),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Wrap(
+                        spacing: 8,
+                        crossAxisAlignment: WrapCrossAlignment.center,
+                        children: [
+                          Container(
+                            padding: const EdgeInsets.symmetric(
+                                horizontal: 8, vertical: 2),
+                            decoration: BoxDecoration(
+                              color: theme.colorScheme.error,
+                              borderRadius: BorderRadius.circular(10),
+                            ),
+                            child: Text(
+                              l10n.eventLimitedBadge,
+                              style: theme.textTheme.labelSmall?.copyWith(
+                                color: theme.colorScheme.onError,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                          ),
+                          Text(remainingText, style: theme.textTheme.labelSmall),
+                        ],
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        title,
+                        style: theme.textTheme.titleMedium
+                            ?.copyWith(fontWeight: FontWeight.bold),
+                      ),
+                      const SizedBox(height: 4),
+                      Text(subtitle, style: theme.textTheme.bodySmall),
+                    ],
                   ),
-                  const Icon(Icons.chevron_right),
-                ],
-              ),
+                ),
+                const Icon(Icons.chevron_right),
+              ],
             ),
           ),
         ),
-      );
+      ),
+    );
+  }
 }
 
 class _RecentGamesSection extends StatelessWidget {

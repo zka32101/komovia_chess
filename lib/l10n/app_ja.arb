@@ -436,5 +436,22 @@
   "attackMapToggleShow": "駒の利きを表示",
   "attackMapToggleHide": "駒の利きを非表示",
   "attackMapLegendTitle": "駒の利き",
-  "attackMapLegendBody": "各マスに、今その地点を攻撃・守備している白(青)と黒(赤)の駒の数が表示されます。紫のマスは両者から利きがある「接触点」です。利きの数が多いのに守備側がいないマスは、取られてしまう駒(ハンギングピース)かもしれません。"
+  "attackMapLegendBody": "各マスに、今その地点を攻撃・守備している白(青)と黒(赤)の駒の数が表示されます。紫のマスは両者から利きがある「接触点」です。利きの数が多いのに守備側がいないマスは、取られてしまう駒(ハンギングピース)かもしれません。",
+  "eventLimitedBadge": "期間限定",
+  "eventRemainingDays": "残り{days}日",
+  "eventRemainingHours": "残り{hours}時間",
+  "hybridHomeTitle": "イベント：将棋駒 vs チェス駒",
+  "hybridHomeSubtitle": "片方はチェス駒、もう片方は将棋駒で8x8の盤を共有 - ローカル対面対戦",
+  "hybridScreenTitle": "将棋駒 vs チェス駒",
+  "hybridRulesNote": "チェス側が先手。持ち駒を使えるのは将棋側のみ。将棋側の玉はチェスのチェックメイト/ステイルメイトで、チェス側のキングは将棋の詰み(合法手なし=負け)で判定します。",
+  "hybridChessTurnLabel": "チェス側の手番",
+  "hybridShogiTurnLabel": "将棋側の手番",
+  "hybridResultChessWins": "チェス側の勝ち！",
+  "hybridResultShogiWins": "将棋側の勝ち！",
+  "hybridResultDraw": "引き分け（ステイルメイト）",
+  "hybridReasonCheckmate": "詰み / チェックメイト",
+  "hybridReasonStalemate": "将棋側の玉がステイルメイト（チェスのルールで引き分け）",
+  "hybridReasonNoLegalMoves": "チェス側のキングに合法手なし（将棋のルールで負け）",
+  "hybridReasonResignation": "投了",
+  "hybridChessPromotionTitle": "ポーンの昇格先"
 }
