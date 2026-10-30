@@ -772,5 +772,9 @@
       "piece": { "type": "String" },
       "square": { "type": "String" }
     }
-  }
+  },
+  "attackMapToggleShow": "Show attack map",
+  "attackMapToggleHide": "Hide attack map",
+  "attackMapLegendTitle": "Attack map",
+  "attackMapLegendBody": "Each square shows how many White pieces (blue) and Black pieces (red) attack or defend it right now. Purple squares are contested by both sides - a square with a high count and no defenders is a hanging piece."
 }
