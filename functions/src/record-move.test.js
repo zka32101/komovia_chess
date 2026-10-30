@@ -421,6 +421,38 @@ describe('recordMove', () => {
       expect(game.blackTimeRemainingMs).toBe(5 * 60 * 1000);
     });
 
+    // 不正検知の材料: 着手ごとの思考時間を、サーバーが測った値で記録する。
+    // (連続する timestamp の差から後で求める方法は、取り消しが入ると崩れる。)
+    it('records how long the mover thought as elapsedMs on the move', async () => {
+      fake.games.set('game_1', {
+        ...fake.games.get('game_1'),
+        startedAt: fakeTimestamp(Date.now() - 10_000), // white thought for ~10s
+      });
+
+      await callAs('white_uid', { gameId: 'game_1', from: 'e2', to: 'e4', playerId: 'white_uid' });
+
+      const [move] = fake.games.get('game_1').moves;
+      expect(move.elapsedMs).toBeGreaterThanOrEqual(10_000);
+      expect(move.elapsedMs).toBeLessThan(15_000);
+      // 同じ値が moves サブコレクションの記録にも入る。
+      expect(fake.moveSubdocs.get('game_1')[0].elapsedMs).toBe(move.elapsedMs);
+    });
+
+    it("measures the next move from the previous move's time, not from the game start", async () => {
+      fake.games.set('game_1', {
+        ...fake.games.get('game_1'),
+        startedAt: fakeTimestamp(Date.now() - 60_000),
+      });
+
+      await callAs('white_uid', { gameId: 'game_1', from: 'e2', to: 'e4', playerId: 'white_uid' });
+      await callAs('black_uid', { gameId: 'game_1', from: 'e7', to: 'e5', playerId: 'black_uid' });
+
+      const [first, second] = fake.games.get('game_1').moves;
+      expect(first.elapsedMs).toBeGreaterThanOrEqual(60_000);
+      // 黒の1手目は直前の白の着手(ほぼ今)から測るので、開始からの60秒にはならない。
+      expect(second.elapsedMs).toBeLessThan(5_000);
+    });
+
     it('ends the game as a timeout (not a move) once the mover is already out of time', async () => {
       fake.games.set('game_1', {
         ...fake.games.get('game_1'),
