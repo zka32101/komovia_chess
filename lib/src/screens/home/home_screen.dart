@@ -19,6 +19,7 @@ import '../learn/learn_hub_screen.dart';
 import '../online/live_games_screen.dart';
 import '../tournaments/tournaments_screen.dart';
 import '../clubs/clubs_screen.dart';
+import '../../shogi/shogi_screen.dart';
 
 class HomeScreen extends ConsumerStatefulWidget {
   const HomeScreen({Key? key}) : super(key: key);
@@ -242,6 +243,11 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
 
                 // Daily Challenge Section
                 const _DailyChallengeSection(),
+
+                // Bonus Shogi Section - a novelty, local-only, different-
+                // rules mode, deliberately kept separate from the chess
+                // game modes above.
+                const _ShogiSection(),
 
                 // Recent Games Section
                 const _RecentGamesSection(),
@@ -604,6 +610,55 @@ class _ClubsSection extends StatelessWidget {
                         const SizedBox(height: 4),
                         Text(
                           AppLocalizations.of(context).homeClubsSectionSubtitle,
+                          style: Theme.of(context).textTheme.bodySmall,
+                        ),
+                      ],
+                    ),
+                  ),
+                  const Icon(Icons.chevron_right),
+                ],
+              ),
+            ),
+          ),
+        ),
+      );
+}
+
+class _ShogiSection extends StatelessWidget {
+  const _ShogiSection();
+
+  @override
+  Widget build(BuildContext context) => Padding(
+        padding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
+        child: Card(
+          color: Theme.of(context).colorScheme.secondaryContainer.withOpacity(0.4),
+          child: InkWell(
+            borderRadius: BorderRadius.circular(12),
+            onTap: () {
+              Navigator.of(context).push(
+                SmoothPageTransition(page: const ShogiScreen()),
+              );
+            },
+            child: Padding(
+              padding: const EdgeInsets.all(16),
+              child: Row(
+                children: [
+                  const Text('将', style: TextStyle(fontSize: 28)),
+                  const SizedBox(width: 16),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          AppLocalizations.of(context).homeShogiSectionTitle,
+                          style:
+                              Theme.of(context).textTheme.titleMedium?.copyWith(
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                        ),
+                        const SizedBox(height: 4),
+                        Text(
+                          AppLocalizations.of(context).homeShogiSectionSubtitle,
                           style: Theme.of(context).textTheme.bodySmall,
                         ),
                       ],

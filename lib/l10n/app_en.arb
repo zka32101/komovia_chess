@@ -772,5 +772,32 @@
       "piece": { "type": "String" },
       "square": { "type": "String" }
     }
-  }
+  },
+
+  "homeShogiSectionTitle": "Bonus: Play Shogi",
+  "homeShogiSectionSubtitle": "A novelty mode with completely different rules - local 2-player only, no AI",
+  "shogiScreenTitle": "Shogi (Bonus Mode)",
+  "shogiLocalPassAndPlayNote": "Local pass-and-play: two people share this device, taking turns.",
+  "shogiSenteTurnLabel": "Sente's turn (先手)",
+  "shogiGoteTurnLabel": "Gote's turn (後手)",
+  "shogiInCheckLabel": "Check!",
+  "shogiHandLabel": "Captured pieces (tap to drop)",
+  "shogiResignButton": "Resign",
+  "shogiResignConfirmTitle": "Resign this game?",
+  "shogiResignConfirmMessage": "The other player will be recorded as the winner.",
+  "shogiPromotionDialogTitle": "Promote this piece?",
+  "shogiPromotionDialogMessage": "This piece may promote here. Promoting makes it stronger but is optional.",
+  "shogiPromoteButton": "Promote",
+  "shogiDoNotPromoteButton": "Don't promote",
+  "shogiResultSenteWins": "Sente wins!",
+  "shogiResultGoteWins": "Gote wins!",
+  "shogiResultStalemateDraw": "Draw (stalemate)",
+  "shogiResultResignation": "{winner} wins by resignation",
+  "@shogiResultResignation": {
+    "placeholders": {
+      "winner": { "type": "String" }
+    }
+  },
+  "shogiPlayAgainButton": "Play again",
+  "shogiBackToHomeButton": "Back to home"
 }
