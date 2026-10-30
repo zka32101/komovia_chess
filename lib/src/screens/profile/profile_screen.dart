@@ -11,6 +11,7 @@ import '../../providers/online_game_provider.dart';
 import '../../providers/rewards_provider.dart';
 import '../../models/user.dart';
 import '../../models/online_game.dart';
+import '../../widgets/avatar_picker.dart';
 import '../online/game_review_screen.dart';
 import 'edit_profile_screen.dart';
 import '../friends/friends_screen.dart';
@@ -118,24 +119,56 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                     padding: const EdgeInsets.all(24),
                     child: Column(
                       children: [
-                        // Avatar
-                        CircleAvatar(
-                          radius: 50,
-                          backgroundColor: Colors.blue.shade100,
-                          backgroundImage: user.photoUrl != null
-                              ? NetworkImage(user.photoUrl!)
-                              : null,
-                          child: user.photoUrl == null
-                              ? Text(
-                                  (user.displayName ?? 'User')
-                                      .substring(0, 1)
-                                      .toUpperCase(),
-                                  style: const TextStyle(
-                                    fontSize: 36,
-                                    fontWeight: FontWeight.bold,
+                        // Avatar. photoUrl (a real uploaded picture) takes
+                        // priority when set; the preset emoji avatar is a
+                        // small badge in the corner instead of replacing
+                        // it outright, so picking one doesn't hide an
+                        // existing real photo. For own profile, tapping
+                        // the badge is a shortcut straight to the picker
+                        // (same save path as the dedicated Edit button).
+                        Stack(
+                          children: [
+                            CircleAvatar(
+                              radius: 50,
+                              backgroundColor: Colors.blue.shade100,
+                              backgroundImage: user.photoUrl != null
+                                  ? NetworkImage(user.photoUrl!)
+                                  : null,
+                              child: user.photoUrl == null
+                                  ? Text(
+                                      (user.displayName ?? 'User')
+                                          .substring(0, 1)
+                                          .toUpperCase(),
+                                      style: const TextStyle(
+                                        fontSize: 36,
+                                        fontWeight: FontWeight.bold,
+                                      ),
+                                    )
+                                  : null,
+                            ),
+                            Positioned(
+                              bottom: -4,
+                              right: -4,
+                              child: GestureDetector(
+                                onTap: _isOwnProfile
+                                    ? () => _handleAvatarTap(user)
+                                    : null,
+                                child: Container(
+                                  decoration: BoxDecoration(
+                                    shape: BoxShape.circle,
+                                    border: Border.all(
+                                      color: Colors.white,
+                                      width: 2,
+                                    ),
                                   ),
-                                )
-                              : null,
+                                  child: AvatarEmoji(
+                                    avatarId: user.avatarId,
+                                    radius: 18,
+                                  ),
+                                ),
+                              ),
+                            ),
+                          ],
                         ),
                         const SizedBox(height: 16),
 
@@ -514,6 +547,23 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
           ),
         ),
       ];
+
+  // Same save-and-invalidate pattern as EditProfileScreen._save -
+  // updateUserProfile is the only write path for app-profile fields, and
+  // currentUserProvider only re-emits on an auth-state change, not on a
+  // plain Firestore write, so it has to be invalidated explicitly here too.
+  Future<void> _handleAvatarTap(UserModel user) async {
+    final selectedId = await showAvatarPickerSheet(
+      context,
+      currentAvatarId: user.avatarId,
+    );
+    if (selectedId == null || selectedId == user.avatarId) return;
+
+    await ref
+        .read(authStateNotifierProvider.notifier)
+        .updateUserProfile(avatarId: selectedId);
+    ref.invalidate(currentUserProvider);
+  }
 
   Future<void> _inviteFriend(UserModel user) async {
     final referralCode = user.uid.substring(0, 8);
