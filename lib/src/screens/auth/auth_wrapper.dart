@@ -5,7 +5,6 @@ import '../../providers/auth_provider.dart';
 import '../../widgets/notification_overlay.dart';
 import '../home/home_screen.dart';
 import 'login_screen.dart';
-import 'register_screen.dart';
 
 class AuthWrapper extends ConsumerStatefulWidget {
   const AuthWrapper({Key? key}) : super(key: key);
@@ -15,8 +14,6 @@ class AuthWrapper extends ConsumerStatefulWidget {
 }
 
 class _AuthWrapperState extends ConsumerState<AuthWrapper> {
-  bool _showLoginScreen = true;
-
   @override
   Widget build(BuildContext context) {
     final authState = ref.watch(authStateNotifierProvider);
@@ -41,11 +38,8 @@ class _AuthWrapperState extends ConsumerState<AuthWrapper> {
                   Text(l10n.authErrorMessage(error.toString())),
                   const SizedBox(height: 24),
                   FilledButton(
-                    onPressed: () {
-                      setState(() {
-                        _showLoginScreen = true;
-                      });
-                    },
+                    onPressed: () =>
+                        ref.invalidate(authStateNotifierProvider),
                     child: Text(l10n.authBackToLoginButton),
                   ),
                 ],
@@ -58,24 +52,8 @@ class _AuthWrapperState extends ConsumerState<AuthWrapper> {
               return const HomeScreen();
             }
 
-            // Otherwise show auth screen
-            if (_showLoginScreen) {
-              return LoginScreen(
-                onSignUpTap: () {
-                  setState(() {
-                    _showLoginScreen = false;
-                  });
-                },
-              );
-            } else {
-              return RegisterScreen(
-                onLoginTap: () {
-                  setState(() {
-                    _showLoginScreen = true;
-                  });
-                },
-              );
-            }
+            // Otherwise show the sign-in screen (Google / Apple only).
+            return const LoginScreen();
           },
         ),
         // Notification overlay

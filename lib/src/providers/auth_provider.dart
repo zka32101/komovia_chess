@@ -95,7 +95,9 @@ class AuthStateNotifier extends StateNotifier<AsyncValue<UserModel?>> {
       final user = await _authService.signInWithGoogle();
       state = AsyncValue.data(user);
     } catch (e) {
-      state = AsyncValue.error(e, StackTrace.current);
+      // Back to signed-out (not AsyncValue.error): an error state would
+      // replace the whole sign-in screen with the generic error page.
+      state = const AsyncValue.data(null);
       rethrow;
     }
   }
@@ -106,7 +108,9 @@ class AuthStateNotifier extends StateNotifier<AsyncValue<UserModel?>> {
       final user = await _authService.signInWithApple();
       state = AsyncValue.data(user);
     } catch (e) {
-      state = AsyncValue.error(e, StackTrace.current);
+      // Back to signed-out (not AsyncValue.error): an error state would
+      // replace the whole sign-in screen with the generic error page.
+      state = const AsyncValue.data(null);
       rethrow;
     }
   }
