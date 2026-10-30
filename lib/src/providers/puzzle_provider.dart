@@ -2,6 +2,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../models/puzzle.dart';
+import '../models/firestore_json.dart';
 import '../services/season_challenge_service.dart';
 import '../services/season_management_service.dart';
 import '../services/seasonal_event_service.dart';
@@ -24,7 +25,7 @@ class PuzzleService {
 
       if (doc.exists) {
         return DailyChallengeModel.fromJson({
-          ...doc.data()!,
+          ...firestoreDataToJson(doc.data()!),
           'date': doc.id,
         });
       }
@@ -42,7 +43,7 @@ class PuzzleService {
 
       if (doc.exists) {
         return PuzzleModel.fromJson({
-          ...doc.data()!,
+          ...firestoreDataToJson(doc.data()!),
           'id': doc.id,
         });
       }
@@ -66,7 +67,7 @@ class PuzzleService {
 
       return snapshot.docs
           .map((doc) => PuzzleModel.fromJson({
-                ...doc.data(),
+                ...firestoreDataToJson(doc.data()),
                 'id': doc.id,
               }))
           .toList();
