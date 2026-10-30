@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:share_plus/share_plus.dart';
+import '../../../l10n/app_localizations.dart';
 import '../../models/online_game.dart';
 import '../../services/chess_engine_service.dart';
 import '../../services/stockfish_engine_service.dart';
@@ -47,6 +48,15 @@ class _GameReviewScreenState extends ConsumerState<GameReviewScreen> {
   int? _evaluation;
   bool _isEvaluating = false;
   int _evalRequestId = 0;
+
+  /// Toggles the tactical-tension overlay (per-square attacker counts,
+  /// see [AttackMapService]) on the board below. Off by default so the
+  /// board matches its usual plain look until the player asks for it -
+  /// this screen replays a static, already-finished position with time
+  /// to study it, which is exactly where the overlay is most useful (as
+  /// opposed to a live game, where it would just be visual noise during
+  /// a fast-moving position).
+  bool _showAttackMap = false;
 
   List<Map<String, dynamic>> get _movesAsMaps => widget.game.moves
       .map((m) => {'from': m.from, 'to': m.to, 'promotion': m.promotion})
@@ -103,54 +113,95 @@ class _GameReviewScreenState extends ConsumerState<GameReviewScreen> {
   }
 
   @override
-  Widget build(BuildContext context) => Scaffold(
-        appBar: AppBar(
-          title: const Text('Game Review'),
-          centerTitle: true,
-          actions: [
-            IconButton(
-              icon: const Icon(Icons.analytics_outlined),
-              tooltip: 'Analyze Game',
-              onPressed: () => Navigator.of(context).push(
-                MaterialPageRoute(
-                  builder: (_) => GameAnalysisScreen(
-                    moves: widget.game.moves,
-                    whitePlayerName: widget.game.whitePlayerName,
-                    blackPlayerName: widget.game.blackPlayerName,
-                    startingFen: widget.startingFen,
-                    gameId: widget.gameId,
-                    whitePlayerId: widget.game.whitePlayerId,
-                    blackPlayerId: widget.game.blackPlayerId,
-                  ),
+  Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
+    return Scaffold(
+      appBar: AppBar(
+        title: const Text('Game Review'),
+        centerTitle: true,
+        actions: [
+          IconButton(
+            icon: Icon(
+              _showAttackMap
+                  ? Icons.local_fire_department
+                  : Icons.local_fire_department_outlined,
+              color: _showAttackMap
+                  ? Theme.of(context).colorScheme.primary
+                  : null,
+            ),
+            tooltip: _showAttackMap
+                ? l10n.attackMapToggleHide
+                : l10n.attackMapToggleShow,
+            onPressed: () => _toggleAttackMap(l10n),
+          ),
+          IconButton(
+            icon: const Icon(Icons.analytics_outlined),
+            tooltip: 'Analyze Game',
+            onPressed: () => Navigator.of(context).push(
+              MaterialPageRoute(
+                builder: (_) => GameAnalysisScreen(
+                  moves: widget.game.moves,
+                  whitePlayerName: widget.game.whitePlayerName,
+                  blackPlayerName: widget.game.blackPlayerName,
+                  startingFen: widget.startingFen,
+                  gameId: widget.gameId,
+                  whitePlayerId: widget.game.whitePlayerId,
+                  blackPlayerId: widget.game.blackPlayerId,
                 ),
               ),
             ),
-            IconButton(
-              icon: const Icon(Icons.description_outlined),
-              tooltip: 'Export PGN',
-              onPressed: _sharePgn,
-            ),
-            IconButton(
-              icon: const Icon(Icons.info_outline),
-              onPressed: _showGameInfo,
+          ),
+          IconButton(
+            icon: const Icon(Icons.description_outlined),
+            tooltip: 'Export PGN',
+            onPressed: _sharePgn,
+          ),
+          IconButton(
+            icon: const Icon(Icons.info_outline),
+            onPressed: _showGameInfo,
+          ),
+        ],
+      ),
+      body: SingleChildScrollView(
+        child: Column(
+          children: [
+            _buildGameHeader(),
+            const SizedBox(height: 16),
+            _buildChessBoard(),
+            const SizedBox(height: 16),
+            _buildControls(),
+            const SizedBox(height: 24),
+            _buildMoveList(),
+            const SizedBox(height: 24),
+          ],
+        ),
+      ),
+    );
+  }
+
+  /// Flips [_showAttackMap] and, the first time it's turned on, shows a
+  /// one-time explanatory dialog (the overlay's color-coding needs a
+  /// legend the first time a player sees it) instead of a legend built
+  /// into the toolbar permanently.
+  void _toggleAttackMap(AppLocalizations l10n) {
+    final turningOn = !_showAttackMap;
+    setState(() => _showAttackMap = turningOn);
+    if (turningOn) {
+      showDialog(
+        context: context,
+        builder: (context) => AlertDialog(
+          title: Text(l10n.attackMapLegendTitle),
+          content: Text(l10n.attackMapLegendBody),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: const Text('OK'),
             ),
           ],
         ),
-        body: SingleChildScrollView(
-          child: Column(
-            children: [
-              _buildGameHeader(),
-              const SizedBox(height: 16),
-              _buildChessBoard(),
-              const SizedBox(height: 16),
-              _buildControls(),
-              const SizedBox(height: 24),
-              _buildMoveList(),
-              const SizedBox(height: 24),
-            ],
-          ),
-        ),
       );
+    }
+  }
 
   /// Build game header with player info
   Widget _buildGameHeader() => Container(
@@ -277,6 +328,7 @@ class _GameReviewScreenState extends ConsumerState<GameReviewScreen> {
               showCoordinates:
                   ref.watch(userPreferencesProvider).value?.showCoordinates ??
                       true,
+              showAttackMap: _showAttackMap,
             ),
             const SizedBox(height: 8),
             Text(

@@ -773,7 +773,6 @@
       "square": { "type": "String" }
     }
   },
-
   "homeShogiSectionTitle": "Bonus: Play Shogi",
   "homeShogiSectionSubtitle": "A novelty mode with completely different rules - local 2-player only, no AI",
   "shogiScreenTitle": "Shogi (Bonus Mode)",
@@ -799,5 +798,9 @@
     }
   },
   "shogiPlayAgainButton": "Play again",
-  "shogiBackToHomeButton": "Back to home"
+  "shogiBackToHomeButton": "Back to home",
+  "attackMapToggleShow": "Show attack map",
+  "attackMapToggleHide": "Hide attack map",
+  "attackMapLegendTitle": "Attack map",
+  "attackMapLegendBody": "Each square shows how many White pieces (blue) and Black pieces (red) attack or defend it right now. Purple squares are contested by both sides - a square with a high count and no defenders is a hanging piece."
 }

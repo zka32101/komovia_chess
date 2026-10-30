@@ -403,7 +403,6 @@
   "moveCommentaryCaptureClause": "さらに{piece}をタダで獲得しています。",
   "moveCommentaryHangsPieceMistake": "ミスです - {square}の{piece}がタダで取られる状態になっています。",
   "moveCommentaryHangsPieceBlunder": "ブランダーです - {square}の{piece}がタダで取られる状態になっています。",
-
   "homeShogiSectionTitle": "番外編：将棋を指す",
   "homeShogiSectionSubtitle": "チェスとは全く別のルールのお楽しみモード - ローカル対面対戦限定、AIなし",
   "shogiScreenTitle": "将棋（番外編）",
@@ -429,5 +428,9 @@
     }
   },
   "shogiPlayAgainButton": "もう一度指す",
-  "shogiBackToHomeButton": "ホームに戻る"
+  "shogiBackToHomeButton": "ホームに戻る",
+  "attackMapToggleShow": "駒の利きを表示",
+  "attackMapToggleHide": "駒の利きを非表示",
+  "attackMapLegendTitle": "駒の利き",
+  "attackMapLegendBody": "各マスに、今その地点を攻撃・守備している白(青)と黒(赤)の駒の数が表示されます。紫のマスは両者から利きがある「接触点」です。利きの数が多いのに守備側がいないマスは、取られてしまう駒(ハンギングピース)かもしれません。"
 }
