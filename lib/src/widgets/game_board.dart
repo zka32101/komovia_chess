@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:chess/chess.dart' as chess_lib;
 import '../models/board_theme.dart';
 import 'captured_pieces.dart';
+import 'piece_glyph.dart';
 
 /// Game container with board and controls
 class GameBoard extends StatefulWidget {
@@ -360,15 +361,12 @@ class _GameBoardState extends State<GameBoard> {
                             width: squareSize,
                             height: squareSize,
                             child: Center(
-                              child: Text(
-                                _pieceSymbol(piece),
-                                style: TextStyle(
-                                  fontSize: squareSize * 0.6,
-                                  fontWeight: FontWeight.bold,
-                                  color: piece.color == chess_lib.Color.WHITE
-                                      ? widget.theme.whitePieceColor
-                                      : widget.theme.blackPieceColor,
-                                ),
+                              child: PieceGlyph(
+                                type: piece.type.name,
+                                isWhite: piece.color == chess_lib.Color.WHITE,
+                                fontSize: squareSize * 0.6,
+                                whiteColor: widget.theme.whitePieceColor,
+                                blackColor: widget.theme.blackPieceColor,
                               ),
                             ),
                           ),
@@ -383,27 +381,6 @@ class _GameBoardState extends State<GameBoard> {
   String _squareFromIndices(int rank, int file) =>
       String.fromCharCode('a'.codeUnitAt(0) + file) + (8 - rank).toString();
 
-  String _pieceSymbol(chess_lib.Piece piece) {
-    final whiteSymbols = {
-      chess_lib.PieceType.KING: '♔',
-      chess_lib.PieceType.QUEEN: '♕',
-      chess_lib.PieceType.ROOK: '♖',
-      chess_lib.PieceType.BISHOP: '♗',
-      chess_lib.PieceType.KNIGHT: '♘',
-      chess_lib.PieceType.PAWN: '♙',
-    };
-    final blackSymbols = {
-      chess_lib.PieceType.KING: '♚',
-      chess_lib.PieceType.QUEEN: '♛',
-      chess_lib.PieceType.ROOK: '♜',
-      chess_lib.PieceType.BISHOP: '♝',
-      chess_lib.PieceType.KNIGHT: '♞',
-      chess_lib.PieceType.PAWN: '♟',
-    };
-    final symbols =
-        piece.color == chess_lib.Color.WHITE ? whiteSymbols : blackSymbols;
-    return symbols[piece.type] ?? '?';
-  }
 }
 
 /// Paints the board squares plus selection/legal-move highlights for
