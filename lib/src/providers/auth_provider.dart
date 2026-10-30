@@ -90,7 +90,9 @@ class AuthStateNotifier extends StateNotifier<AsyncValue<UserModel?>> {
   }
 
   Future<void> signInWithGoogle() async {
-    state = const AsyncValue.loading();
+    // No `state = AsyncValue.loading()` here: AuthWrapper would swap the
+    // sign-in screen for a spinner and dispose it, so a failure could no
+    // longer be shown on it (the screen has its own busy indicator).
     try {
       final user = await _authService.signInWithGoogle();
       state = AsyncValue.data(user);
@@ -103,7 +105,9 @@ class AuthStateNotifier extends StateNotifier<AsyncValue<UserModel?>> {
   }
 
   Future<void> signInWithApple() async {
-    state = const AsyncValue.loading();
+    // No `state = AsyncValue.loading()` here: AuthWrapper would swap the
+    // sign-in screen for a spinner and dispose it, so a failure could no
+    // longer be shown on it (the screen has its own busy indicator).
     try {
       final user = await _authService.signInWithApple();
       state = AsyncValue.data(user);

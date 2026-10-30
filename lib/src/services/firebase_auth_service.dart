@@ -193,6 +193,28 @@ class FirebaseAuthService {
   /// - Google OAuth credentials configured in Google Cloud Console
   /// - SHA-1 fingerprint registered for Android app
   /// - Bundle ID registered for iOS app
+  static const String _googleWebClientId =
+      String.fromEnvironment('GOOGLE_WEB_CLIENT_ID');
+
+  /// `signInWithCredential` with a workaround for firebase_auth 4.x's Pigeon
+  /// cast bug on Android: it can throw a [TypeError] ("List<Object?> is not a
+  /// subtype of PigeonUserDetails?") AFTER the sign-in already succeeded. The
+  /// session exists, so use [FirebaseAuth.currentUser] instead of failing.
+  Future<User> _signInWithCredentialTolerant(AuthCredential credential) async {
+    try {
+      final result = await _auth.signInWithCredential(credential);
+      final user = result.user;
+      if (user == null) throw Exception('Failed to sign in');
+      return user;
+      // ignore: avoid_catching_errors
+    } on TypeError catch (e) {
+      final current = _auth.currentUser;
+      if (current == null) rethrow;
+      _logger.w('signInWithCredential threw a cast error but signed in: $e');
+      return current;
+    }
+  }
+
   Future<UserModel?> signInWithGoogle() async {
     try {
       _logger.i('Signing in with Google');
@@ -203,7 +225,13 @@ class FirebaseAuthService {
       try {
         // Trigger Google Sign-In UI
         // User sees Google sign-in dialog
-        final googleUser = await GoogleSignIn().signIn();
+        final googleUser = await GoogleSignIn(
+          // Web client ID (OAuth client type 3 of the Firebase project).
+          // Without it no ID token is issued, since this app does not use
+          // the google-services Gradle plugin that would otherwise generate
+          // default_web_client_id. Passed at build time from .env.
+          serverClientId: _googleWebClientId.isEmpty ? null : _googleWebClientId,
+        ).signIn();
 
         if (googleUser == null) {
           _logger.i('Google sign-in cancelled by user');
@@ -225,15 +253,10 @@ class FirebaseAuthService {
         );
 
         // Sign into Firebase with Google credential
-        final userCredential = await _handleNetworkCall(
-          () => _auth.signInWithCredential(credential),
+        final firebaseUser = await _handleNetworkCall(
+          () => _signInWithCredentialTolerant(credential),
           'Sign into Firebase with Google credential',
         );
-        final firebaseUser = userCredential.user;
-
-        if (firebaseUser == null) {
-          throw Exception('Failed to sign in with Google');
-        }
 
         _logger.i('Signed into Firebase with Google: ${firebaseUser.uid}');
 
@@ -351,15 +374,10 @@ class FirebaseAuthService {
         );
 
         // Sign into Firebase with Apple credential
-        final userCredential = await _handleNetworkCall(
-          () => _auth.signInWithCredential(oauthCredential),
+        final firebaseUser = await _handleNetworkCall(
+          () => _signInWithCredentialTolerant(oauthCredential),
           'Sign into Firebase with Apple credential',
         );
-        final firebaseUser = userCredential.user;
-
-        if (firebaseUser == null) {
-          throw Exception('Failed to sign in with Apple');
-        }
 
         _logger.i('Signed into Firebase with Apple: ${firebaseUser.uid}');
 
