@@ -33,6 +33,13 @@ abstract class UserModel with _$UserModel {
     DateTime? lastSignInAt,
     // 将棋式ランキング
     @_ShogiRankConverter() ShogiRank? shogiRank,
+    // Preset avatar icon id from komovia_core's shared `kAvatarIcons`
+    // catalog (see `avatarIconById`). null for every user who existed
+    // before this feature shipped, or who never opened the picker -
+    // resolve with `avatarIconById(user.avatarId)` wherever this is
+    // displayed, never read this field directly, since it safely falls
+    // back to the default icon for null/empty/unknown ids.
+    String? avatarId,
   }) = _UserModel;
 
   factory UserModel.fromJson(Map<String, dynamic> json) =>

@@ -6,6 +6,7 @@ import '../../providers/auth_provider.dart';
 import '../../providers/notification_provider.dart';
 import '../../providers/direct_message_provider.dart';
 import '../../utils/animations.dart';
+import '../../widgets/avatar_picker.dart';
 import '../puzzle/puzzle_screen.dart';
 import '../settings/settings_screen.dart';
 import '../profile/profile_screen.dart';
@@ -287,22 +288,48 @@ class _UserStatusSection extends StatelessWidget {
             // User info
             Row(
               children: [
-                CircleAvatar(
-                  radius: 32,
-                  backgroundImage: user.photoUrl != null
-                      ? NetworkImage(user.photoUrl!)
-                      : null,
-                  child: user.photoUrl == null
-                      ? Text(
-                          user.displayName?.substring(0, 1).toUpperCase() ??
-                              '?',
-                          style: const TextStyle(
-                            fontSize: 24,
-                            fontWeight: FontWeight.bold,
-                            color: Colors.white,
+                Stack(
+                  children: [
+                    CircleAvatar(
+                      radius: 32,
+                      backgroundImage: user.photoUrl != null
+                          ? NetworkImage(user.photoUrl!)
+                          : null,
+                      child: user.photoUrl == null
+                          ? Text(
+                              user.displayName
+                                      ?.substring(0, 1)
+                                      .toUpperCase() ??
+                                  '?',
+                              style: const TextStyle(
+                                fontSize: 24,
+                                fontWeight: FontWeight.bold,
+                                color: Colors.white,
+                              ),
+                            )
+                          : null,
+                    ),
+                    // Small badge rather than replacing the avatar
+                    // outright, same reasoning as ProfileScreen: a real
+                    // uploaded photoUrl stays visible, with the preset
+                    // emoji as a secondary identity marker.
+                    Positioned(
+                      bottom: -2,
+                      right: -2,
+                      child: Container(
+                        decoration: const BoxDecoration(
+                          shape: BoxShape.circle,
+                          border: Border.fromBorderSide(
+                            BorderSide(color: Colors.white, width: 2),
                           ),
-                        )
-                      : null,
+                        ),
+                        child: AvatarEmoji(
+                          avatarId: user.avatarId,
+                          radius: 12,
+                        ),
+                      ),
+                    ),
+                  ],
                 ),
                 const SizedBox(width: 16),
                 Expanded(

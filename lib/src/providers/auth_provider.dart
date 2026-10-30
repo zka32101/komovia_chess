@@ -132,12 +132,14 @@ class AuthStateNotifier extends StateNotifier<AsyncValue<UserModel?>> {
     String? displayName,
     String? photoUrl,
     bool clearPhotoUrl = false,
+    String? avatarId,
   }) async {
     try {
       await _authService.updateUserProfile(
         displayName: displayName,
         photoUrl: photoUrl,
         clearPhotoUrl: clearPhotoUrl,
+        avatarId: avatarId,
       );
       // Refresh user data
       final user = await _authService.getCurrentUser();

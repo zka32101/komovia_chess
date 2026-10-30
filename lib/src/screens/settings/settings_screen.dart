@@ -3,12 +3,14 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:komovia_core/komovia_core.dart';
 import 'package:url_launcher/url_launcher.dart';
 import '../../providers/auth_provider.dart';
+import '../../models/user.dart';
 import '../../providers/user_preferences_provider.dart';
 import '../../utils/komovia_cross_promo_roster.dart';
 import 'sound_preferences_screen.dart';
 import 'legal_documents_screen.dart';
 import 'board_themes_screen.dart';
 import '../../providers/board_theme_provider.dart';
+import '../../widgets/avatar_picker.dart';
 import '../../../l10n/app_localizations.dart';
 
 class SettingsScreen extends ConsumerWidget {
@@ -177,6 +179,29 @@ class SettingsScreen extends ConsumerWidget {
                 _buildSettingSection(
                   title: l10n.settingsAccountSection,
                   children: [
+                    Consumer(
+                      builder: (context, ref, _) {
+                        final currentUser = ref.watch(currentUserProvider);
+                        return ListTile(
+                          leading: AvatarEmoji(
+                            avatarId: currentUser.value?.avatarId,
+                            radius: 18,
+                          ),
+                          title: Text(l10n.settingsAvatarTitle),
+                          subtitle: Text(l10n.settingsAvatarSubtitle),
+                          trailing:
+                              const Icon(Icons.arrow_forward_ios, size: 16),
+                          onTap: currentUser.value == null
+                              ? null
+                              : () => _handleAvatarTap(
+                                    context,
+                                    ref,
+                                    currentUser.value!,
+                                  ),
+                        );
+                      },
+                    ),
+                    const Divider(height: 1),
                     ListTile(
                       title: Text(l10n.settingsResetToDefaultsTitle),
                       subtitle: Text(l10n.settingsResetToDefaultsSubtitle),
@@ -642,6 +667,25 @@ class SettingsScreen extends ConsumerWidget {
           onChanged: onChanged,
         ),
       );
+
+  // Same save-and-invalidate pattern as EditProfileScreen._save -
+  // updateUserProfile is the only write path for app-profile fields, and
+  // currentUserProvider only re-emits on an auth-state change, not on a
+  // plain Firestore write, so it has to be invalidated explicitly here too.
+  Future<void> _handleAvatarTap(
+    BuildContext context,
+    WidgetRef ref,
+    UserModel user,
+  ) async {
+    final selectedId =
+        await showAvatarPickerSheet(context, currentAvatarId: user.avatarId);
+    if (selectedId == null || selectedId == user.avatarId) return;
+
+    await ref
+        .read(authStateNotifierProvider.notifier)
+        .updateUserProfile(avatarId: selectedId);
+    ref.invalidate(currentUserProvider);
+  }
 
   void _showResetDialog(
     BuildContext context,

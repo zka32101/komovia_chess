@@ -528,6 +528,10 @@ class FirebaseAuthService {
     String? displayName,
     String? photoUrl,
     bool clearPhotoUrl = false,
+    // Preset avatar icon id (komovia_core's kAvatarIcons) - unlike
+    // photoUrl this is a local app-profile field only, not a Firebase
+    // Auth property, so there's no parallel `user.updateX()` call for it.
+    String? avatarId,
   }) async {
     try {
       final user = _auth.currentUser;
@@ -549,6 +553,7 @@ class FirebaseAuthService {
           'photoUrl': FieldValue.delete()
         else if (photoUrl != null)
           'photoUrl': photoUrl,
+        if (avatarId != null) 'avatarId': avatarId,
       });
 
       _logger.i('User profile updated');
