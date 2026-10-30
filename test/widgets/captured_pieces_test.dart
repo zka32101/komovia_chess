@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:chess/chess.dart' as chess_lib;
 import 'package:komovia_chess/src/widgets/captured_pieces.dart';
+import 'package:komovia_chess/src/widgets/piece_glyph.dart';
 
 void main() {
   group('CapturedPieces', () {
@@ -39,7 +40,7 @@ void main() {
         ),
       );
 
-      expect(find.byType(Chip), findsWidgets);
+      expect(find.byType(PieceGlyph), findsWidgets);
     });
 
     testWidgets('displays black captured pieces', (WidgetTester tester) async {
@@ -61,7 +62,7 @@ void main() {
         ),
       );
 
-      expect(find.byType(Chip), findsWidgets);
+      expect(find.byType(PieceGlyph), findsWidgets);
     });
 
     testWidgets('displays both captured pieces', (WidgetTester tester) async {
@@ -85,7 +86,7 @@ void main() {
         ),
       );
 
-      expect(find.byType(Chip), findsWidgets);
+      expect(find.byType(PieceGlyph), findsWidgets);
     });
 
     testWidgets('shows material advantage for white',
@@ -187,12 +188,12 @@ void main() {
         ),
       );
 
-      expect(find.byType(Chip), findsWidgets);
+      expect(find.byType(PieceGlyph), findsWidgets);
     });
 
     testWidgets('arranges captured pieces in wrap layout',
         (WidgetTester tester) async {
-      final whiteCaptured = List.generate(
+      final whiteCaptured = List<chess_lib.Piece>.generate(
         10,
         (index) => chess_lib.Piece(
           color: chess_lib.Color.WHITE,
@@ -214,7 +215,7 @@ void main() {
       );
 
       expect(find.byType(Wrap), findsWidgets);
-      expect(find.byType(Chip), findsWidgets);
+      expect(find.byType(PieceGlyph), findsWidgets);
     });
   });
 }

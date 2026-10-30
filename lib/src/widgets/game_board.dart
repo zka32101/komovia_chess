@@ -23,6 +23,7 @@ class GameBoard extends StatefulWidget {
     this.onPremove,
     this.blindfold = false,
     this.showAttackMap = false,
+    this.flipped = false,
   }) : super(key: key);
   final chess_lib.Chess gameState;
   final Function(String, String, {String? promotion})? onMove;
@@ -68,6 +69,16 @@ class GameBoard extends StatefulWidget {
   /// no need to cache it outside this widget.
   final bool showAttackMap;
 
+  /// When true, renders the board rotated 180° so the player's own back
+  /// rank is at the bottom (standard "playing as Black" orientation,
+  /// matching every real chess app/site). When false (the default), the
+  /// board always shows White's perspective (rank 8 at top, rank 1 at
+  /// bottom, files a-h left to right) regardless of which color is
+  /// actually playing - correct for White, wrong for Black. Callers that
+  /// let the human choose to play Black should pass `flipped: true` in
+  /// that case so the player always sees their own pieces at the bottom.
+  final bool flipped;
+
   @override
   State<GameBoard> createState() => _GameBoardState();
 }
@@ -86,7 +97,7 @@ class _GameBoardState extends State<GameBoard> {
           // Captured pieces display
           if (widget.showMaterial)
             Padding(
-              padding: const EdgeInsets.all(16),
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
               child: CapturedPieces(
                 whiteCapturedPieces: _getWhiteCapturedPieces(),
                 blackCapturedPieces: _getBlackCapturedPieces(),
@@ -109,9 +120,12 @@ class _GameBoardState extends State<GameBoard> {
             ),
           ),
 
-          // Chess board
+          // Chess board - minimal horizontal padding so the board uses as
+          // much of the available screen width as possible (previously
+          // 16px on each side made the board noticeably smaller than it
+          // needed to be, on top of callers' own outer padding).
           Padding(
-            padding: const EdgeInsets.all(16),
+            padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 8),
             child: _buildBoard(),
           ),
 
@@ -357,6 +371,7 @@ class _GameBoardState extends State<GameBoard> {
                         selectedSquare: _selectedSquare,
                         legalMoveSquares: _availableMoves,
                         showCoordinates: widget.showCoordinates,
+                        flipped: widget.flipped,
                         attackMap: widget.showAttackMap
                             ? AttackMapService.compute(widget.gameState)
                             : null,
@@ -391,9 +406,29 @@ class _GameBoardState extends State<GameBoard> {
         ),
       );
 
-  String _squareFromIndices(int rank, int file) =>
-      String.fromCharCode('a'.codeUnitAt(0) + file) + (8 - rank).toString();
-
+  /// Maps a (rank, file) grid position - rank 0 = top row, file 0 = left
+  /// column, as iterated everywhere in this widget (rendering, tap
+  /// hit-testing, coordinate labels) - to its algebraic square name.
+  ///
+  /// Not flipped (White's perspective, the default): top row is rank 8,
+  /// left column is file a - so rank index 0 -> rank 8 (`8 - rank`) and
+  /// file index 0 -> file a (`'a' + file`).
+  ///
+  /// Flipped (Black's perspective, [GameBoard.flipped]): the whole board
+  /// is rotated 180°, so top row is rank 1 (`1 + rank`) AND left column
+  /// is file h (`'a' + (7 - file)`) - both axes mirror, not just one,
+  /// matching how every real chess app flips the board for the Black
+  /// player. Every caller of this method (piece placement, tap
+  /// hit-testing in `_buildBoard`, square-coloring/highlight/attack-map
+  /// painting and the coordinate labels in `_GameBoardPainter`) shares
+  /// this single mapping, so flipping is automatically consistent across
+  /// all of them.
+  String _squareFromIndices(int rank, int file) {
+    final fileIndex = widget.flipped ? 7 - file : file;
+    final rankNumber = widget.flipped ? 1 + rank : 8 - rank;
+    return String.fromCharCode('a'.codeUnitAt(0) + fileIndex) +
+        rankNumber.toString();
+  }
 }
 
 /// Paints the board squares plus selection/legal-move highlights for
@@ -407,6 +442,7 @@ class _GameBoardPainter extends CustomPainter {
     required this.selectedSquare,
     required this.legalMoveSquares,
     this.showCoordinates = true,
+    this.flipped = false,
     this.attackMap,
   });
   final double size;
@@ -414,6 +450,13 @@ class _GameBoardPainter extends CustomPainter {
   final String? selectedSquare;
   final List<String> legalMoveSquares;
   final bool showCoordinates;
+
+  /// Mirrors [GameBoard.flipped] - must use the exact same (rank, file)
+  /// -> algebraic-square mapping as `_GameBoardState._squareFromIndices`
+  /// so that `selectedSquare`/`legalMoveSquares`/`attackMap` (all keyed
+  /// by algebraic square name computed there) land on the same visual
+  /// squares this painter draws.
+  final bool flipped;
 
   /// Per-square attacker counts from [AttackMapService.compute], or null
   /// when the overlay is off. See [GameBoard.showAttackMap].
@@ -423,7 +466,11 @@ class _GameBoardPainter extends CustomPainter {
   // every color already used elsewhere on this board (selection,
   // legal-move dot, both themes' light/dark squares and piece glyphs)
   // so the overlay reads clearly on top of any [BoardTheme].
-  static const _whiteAttackColor = Color(0xFF2E86DE); // blue
+  // Slightly muted vs. the original 0xFF2E86DE (a fairly bright, saturated
+  // "light blue" that read as too garish/flashy on real devices) - same
+  // hue, lower saturation/brightness so it's still clearly blue without
+  // being harsh on the board.
+  static const _whiteAttackColor = Color(0xFF4A7FA8); // blue (muted)
   static const _blackAttackColor = Color(0xFFE74C3C); // red
   static const _contestedColor = Color(0xFF8E44AD); // purple
 
@@ -435,8 +482,7 @@ class _GameBoardPainter extends CustomPainter {
 
     for (var rank = 0; rank < 8; rank++) {
       for (var file = 0; file < 8; file++) {
-        final square = String.fromCharCode('a'.codeUnitAt(0) + file) +
-            (8 - rank).toString();
+        final square = _squareFromIndices(rank, file);
         final isLight = (rank + file) % 2 == 0;
 
         var baseColor =
@@ -549,9 +595,26 @@ class _GameBoardPainter extends CustomPainter {
     );
   }
 
+  /// Same (rank, file) -> algebraic mapping as
+  /// `_GameBoardState._squareFromIndices` - see that method's doc
+  /// comment for the flip rationale.
+  String _squareFromIndices(int rank, int file) {
+    final fileIndex = flipped ? 7 - file : file;
+    final rankNumber = flipped ? 1 + rank : 8 - rank;
+    return String.fromCharCode('a'.codeUnitAt(0) + fileIndex) +
+        rankNumber.toString();
+  }
+
   void _drawCoordinates(Canvas canvas, double squareSize) {
-    const files = ['a', 'b', 'c', 'd', 'e', 'f', 'g', 'h'];
-    const ranks = ['8', '7', '6', '5', '4', '3', '2', '1'];
+    // File/rank labels in on-screen left-to-right / top-to-bottom order,
+    // flipped along with the board so they keep reading correctly next
+    // to the squares they label.
+    final files = flipped
+        ? ['h', 'g', 'f', 'e', 'd', 'c', 'b', 'a']
+        : ['a', 'b', 'c', 'd', 'e', 'f', 'g', 'h'];
+    final ranks = flipped
+        ? ['1', '2', '3', '4', '5', '6', '7', '8']
+        : ['8', '7', '6', '5', '4', '3', '2', '1'];
 
     final textPainter = TextPainter(textDirection: TextDirection.ltr);
     final fontSize = squareSize * 0.15;
@@ -600,5 +663,6 @@ class _GameBoardPainter extends CustomPainter {
       oldDelegate.selectedSquare != selectedSquare ||
       oldDelegate.legalMoveSquares != legalMoveSquares ||
       oldDelegate.showCoordinates != showCoordinates ||
+      oldDelegate.flipped != flipped ||
       oldDelegate.attackMap != attackMap;
 }

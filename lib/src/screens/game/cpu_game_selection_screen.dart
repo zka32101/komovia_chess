@@ -135,18 +135,26 @@ class _CPUGameSelectionScreenState
                   ),
                   const SizedBox(height: 24),
 
-                  // Start button
+                  // Start button - made more prominent (larger, bolder,
+                  // with an icon and a subtle elevation) so it reads
+                  // clearly as the primary action on this screen rather
+                  // than blending in with the option cards above it.
                   SizedBox(
                     width: double.infinity,
-                    child: FilledButton(
+                    child: FilledButton.icon(
                       onPressed: _startGame,
-                      style: FilledButton.styleFrom(
-                        padding: const EdgeInsets.symmetric(vertical: 16),
-                        minimumSize: const Size(double.infinity, 48),
-                      ),
-                      child: const Text(
+                      icon: const Icon(Icons.play_arrow, size: 26),
+                      label: const Text(
                         'Start Game',
-                        style: TextStyle(fontSize: 16),
+                        style: TextStyle(
+                          fontSize: 20,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                      style: FilledButton.styleFrom(
+                        padding: const EdgeInsets.symmetric(vertical: 20),
+                        minimumSize: const Size(double.infinity, 60),
+                        elevation: 3,
                       ),
                     ),
                   ),
