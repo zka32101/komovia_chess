@@ -16,10 +16,7 @@ dependencies:
   komovia_core:
     git:
       url: https://github.com/zka32101/komovia_core
-      # Pinned to the fair-play-signal branch tip (komovia_core PR #12)
-      # until that PR merges to main - computeFairPlaySignal/FairPlaySignal
-      # aren't on main yet. Re-point to `ref: main` once #12 merges.
-      ref: 83e360ad8aea6e2242896c745c43c8c6e0a74df5
+      ref: main
 
   # State Management
   riverpod: ^2.2.0

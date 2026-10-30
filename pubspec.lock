@@ -929,8 +929,8 @@ packages:
     dependency: "direct main"
     description:
       path: "."
-      ref: "83e360ad8aea6e2242896c745c43c8c6e0a74df5"
-      resolved-ref: "83e360ad8aea6e2242896c745c43c8c6e0a74df5"
+      ref: main
+      resolved-ref: d9bfb0d8840ec54d0845b0bd8f995141cc861d78
       url: "https://github.com/zka32101/komovia_core"
     source: git
     version: "0.1.0"
