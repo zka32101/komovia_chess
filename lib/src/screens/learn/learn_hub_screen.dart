@@ -7,6 +7,7 @@ import '../../providers/weakness_analysis_provider.dart';
 import 'how_to_play_screen.dart';
 import 'opening_course_screen.dart';
 import 'opening_explorer_screen.dart';
+import 'repertoire_screen.dart';
 import 'strategy_screen.dart';
 import 'tactics_screen.dart';
 
@@ -91,6 +92,18 @@ class LearnHubScreen extends ConsumerWidget {
                 Navigator.of(context).push(
                   MaterialPageRoute(
                       builder: (_) => const OpeningExplorerScreen()),
+                );
+              },
+            ),
+            const SizedBox(height: 12),
+            _LearnCard(
+              icon: Icons.repeat_outlined,
+              iconColor: Colors.indigo,
+              title: 'レパートリー復習',
+              subtitle: '覚えたいオープニングの手順を登録し、間隔反復で記憶を定着',
+              onTap: () {
+                Navigator.of(context).push(
+                  MaterialPageRoute(builder: (_) => const RepertoireScreen()),
                 );
               },
             ),
