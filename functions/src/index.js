@@ -212,6 +212,12 @@ exports.recordMove = functions
           promotion: moveResult.promotion || null,
           timestamp: nowTs,
           playerId,
+          // How long the mover thought, measured server-side above. Kept
+          // on the record itself because deriving it later from
+          // consecutive `timestamp`s breaks as soon as a takeback removes
+          // a move. Raw material for move-time analysis (fair-play
+          // checks); nothing reads it yet.
+          elapsedMs,
         };
 
         const updates = {
