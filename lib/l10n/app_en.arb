@@ -729,5 +729,48 @@
     "placeholders": {
       "error": { "type": "String" }
     }
+  },
+
+  "moveCommentaryPiecePawn": "pawn",
+  "moveCommentaryPieceKnight": "knight",
+  "moveCommentaryPieceBishop": "bishop",
+  "moveCommentaryPieceRook": "rook",
+  "moveCommentaryPieceQueen": "queen",
+  "moveCommentaryPieceKing": "king",
+
+  "moveCommentaryCheckmate": "{san} delivers checkmate!",
+  "@moveCommentaryCheckmate": {
+    "placeholders": {
+      "san": { "type": "String" }
+    }
+  },
+  "moveCommentaryBestForced": "This was your only reasonable move here.",
+  "moveCommentaryBest": "This is the best move in the position.",
+  "moveCommentaryGood": "A good move that keeps your position solid.",
+  "moveCommentaryInaccuracy": "This is an inaccuracy - a stronger move was available.",
+  "moveCommentaryMistakeSmall": "This is a small mistake, giving up a little of your advantage.",
+  "moveCommentaryMistakeCostly": "This is a costly mistake that lets your opponent seize the initiative.",
+  "moveCommentaryBlunderDecisive": "This is a blunder - it hands your opponent a decisive advantage.",
+  "moveCommentaryBlunderHuge": "This is a game-changing blunder that likely throws away the game.",
+  "moveCommentaryCheckClause": " It also puts the opponent's king in check.",
+  "moveCommentaryCaptureClause": "It also wins a free {piece}.",
+  "@moveCommentaryCaptureClause": {
+    "placeholders": {
+      "piece": { "type": "String" }
+    }
+  },
+  "moveCommentaryHangsPieceMistake": "This is a mistake - it leaves your {piece} on {square} hanging for free.",
+  "@moveCommentaryHangsPieceMistake": {
+    "placeholders": {
+      "piece": { "type": "String" },
+      "square": { "type": "String" }
+    }
+  },
+  "moveCommentaryHangsPieceBlunder": "This is a blunder - it leaves your {piece} on {square} hanging for free.",
+  "@moveCommentaryHangsPieceBlunder": {
+    "placeholders": {
+      "piece": { "type": "String" },
+      "square": { "type": "String" }
+    }
   }
 }
