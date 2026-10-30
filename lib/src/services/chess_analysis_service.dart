@@ -38,6 +38,8 @@ class ChessAnalysisService {
       final move = moves[i];
       final isWhiteMove = i.isEven;
 
+      final legalMoveCountBefore = chess.getLegalMoves().length;
+
       // Pass moves (sentinel row/col -1 encoded elsewhere in this app)
       // never reach here since GameMove.from/to are always real squares
       // for a recorded chess move; a malformed entry is skipped rather
@@ -45,6 +47,17 @@ class ChessAnalysisService {
       if (!chess.makeMove(move.from, move.to, promotion: move.promotion)) {
         continue;
       }
+
+      // The verbose history entry chess_lib just recorded for the move
+      // we made above - carries its real SAN (with capture/check/mate
+      // suffixes already resolved) so MoveCommentaryService doesn't need
+      // to re-derive move classification from scratch.
+      final historyEntry = chess.getMoveHistory().last;
+      final san = historyEntry['san'] as String?;
+      final capturedPieceType = historyEntry['captured']?.toString();
+      final isCapture = capturedPieceType != null;
+      final isCheckmate = chess.isCheckmate();
+      final isCheck = chess.isCheck();
 
       final fenAfter = chess.getCurrentFen();
       final evalAfterRaw = await StockfishEngineService.instance
@@ -72,6 +85,13 @@ class ChessAnalysisService {
         evalAfterCp: evalAfterWhite,
         centipawnLoss: centipawnLoss,
         quality: classifyMoveQuality(centipawnLoss.toDouble()),
+        san: san,
+        isCapture: isCapture,
+        isCheck: isCheck,
+        isCheckmate: isCheckmate,
+        capturedPieceType: capturedPieceType,
+        legalMoveCountBefore: legalMoveCountBefore,
+        fenAfter: fenAfter,
       ));
 
       evalBefore = evalAfterWhite;

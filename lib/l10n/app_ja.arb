@@ -380,5 +380,26 @@
   "clubsDescriptionOptionalLabel": "説明（任意）",
   "clubsCancelButton": "キャンセル",
   "clubsCreateButton": "作成",
-  "clubsCreateFailedMessage": "クラブの作成に失敗しました: {error}"
+  "clubsCreateFailedMessage": "クラブの作成に失敗しました: {error}",
+
+  "moveCommentaryPiecePawn": "ポーン",
+  "moveCommentaryPieceKnight": "ナイト",
+  "moveCommentaryPieceBishop": "ビショップ",
+  "moveCommentaryPieceRook": "ルーク",
+  "moveCommentaryPieceQueen": "クイーン",
+  "moveCommentaryPieceKing": "キング",
+
+  "moveCommentaryCheckmate": "{san} - チェックメイトです！",
+  "moveCommentaryBestForced": "この局面での唯一の現実的な一手でした。",
+  "moveCommentaryBest": "この局面での最善手です。",
+  "moveCommentaryGood": "good move（好手）- 盤面を安定させる良い手です。",
+  "moveCommentaryInaccuracy": "inaccuracy（やや不正確）- もっと良い手がありました。",
+  "moveCommentaryMistakeSmall": "小さなミスです。わずかにアドバンテージを失いました。",
+  "moveCommentaryMistakeCostly": "痛いミスです。相手に主導権を渡してしまいました。",
+  "moveCommentaryBlunderDecisive": "ブランダー（大きなミス）です - 相手に決定的なアドバンテージを与えてしまいました。",
+  "moveCommentaryBlunderHuge": "勝負を分ける致命的なブランダーです。これでほぼ勝機を失いました。",
+  "moveCommentaryCheckClause": "さらに相手のキングにチェックをかけています。",
+  "moveCommentaryCaptureClause": "さらに{piece}をタダで獲得しています。",
+  "moveCommentaryHangsPieceMistake": "ミスです - {square}の{piece}がタダで取られる状態になっています。",
+  "moveCommentaryHangsPieceBlunder": "ブランダーです - {square}の{piece}がタダで取られる状態になっています。"
 }

@@ -1,10 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../../../l10n/app_localizations.dart';
 import '../../models/game_analysis.dart';
 import '../../models/online_game.dart';
 import '../../providers/auth_provider.dart';
 import '../../providers/weakness_analysis_provider.dart';
 import '../../services/chess_analysis_service.dart';
+import '../../services/move_commentary_service.dart';
 
 /// Shows Stockfish-based per-move analysis for a finished game - see
 /// ChessAnalysisService's own doc comment for what "analysis" means here
@@ -200,18 +202,35 @@ class _GameAnalysisScreenState extends ConsumerState<GameAnalysisScreen> {
         ),
       );
 
-  Widget _buildMoveTile(MoveAnalysis move) => ListTile(
-        dense: true,
-        leading: _qualityIcon(move.quality),
-        title: Text(
-          '${move.moveIndex + 1}. ${move.isWhiteMove ? 'White' : 'Black'} '
-          '${move.notation}',
-        ),
-        subtitle: Text(
-          '${move.quality.label}'
-          '${move.centipawnLoss > 0 ? ' (-${move.centipawnLoss} cp)' : ''}',
-        ),
-      );
+  Widget _buildMoveTile(MoveAnalysis move) {
+    final l10n = AppLocalizations.of(context);
+    return ListTile(
+      dense: false,
+      isThreeLine: true,
+      leading: _qualityIcon(move.quality),
+      title: Text(
+        '${move.moveIndex + 1}. ${move.isWhiteMove ? 'White' : 'Black'} '
+        '${move.san ?? move.notation}',
+      ),
+      subtitle: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            '${move.quality.label}'
+            '${move.centipawnLoss > 0 ? ' (-${move.centipawnLoss} cp)' : ''}',
+          ),
+          const SizedBox(height: 2),
+          Text(
+            MoveCommentaryService.generate(l10n, move),
+            style: Theme.of(context)
+                .textTheme
+                .bodySmall
+                ?.copyWith(fontStyle: FontStyle.italic),
+          ),
+        ],
+      ),
+    );
+  }
 
   Widget _qualityIcon(MoveQuality quality) {
     switch (quality) {
