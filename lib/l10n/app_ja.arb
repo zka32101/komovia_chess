@@ -402,5 +402,9 @@
   "moveCommentaryCheckClause": "さらに相手のキングにチェックをかけています。",
   "moveCommentaryCaptureClause": "さらに{piece}をタダで獲得しています。",
   "moveCommentaryHangsPieceMistake": "ミスです - {square}の{piece}がタダで取られる状態になっています。",
-  "moveCommentaryHangsPieceBlunder": "ブランダーです - {square}の{piece}がタダで取られる状態になっています。"
+  "moveCommentaryHangsPieceBlunder": "ブランダーです - {square}の{piece}がタダで取られる状態になっています。",
+  "attackMapToggleShow": "駒の利きを表示",
+  "attackMapToggleHide": "駒の利きを非表示",
+  "attackMapLegendTitle": "駒の利き",
+  "attackMapLegendBody": "各マスに、今その地点を攻撃・守備している白(青)と黒(赤)の駒の数が表示されます。紫のマスは両者から利きがある「接触点」です。利きの数が多いのに守備側がいないマスは、取られてしまう駒(ハンギングピース)かもしれません。"
 }

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:chess/chess.dart' as chess_lib;
 import '../models/board_theme.dart';
+import '../services/attack_map_service.dart';
 import 'captured_pieces.dart';
 import 'piece_glyph.dart';
 
@@ -21,6 +22,7 @@ class GameBoard extends StatefulWidget {
     this.premoveColor,
     this.onPremove,
     this.blindfold = false,
+    this.showAttackMap = false,
   }) : super(key: key);
   final chess_lib.Chess gameState;
   final Function(String, String, {String? promotion})? onMove;
@@ -57,6 +59,14 @@ class GameBoard extends StatefulWidget {
   /// [premoveColor] is active - the caller queues it rather than
   /// submitting immediately.
   final Function(String, String, {String? promotion})? onPremove;
+
+  /// When true, draws a tactical-tension overlay on top of the board:
+  /// every square tints by which side(s) attack/defend it and shows a
+  /// small attacker-count badge per side. Computed fresh from
+  /// [gameState] on every build via [AttackMapService] - cheap enough
+  /// (a single pass over the 32-or-fewer occupied squares) that there's
+  /// no need to cache it outside this widget.
+  final bool showAttackMap;
 
   @override
   State<GameBoard> createState() => _GameBoardState();
@@ -347,6 +357,9 @@ class _GameBoardState extends State<GameBoard> {
                         selectedSquare: _selectedSquare,
                         legalMoveSquares: _availableMoves,
                         showCoordinates: widget.showCoordinates,
+                        attackMap: widget.showAttackMap
+                            ? AttackMapService.compute(widget.gameState)
+                            : null,
                       ),
                       size: Size(boardSize, boardSize),
                     ),
@@ -394,12 +407,25 @@ class _GameBoardPainter extends CustomPainter {
     required this.selectedSquare,
     required this.legalMoveSquares,
     this.showCoordinates = true,
+    this.attackMap,
   });
   final double size;
   final BoardTheme theme;
   final String? selectedSquare;
   final List<String> legalMoveSquares;
   final bool showCoordinates;
+
+  /// Per-square attacker counts from [AttackMapService.compute], or null
+  /// when the overlay is off. See [GameBoard.showAttackMap].
+  final Map<String, SquareAttackers>? attackMap;
+
+  // Tint colors for the attack-map overlay - deliberately distinct from
+  // every color already used elsewhere on this board (selection,
+  // legal-move dot, both themes' light/dark squares and piece glyphs)
+  // so the overlay reads clearly on top of any [BoardTheme].
+  static const _whiteAttackColor = Color(0xFF2E86DE); // blue
+  static const _blackAttackColor = Color(0xFFE74C3C); // red
+  static const _contestedColor = Color(0xFF8E44AD); // purple
 
   @override
   void paint(Canvas canvas, Size canvasSize) {
@@ -413,15 +439,30 @@ class _GameBoardPainter extends CustomPainter {
             (8 - rank).toString();
         final isLight = (rank + file) % 2 == 0;
 
+        var baseColor =
+            isLight ? theme.lightSquareColor : theme.darkSquareColor;
+        final attackers = attackMap?[square];
+        if (attackers != null && !attackers.isEmpty) {
+          // Intensity grows with how many pieces attack the square (capped
+          // so a heavily-contested square doesn't fully obscure the piece
+          // on it), so a square hit by 3 pieces reads as more "hot" than
+          // one hit by a single piece.
+          final total = attackers.white + attackers.black;
+          final intensity = 0.18 + 0.06 * total.clamp(1, 4);
+          final tint = attackers.isContested
+              ? _contestedColor
+              : attackers.white > 0
+                  ? _whiteAttackColor
+                  : _blackAttackColor;
+          baseColor = Color.lerp(baseColor, tint, intensity)!;
+        }
+
         if (square == selectedSquare) {
           paint.color = theme.selectedSquareColor;
         } else if (legalMoveSet.contains(square)) {
-          paint.color =
-              (isLight ? theme.lightSquareColor : theme.darkSquareColor)
-                  .withOpacity(0.85);
+          paint.color = baseColor.withOpacity(0.85);
         } else {
-          paint.color =
-              isLight ? theme.lightSquareColor : theme.darkSquareColor;
+          paint.color = baseColor;
         }
 
         canvas.drawRect(
@@ -445,12 +486,67 @@ class _GameBoardPainter extends CustomPainter {
             paint,
           );
         }
+
+        if (attackers != null && !attackers.isEmpty) {
+          _drawAttackBadges(canvas, file, rank, squareSize, attackers);
+        }
       }
     }
 
     if (showCoordinates) {
       _drawCoordinates(canvas, squareSize);
     }
+  }
+
+  /// Draws small per-side attacker-count badges in a square's corners -
+  /// white's count top-left, black's bottom-right, each in that side's
+  /// overlay tint color so it's legible without needing a legend.
+  void _drawAttackBadges(
+    Canvas canvas,
+    int file,
+    int rank,
+    double squareSize,
+    SquareAttackers attackers,
+  ) {
+    final badgeRadius = squareSize * 0.15;
+    final fontSize = squareSize * 0.2;
+    final badgePaint = Paint();
+    final textPainter = TextPainter(textDirection: TextDirection.ltr);
+
+    void drawBadge(int count, Color color, Offset center) {
+      if (count <= 0) return;
+      badgePaint.color = color;
+      canvas.drawCircle(center, badgeRadius, badgePaint);
+      textPainter.text = TextSpan(
+        text: '$count',
+        style: TextStyle(
+          color: Colors.white,
+          fontSize: fontSize,
+          fontWeight: FontWeight.bold,
+        ),
+      );
+      textPainter.layout();
+      textPainter.paint(
+        canvas,
+        center - Offset(textPainter.width / 2, textPainter.height / 2),
+      );
+    }
+
+    final left = file * squareSize;
+    final top = rank * squareSize;
+    drawBadge(
+      attackers.white,
+      _whiteAttackColor,
+      Offset(left + badgeRadius + 2, top + badgeRadius + 2),
+    );
+    drawBadge(
+      attackers.black,
+      _blackAttackColor,
+      Offset(
+        left + squareSize - badgeRadius - 2,
+        top + squareSize - badgeRadius - 2,
+      ),
+    );
   }
 
   void _drawCoordinates(Canvas canvas, double squareSize) {
@@ -503,5 +599,6 @@ class _GameBoardPainter extends CustomPainter {
       oldDelegate.theme != theme ||
       oldDelegate.selectedSquare != selectedSquare ||
       oldDelegate.legalMoveSquares != legalMoveSquares ||
-      oldDelegate.showCoordinates != showCoordinates;
+      oldDelegate.showCoordinates != showCoordinates ||
+      oldDelegate.attackMap != attackMap;
 }
