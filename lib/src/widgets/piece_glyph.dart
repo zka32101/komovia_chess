@@ -37,7 +37,13 @@ class PieceGlyph extends StatelessWidget {
     'r': '♜',
     'b': '♝',
     'n': '♞',
-    'p': '♟︎', // VS15 forces the text (not emoji) presentation
+    // U+265F has an emoji presentation that Android renders as a grey picture
+    // ignoring the paint color (and VS15, U+FE0E, does not prevent it), so the
+    // pawn uses the hollow U+2659 shape, which has no emoji form. Known
+    // limitation: being hollow, the pawn's inside shows the square color
+    // instead of the piece color; drawing the pawn as a custom shape would fix
+    // that.
+    'p': '♙',
   };
 
   @override
