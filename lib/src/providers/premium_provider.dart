@@ -113,7 +113,7 @@ final remainingAttemptsProvider =
   // Free tier daily limits
   final limits = {
     'daily_puzzles': 3,
-    'daily_games': 2,
+    'daily_games': 10,
   };
 
   return limits[action] ?? 0;

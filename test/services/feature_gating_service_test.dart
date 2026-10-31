@@ -173,7 +173,7 @@ void main() {
 
       test('has correct daily limits', () {
         expect(FeatureGatingService.DAILY_LIMITS['daily_puzzles'], 3);
-        expect(FeatureGatingService.DAILY_LIMITS['daily_games'], 2);
+        expect(FeatureGatingService.DAILY_LIMITS['daily_games'], 10);
       });
 
       // Regression test: premium_provider.dart's remainingAttemptsProvider
