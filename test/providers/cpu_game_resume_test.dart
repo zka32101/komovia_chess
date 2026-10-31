@@ -127,11 +127,10 @@ void main() {
       expect(container.read(cpuGameProvider).difficulty, AIDifficulty.medium);
     });
 
-    test('preserves the original startTime for game-duration display', () {
+    test('counts only the time actually played, not the time spent away', () {
       final container = ProviderContainer();
       addTearDown(container.dispose);
       final notifier = container.read(cpuGameProvider.notifier);
-      final originalStart = DateTime(2025, 6, 1, 10, 30);
 
       notifier.resumeFrom(
         ActiveCpuGame(
@@ -139,11 +138,15 @@ void main() {
           moveUcis: const [],
           difficultyName: 'easy',
           playerIsWhite: true,
-          startTime: originalStart,
+          // 何時間も前に始めた対局でも、実際に打った時間は5分。
+          startTime: DateTime(2025, 6, 1, 10, 30),
+          elapsedMs: const Duration(minutes: 5).inMilliseconds,
         ),
       );
 
-      expect(container.read(cpuGameProvider).startTime, originalStart);
+      final duration = container.read(cpuGameProvider).gameDuration;
+      expect(duration, greaterThanOrEqualTo(const Duration(minutes: 5)));
+      expect(duration, lessThan(const Duration(minutes: 6)));
     });
 
     test('a malformed move string is skipped rather than throwing', () {
