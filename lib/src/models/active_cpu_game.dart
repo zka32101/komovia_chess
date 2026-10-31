@@ -36,6 +36,10 @@ class ActiveCpuGame {
   /// どうか。再開時も同じ体験になるよう復元する。
   final bool quickGame;
 
+  /// 実際に対局していた時間(ミリ秒)。再開までに離れていた時間を
+  /// 含めないため、startTimeとは別に持つ。
+  final int elapsedMs;
+
   ActiveCpuGame({
     required this.uid,
     required this.moveUcis,
@@ -45,6 +49,7 @@ class ActiveCpuGame {
     required this.startTime,
     this.updatedAt,
     this.quickGame = false,
+    this.elapsedMs = 0,
   });
 
   factory ActiveCpuGame.fromFirestore(
@@ -67,6 +72,7 @@ class ActiveCpuGame {
           ? (data['updatedAt'] as Timestamp).toDate()
           : null,
       quickGame: data['quickGame'] as bool? ?? false,
+      elapsedMs: (data['elapsedMs'] as num?)?.toInt() ?? 0,
     );
   }
 
@@ -79,6 +85,7 @@ class ActiveCpuGame {
       'startTime': Timestamp.fromDate(startTime),
       'updatedAt': Timestamp.fromDate(updatedAt ?? DateTime.now()),
       'quickGame': quickGame,
+      'elapsedMs': elapsedMs,
     };
   }
 }

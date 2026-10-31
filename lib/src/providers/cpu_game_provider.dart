@@ -130,7 +130,9 @@ class CpuGameNotifier extends StateNotifier<CpuGameState> {
       gameState: _chess.rawChess,
       difficulty: difficulty,
       moves: replayedMoves,
-      startTime: saved.startTime,
+      // 離れていた時間を数えないよう、実際の対局時間ぶんだけ遡った時刻にする。
+      startTime:
+          DateTime.now().subtract(Duration(milliseconds: saved.elapsedMs)),
       playerIsWhite: saved.playerIsWhite,
       startingFen: saved.startingFen,
     );
@@ -414,6 +416,7 @@ class CpuGameNotifier extends StateNotifier<CpuGameState> {
         startingFen: state.startingFen,
         startTime: state.startTime,
         quickGame: _quickGame,
+        elapsedMs: DateTime.now().difference(state.startTime).inMilliseconds,
       );
 
       unawaited(
