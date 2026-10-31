@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../../../l10n/app_localizations.dart';
 import '../../data/cpu_starting_positions.dart';
 import '../../models/active_cpu_game.dart';
 import '../../providers/active_cpu_game_provider.dart';
@@ -48,10 +49,11 @@ class _CPUGameSelectionScreenState
     });
 
     final activeGameAsync = ref.watch(activeCpuGameProvider);
+    final l10n = AppLocalizations.of(context);
 
     return Scaffold(
         appBar: AppBar(
-          title: const Text('Play vs Computer'),
+          title: Text(l10n.cpuSelectTitle),
           centerTitle: true,
           elevation: 0,
         ),
@@ -71,7 +73,7 @@ class _CPUGameSelectionScreenState
 
                   // Difficulty section
                   Text(
-                    'Select Difficulty',
+                    l10n.cpuSelectDifficulty,
                     style: Theme.of(context).textTheme.titleLarge?.copyWith(
                           fontWeight: FontWeight.bold,
                         ),
@@ -84,7 +86,7 @@ class _CPUGameSelectionScreenState
 
                   // Player color section
                   Text(
-                    'Select Your Color',
+                    l10n.cpuSelectColor,
                     style: Theme.of(context).textTheme.titleLarge?.copyWith(
                           fontWeight: FontWeight.bold,
                         ),
@@ -95,7 +97,7 @@ class _CPUGameSelectionScreenState
 
                   // Starting position section
                   Text(
-                    'Starting Position',
+                    l10n.cpuSelectStartPos,
                     style: Theme.of(context).textTheme.titleLarge?.copyWith(
                           fontWeight: FontWeight.bold,
                         ),
@@ -106,8 +108,7 @@ class _CPUGameSelectionScreenState
                   // "終盤から") - easy to miss as anything more than a
                   // cosmetic toggle.
                   Text(
-                    'Practice from a specific position instead of always '
-                    'starting from scratch.',
+                    l10n.cpuStartPosHint,
                     style: Theme.of(context).textTheme.bodySmall?.copyWith(
                           color: Colors.grey.shade600,
                         ),
@@ -116,7 +117,7 @@ class _CPUGameSelectionScreenState
                   _buildStartingPositionOptions(),
                   const SizedBox(height: 8),
                   Text(
-                    _selectedStartingPosition.description,
+                    _startPositionDescription(l10n, _selectedStartingPosition),
                     style: Theme.of(context).textTheme.bodySmall?.copyWith(
                           color: Colors.grey.shade600,
                         ),
@@ -128,8 +129,8 @@ class _CPUGameSelectionScreenState
                     value: _quickGame,
                     onChanged: (value) =>
                         setState(() => _quickGame = value ?? false),
-                    title: const Text('クイック対局'),
-                    subtitle: const Text('AIの考慮時間を短くし、短時間で一局を終えられるようにします。'),
+                    title: Text(l10n.cpuQuickGame),
+                    subtitle: Text(l10n.cpuQuickGameDesc),
                     controlAffinity: ListTileControlAffinity.leading,
                     contentPadding: EdgeInsets.zero,
                   ),
@@ -144,9 +145,9 @@ class _CPUGameSelectionScreenState
                     child: FilledButton.icon(
                       onPressed: _startGame,
                       icon: const Icon(Icons.play_arrow, size: 26),
-                      label: const Text(
-                        'Start Game',
-                        style: TextStyle(
+                      label: Text(
+                        l10n.cpuStartGame,
+                        style: const TextStyle(
                           fontSize: 20,
                           fontWeight: FontWeight.bold,
                         ),
@@ -170,14 +171,13 @@ class _CPUGameSelectionScreenState
     if (recommendation == null || recommendation.reason == 'default') {
       return const SizedBox.shrink();
     }
+    final l10n = AppLocalizations.of(context);
     final percent = (recommendation.recentWinRate * 100).toStringAsFixed(0);
+    final difficulty = difficultyName(l10n, recommendation.difficulty);
     final message = switch (recommendation.reason) {
-      'strong' => '直近${recommendation.gamesConsidered}局で勝率$percent% - '
-          '${recommendation.difficulty.displayName}をおすすめします',
-      'struggling' => '直近${recommendation.gamesConsidered}局で勝率$percent% - '
-          '${recommendation.difficulty.displayName}をおすすめします',
-      _ => '直近${recommendation.gamesConsidered}局の実績から'
-          '${recommendation.difficulty.displayName}が選択されています',
+      'strong' || 'struggling' => l10n.cpuHintRecommend(
+          percent, recommendation.gamesConsidered, difficulty),
+      _ => l10n.cpuHintSelected(recommendation.gamesConsidered, difficulty),
     };
     return Padding(
       padding: const EdgeInsets.only(bottom: 4),
@@ -254,7 +254,7 @@ class _CPUGameSelectionScreenState
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
-                    difficulty.displayName,
+                    difficultyName(AppLocalizations.of(context), difficulty),
                     style: const TextStyle(
                       fontSize: 16,
                       fontWeight: FontWeight.bold,
@@ -262,7 +262,8 @@ class _CPUGameSelectionScreenState
                   ),
                   const SizedBox(height: 4),
                   Text(
-                    difficulty.description,
+                    difficultyDescription(
+                        AppLocalizations.of(context), difficulty),
                     style: TextStyle(
                       fontSize: 12,
                       color: Colors.grey.shade600,
@@ -291,11 +292,14 @@ class _CPUGameSelectionScreenState
     );
   }
 
-  Widget _buildColorOptions() => Row(
+  Widget _buildColorOptions() {
+    final l10n = AppLocalizations.of(context);
+    return Row(
         children: [
           Expanded(
             child: _buildColorCard(
-              color: 'White',
+              isWhite: true,
+              label: l10n.cpuColorWhite,
               isSelected: _playerIsWhite,
               onTap: () => setState(() => _playerIsWhite = true),
             ),
@@ -303,16 +307,19 @@ class _CPUGameSelectionScreenState
           const SizedBox(width: 16),
           Expanded(
             child: _buildColorCard(
-              color: 'Black',
+              isWhite: false,
+              label: l10n.cpuColorBlack,
               isSelected: !_playerIsWhite,
               onTap: () => setState(() => _playerIsWhite = false),
             ),
           ),
         ],
-      );
+    );
+  }
 
   Widget _buildColorCard({
-    required String color,
+    required bool isWhite,
+    required String label,
     required bool isSelected,
     required VoidCallback onTap,
   }) =>
@@ -335,7 +342,7 @@ class _CPUGameSelectionScreenState
                 width: 64,
                 height: 64,
                 decoration: BoxDecoration(
-                  color: color == 'White'
+                  color: isWhite
                       ? Colors.grey.shade300
                       : Colors.grey.shade800,
                   borderRadius: BorderRadius.circular(12),
@@ -347,7 +354,7 @@ class _CPUGameSelectionScreenState
               ),
               const SizedBox(height: 12),
               Text(
-                color,
+                label,
                 style: const TextStyle(
                   fontSize: 16,
                   fontWeight: FontWeight.bold,
@@ -355,9 +362,9 @@ class _CPUGameSelectionScreenState
               ),
               const SizedBox(height: 4),
               if (isSelected)
-                const Text(
-                  '✓ Selected',
-                  style: TextStyle(
+                Text(
+                  AppLocalizations.of(context).cpuSelected,
+                  style: const TextStyle(
                     fontSize: 12,
                     color: Colors.blue,
                     fontWeight: FontWeight.bold,
@@ -400,7 +407,7 @@ class _CPUGameSelectionScreenState
         ),
         child: Center(
           child: Text(
-            position.displayName,
+            _startPositionName(AppLocalizations.of(context), position),
             textAlign: TextAlign.center,
             style: TextStyle(
               fontSize: 13,
@@ -430,10 +437,9 @@ class _CPUGameSelectionScreenState
       color: Theme.of(context).colorScheme.primaryContainer,
       child: ListTile(
         leading: const Icon(Icons.play_circle_outline),
-        title: const Text('続きから (Resume game)'),
+        title: Text(AppLocalizations.of(context).cpuResume),
         subtitle: Text(
-          '${activeGame.playerIsWhite ? "White" : "Black"} · '
-          '${activeGame.difficultyName}',
+          _resumeSubtitle(AppLocalizations.of(context), activeGame),
         ),
         trailing: const Icon(Icons.chevron_right),
         onTap: () => Navigator.of(context).push(
@@ -444,4 +450,49 @@ class _CPUGameSelectionScreenState
       ),
     );
   }
+}
+
+/// Localized name of an AI strength level (shared with the in-game screen).
+String difficultyName(AppLocalizations l10n, AIDifficulty difficulty) =>
+    switch (difficulty) {
+      AIDifficulty.beginner => l10n.cpuDiffBeginner,
+      AIDifficulty.easy => l10n.cpuDiffEasy,
+      AIDifficulty.medium => l10n.cpuDiffMedium,
+      AIDifficulty.hard => l10n.cpuDiffHard,
+      AIDifficulty.master => l10n.cpuDiffMaster,
+    };
+
+String difficultyDescription(AppLocalizations l10n, AIDifficulty difficulty) =>
+    switch (difficulty) {
+      AIDifficulty.beginner => l10n.cpuDiffBeginnerDesc,
+      AIDifficulty.easy => l10n.cpuDiffEasyDesc,
+      AIDifficulty.medium => l10n.cpuDiffMediumDesc,
+      AIDifficulty.hard => l10n.cpuDiffHardDesc,
+      AIDifficulty.master => l10n.cpuDiffMasterDesc,
+    };
+
+String _startPositionName(AppLocalizations l10n, CpuStartingPosition p) =>
+    switch (p) {
+      CpuStartingPosition.opening => l10n.cpuStartOpening,
+      CpuStartingPosition.midgame => l10n.cpuStartMidgame,
+      CpuStartingPosition.endgame => l10n.cpuStartEndgame,
+    };
+
+String _startPositionDescription(AppLocalizations l10n, CpuStartingPosition p) =>
+    switch (p) {
+      CpuStartingPosition.opening => l10n.cpuStartOpeningDesc,
+      CpuStartingPosition.midgame => l10n.cpuStartMidgameDesc,
+      CpuStartingPosition.endgame => l10n.cpuStartEndgameDesc,
+    };
+
+/// The saved game stores the difficulty by enum name ("medium").
+String _resumeSubtitle(AppLocalizations l10n, ActiveCpuGame game) {
+  final difficulty = AIDifficulty.values.firstWhere(
+    (d) => d.name == game.difficultyName,
+    orElse: () => AIDifficulty.medium,
+  );
+  return l10n.cpuResumeSubtitle(
+    game.playerIsWhite ? l10n.cpuColorWhite : l10n.cpuColorBlack,
+    difficultyName(l10n, difficulty),
+  );
 }

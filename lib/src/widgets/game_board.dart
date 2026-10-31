@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:chess/chess.dart' as chess_lib;
+import '../../l10n/app_localizations.dart';
 import '../models/board_theme.dart';
 import '../models/piece_skin.dart';
 import '../services/attack_map_service.dart';
@@ -95,6 +96,7 @@ class _GameBoardState extends State<GameBoard> {
   @override
   Widget build(BuildContext context) {
     final isMobile = MediaQuery.of(context).size.width < 600;
+    final l10n = AppLocalizations.of(context);
 
     return SingleChildScrollView(
       child: Column(
@@ -114,8 +116,8 @@ class _GameBoardState extends State<GameBoard> {
             padding: const EdgeInsets.symmetric(vertical: 8),
             child: Text(
               widget.gameState.turn == chess_lib.Color.WHITE
-                  ? 'White to Move'
-                  : 'Black to Move',
+                  ? l10n.boardWhiteToMove
+                  : l10n.boardBlackToMove,
               style: Theme.of(context).textTheme.titleMedium?.copyWith(
                 fontWeight: FontWeight.bold,
                 color: widget.gameState.turn == chess_lib.Color.WHITE
@@ -147,13 +149,13 @@ class _GameBoardState extends State<GameBoard> {
                           ? null
                           : widget.onUndo,
                       icon: const Icon(Icons.undo),
-                      label: const Text('Undo'),
+                      label: Text(l10n.boardUndo),
                     ),
                   if (widget.onResign != null)
                     ElevatedButton.icon(
                       onPressed: widget.onResign,
                       icon: const Icon(Icons.flag),
-                      label: const Text('Resign'),
+                      label: Text(l10n.cpuResign),
                       style: ElevatedButton.styleFrom(
                         backgroundColor: Colors.red,
                       ),
@@ -162,7 +164,7 @@ class _GameBoardState extends State<GameBoard> {
                     ElevatedButton.icon(
                       onPressed: widget.onDraw,
                       icon: const Icon(Icons.handshake),
-                      label: const Text('Offer Draw'),
+                      label: Text(l10n.boardOfferDraw),
                     ),
                 ],
               ),
@@ -265,15 +267,16 @@ class _GameBoardState extends State<GameBoard> {
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text('Promote Pawn'),
+        title: Text(AppLocalizations.of(context).boardPromoteTitle),
         content: Row(
           mainAxisAlignment: MainAxisAlignment.spaceEvenly,
           children: ['q', 'r', 'b', 'n'].map((promotion) {
+            final l10n = AppLocalizations.of(context);
             final labels = {
-              'q': 'Queen',
-              'r': 'Rook',
-              'b': 'Bishop',
-              'n': 'Knight',
+              'q': l10n.boardQueen,
+              'r': l10n.boardRook,
+              'b': l10n.boardBishop,
+              'n': l10n.boardKnight,
             };
             return ElevatedButton(
               onPressed: () {
