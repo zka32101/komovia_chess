@@ -5,8 +5,9 @@ import '../../models/user.dart';
 import '../../providers/auth_provider.dart';
 import '../../providers/notification_provider.dart';
 import '../../providers/direct_message_provider.dart';
-import '../../providers/online_game_provider.dart';
-import '../../models/online_game.dart';
+import '../../providers/match_history_provider.dart';
+import '../../models/match_record.dart';
+import '../../services/ai_opponent_engine.dart' show AIDifficulty;
 import '../../utils/animations.dart';
 import '../../models/avatar_frames.dart';
 import '../../widgets/avatar_picker.dart';
@@ -781,7 +782,9 @@ class _RecentGamesSection extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final l10n = AppLocalizations.of(context);
     final uid = ref.watch(currentUserProvider).value?.uid;
-    final games = ref.watch(userRecentGamesProvider).value ?? const [];
+    final games = uid == null
+        ? const <MatchRecord>[]
+        : ref.watch(watchMatchHistoryProvider(uid)).value ?? const [];
     final recent = games.take(3).toList();
 
     return Padding(
@@ -852,25 +855,20 @@ class _RecentGamesSection extends ConsumerWidget {
           else
             ...recent.asMap().entries.map((entry) {
               final game = entry.value;
-              final isWhite = game.whitePlayerId == uid;
-              final delta =
-                  (isWhite ? game.whiteRatingDelta : game.blackRatingDelta) ??
-                      0;
+              final delta = game.playerRatingAfter - game.playerRatingBefore;
               return SlideInAnimation(
                 direction: SlideDirection.left,
                 delay: Duration(milliseconds: entry.key * 100),
                 child: _GameCard(
-                  opponent:
-                      (isWhite ? game.blackPlayerName : game.whitePlayerName),
-                  result: _resultKey(game, isWhite),
-                  resultLabel: switch (_resultKey(game, isWhite)) {
+                  opponent: _opponentName(l10n, game),
+                  result: game.result,
+                  resultLabel: switch (game.result) {
                     'win' => l10n.matchHistoryResultWin,
                     'loss' => l10n.matchHistoryResultLoss,
                     _ => l10n.matchHistoryResultDraw,
                   },
                   ratingChange: delta >= 0 ? '+$delta' : '$delta',
-                  time: _timeAgo(
-                      l10n, game.endedAt ?? game.startedAt ?? game.createdAt),
+                  time: _timeAgo(l10n, game.playedAt),
                 ),
               );
             }),
@@ -879,15 +877,17 @@ class _RecentGamesSection extends ConsumerWidget {
     );
   }
 
-  static String _resultKey(OnlineGame game, bool isWhite) {
-    switch (game.result) {
-      case 'white_win':
-        return isWhite ? 'win' : 'loss';
-      case 'black_win':
-        return isWhite ? 'loss' : 'win';
-      default:
-        return 'draw';
+  /// CPU対戦は opponentId が `cpu_<難易度>`。名前は端末の言語で出す。
+  static String _opponentName(AppLocalizations l10n, MatchRecord game) {
+    const prefix = 'cpu_';
+    if (game.opponentId.startsWith(prefix)) {
+      for (final d in AIDifficulty.values) {
+        if (d.name == game.opponentId.substring(prefix.length)) {
+          return 'CPU ${difficultyName(l10n, d)}';
+        }
+      }
     }
+    return game.opponentName;
   }
 
   static String _timeAgo(AppLocalizations l10n, DateTime at) {
