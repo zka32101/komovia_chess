@@ -954,5 +954,7 @@
   "gameResultAnalyze": "Analyze",
   "gameResultHome": "Home",
   "cpuOverwriteTitle": "Start a new game?",
-  "cpuOverwriteBody": "You have a game in progress. Starting a new game will discard it."
+  "cpuOverwriteBody": "You have a game in progress. Starting a new game will discard it.",
+  "shareGifFailed": "Could not create share GIF: {error}",
+  "@shareGifFailed": {"placeholders": {"error": {"type": "String"}}}
 }

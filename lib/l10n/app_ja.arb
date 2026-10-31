@@ -573,5 +573,7 @@
   "gameResultAnalyze": "分析",
   "gameResultHome": "ホーム",
   "cpuOverwriteTitle": "新しい対局を始めますか?",
-  "cpuOverwriteBody": "続きの対局があります。新しく始めると、その対局は破棄されます。"
+  "cpuOverwriteBody": "続きの対局があります。新しく始めると、その対局は破棄されます。",
+  "shareGifFailed": "共有用のGIFを作れませんでした: {error}",
+  "@shareGifFailed": {"placeholders": {"error": {"type": "String"}}}
 }
