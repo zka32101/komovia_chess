@@ -952,5 +952,7 @@
   "gameResultShare": "Share on X",
   "gameResultSharing": "Sharing...",
   "gameResultAnalyze": "Analyze",
-  "gameResultHome": "Home"
+  "gameResultHome": "Home",
+  "cpuOverwriteTitle": "Start a new game?",
+  "cpuOverwriteBody": "You have a game in progress. Starting a new game will discard it."
 }

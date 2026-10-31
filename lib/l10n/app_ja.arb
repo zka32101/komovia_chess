@@ -571,5 +571,7 @@
   "gameResultShare": "Xで共有",
   "gameResultSharing": "共有中...",
   "gameResultAnalyze": "分析",
-  "gameResultHome": "ホーム"
+  "gameResultHome": "ホーム",
+  "cpuOverwriteTitle": "新しい対局を始めますか?",
+  "cpuOverwriteBody": "続きの対局があります。新しく始めると、その対局は破棄されます。"
 }

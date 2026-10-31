@@ -419,7 +419,29 @@ class _CPUGameSelectionScreenState
     );
   }
 
-  void _startGame() {
+  Future<void> _startGame() async {
+    // 続きの対局があるまま始めると、その対局は上書きされて失われる。
+    if (ref.read(activeCpuGameProvider).valueOrNull != null) {
+      final l10n = AppLocalizations.of(context);
+      final ok = await showDialog<bool>(
+        context: context,
+        builder: (ctx) => AlertDialog(
+          title: Text(l10n.cpuOverwriteTitle),
+          content: Text(l10n.cpuOverwriteBody),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(ctx).pop(false),
+              child: Text(l10n.cpuCancel),
+            ),
+            FilledButton(
+              onPressed: () => Navigator.of(ctx).pop(true),
+              child: Text(l10n.cpuStartGame),
+            ),
+          ],
+        ),
+      );
+      if (ok != true || !mounted) return;
+    }
     Navigator.of(context).push(
       SmoothPageTransition(
         page: CPUGameScreen(
