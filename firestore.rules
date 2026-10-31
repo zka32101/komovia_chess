@@ -72,10 +72,33 @@ service cloud.firestore {
       // bypasses these rules) to become the only legitimate writer,
       // before this rule could safely block a normal client write to
       // them. See PaywallService._persistEntitlement's matching comment.
-      allow read, write: if isOwner(userId);
+      //
+      // `role` is excluded from every self-write below: isAdmin() above
+      // trusts users/{uid}.role == 'admin', so the previous blanket
+      // `allow read, write: if isOwner(userId)` let ANY signed-in user
+      // promote themselves to admin with a single
+      // `users/{me}.update({role: 'admin'})` - unlocking every
+      // isAdmin()-gated path in this file (reading every user's
+      // puzzle results / security_audit / compliance, rewriting
+      // translations/exchange_rates, ...). Nothing in lib/ or
+      // functions/src ever writes `role`, so admin promotion is now
+      // console/Admin-SDK only.
+      allow create: if isOwner(userId) && !('role' in request.resource.data);
+      allow update: if isOwner(userId) &&
+        !request.resource.data.diff(resource.data).affectedKeys().hasAny(['role']);
 
-      // ✅ Admin はすべてのユーザーデータを読み取り可能
-      allow read: if isAdmin();
+      // Readable by any signed-in user, matching komovia_go/komovia_shogi's
+      // users/{uid} rule. Previously owner-only (+admin), which made two
+      // reachable features fail with permission-denied on every call:
+      // RankingService.getGlobalRanking/getMonthlyRanking/... (the
+      // leaderboard is a `users.orderBy('rating')` list query across every
+      // user) and FriendService.searchUsers (a `users.orderBy('displayName')`
+      // prefix query). Known trade-off, same as the siblings: the whole
+      // profile doc - including `email` and the subscription fields -
+      // becomes readable by other signed-in users; splitting public
+      // profile fields into their own collection would close that, but is
+      // a data-model change beyond a rules audit.
+      allow read: if isSignedIn();
 
       // ✅ 削除は本人またはadminのみ
       allow delete: if isOwner(userId) || isAdmin();
@@ -310,8 +333,9 @@ service cloud.firestore {
       allow create: if isSignedIn() && request.resource.data.createdBy == request.auth.uid;
       allow update: if isSignedIn() && (
         // Organizer: any field (status, participantUids after a bracket is
-        // regenerated, etc.)
-        resource.data.createdBy == request.auth.uid ||
+        // regenerated, etc.) - except handing the tournament itself to
+        // someone else (matches komovia_go's organizer branch).
+        (resource.data.createdBy == request.auth.uid && unchanged('createdBy')) ||
         // Any signed-in user may append only themselves to participantUids
         // (registerParticipant).
         (onlyChanged(['participantUids']) &&
@@ -935,19 +959,28 @@ service cloud.firestore {
       // and sending a message only ever stamps the caller as
       // lastSenderUid and increments the recipient's own unreadCount by
       // exactly 1 (the sender's own stays put).
+      //
+      // unreadCount entries are read with `.get(uid, 0)`: a participant
+      // who has never received a message has no key in the map at all
+      // (the first message only ever creates the RECIPIENT's entry), and
+      // a bare `unreadCount[uid]` on a missing key is a rules evaluation
+      // error = deny - so the other party's first-ever reply in an
+      // existing thread, and marking read before ever receiving anything,
+      // were both rejected.
       allow update: if isParticipant(resource.data.participantUids) &&
         request.resource.data.participantUids == resource.data.participantUids &&
         (
           (onlyChanged(['unreadCount']) &&
-            request.resource.data.unreadCount[request.auth.uid] == 0 &&
-            request.resource.data.unreadCount[otherParticipant(resource.data.participantUids, request.auth.uid)] ==
-              resource.data.unreadCount[otherParticipant(resource.data.participantUids, request.auth.uid)])
+            request.resource.data.unreadCount.get(request.auth.uid, 0) == 0 &&
+            request.resource.data.unreadCount.get(otherParticipant(resource.data.participantUids, request.auth.uid), 0) ==
+              resource.data.get('unreadCount', {}).get(otherParticipant(resource.data.participantUids, request.auth.uid), 0))
           ||
           (onlyChanged(['lastMessage', 'lastSenderUid', 'lastMessageAt', 'unreadCount', 'participantNames']) &&
             request.resource.data.lastSenderUid == request.auth.uid &&
-            request.resource.data.unreadCount[request.auth.uid] == resource.data.unreadCount[request.auth.uid] &&
-            request.resource.data.unreadCount[otherParticipant(resource.data.participantUids, request.auth.uid)] ==
-              resource.data.unreadCount[otherParticipant(resource.data.participantUids, request.auth.uid)] + 1)
+            request.resource.data.unreadCount.get(request.auth.uid, 0) ==
+              resource.data.get('unreadCount', {}).get(request.auth.uid, 0) &&
+            request.resource.data.unreadCount.get(otherParticipant(resource.data.participantUids, request.auth.uid), 0) ==
+              resource.data.get('unreadCount', {}).get(otherParticipant(resource.data.participantUids, request.auth.uid), 0) + 1)
         );
       allow delete: if false;
 
@@ -1008,6 +1041,20 @@ service cloud.firestore {
          request.resource.data.currentParticipants ==
             prevIntField('currentParticipants') - 1);
       allow create, delete: if false;
+    }
+
+    // SeasonalEventService.getTopEventParticipants (reachable via
+    // phase_u_providers.dart's top-participants provider) runs
+    // collectionGroup('events').where('eventId').orderBy('currentScore')
+    // across every player's participation doc. A collection-group query
+    // is only authorized by a `{path=**}` rule - the per-player block
+    // below (owner-only) can never authorize it - so this leaderboard
+    // previously always failed with permission-denied. Participation
+    // docs are leaderboard data (score/rank per event), so open read to
+    // signed-in users like this file's other leaderboards; writes are
+    // still governed solely by the owner-only block below.
+    match /{path=**}/events/{eventId} {
+      allow read: if isSignedIn();
     }
 
     match /player_event_progress/{playerId} {
