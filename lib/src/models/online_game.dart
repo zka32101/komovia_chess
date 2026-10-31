@@ -1,4 +1,5 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:komovia_core/komovia_core.dart' show AbandonmentForfeitPolicy;
 
 /// Represents an online multiplayer game
 class OnlineGame {
@@ -297,13 +298,17 @@ class OnlineGame {
     if (uid != whitePlayerId && uid != blackPlayerId) return false;
 
     final myColor = uid == whitePlayerId ? 'white' : 'black';
-    if (currentTurn == myColor) return false;
 
     final delinquentLastActivity =
         currentTurn == 'white' ? whiteLastActivityTimestamp : blackLastActivityTimestamp;
     final reference =
         delinquentLastActivity ?? lastMoveTimestamp ?? startedAt ?? createdAt;
-    return DateTime.now().difference(reference) >= threshold;
+    // Turn check + elapsed-time math delegated to komovia_core's shared
+    // policy (same >= threshold semantics as before).
+    return AbandonmentForfeitPolicy(threshold: threshold).canClaim(
+      isClaimantsTurn: currentTurn == myColor,
+      lastActivityAt: reference,
+    );
   }
 }
 
