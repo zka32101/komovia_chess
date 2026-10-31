@@ -64,7 +64,9 @@ class _CPUGameScreenState extends ConsumerState<CPUGameScreen> {
       if (resumeGame != null) {
         ref.read(cpuGameProvider.notifier).resumeFrom(resumeGame);
       } else {
-        ref.read(cpuGameProvider.notifier).initGame(
+        ref
+            .read(cpuGameProvider.notifier)
+            .initGame(
               difficulty: widget.difficulty,
               playerIsWhite: widget.playerIsWhite,
               startingFen: widget.startingFen,
@@ -132,11 +134,9 @@ class _CPUGameScreenState extends ConsumerState<CPUGameScreen> {
               flipped: !gameState.playerIsWhite,
               blindfold: ref.watch(blindfoldModeProvider),
               onMove: (from, to, {promotion}) {
-                ref.read(cpuGameProvider.notifier).makePlayerMove(
-                      from,
-                      to,
-                      promotion: promotion,
-                    );
+                ref
+                    .read(cpuGameProvider.notifier)
+                    .makePlayerMove(from, to, promotion: promotion);
               },
               onUndo: gameState.moves.isNotEmpty
                   ? () => ref.read(cpuGameProvider.notifier).undoMove()
@@ -157,9 +157,7 @@ class _CPUGameScreenState extends ConsumerState<CPUGameScreen> {
                   borderRadius: BorderRadius.circular(8),
                 ),
                 constraints: const BoxConstraints(maxHeight: 150),
-                child: MoveHistory(
-                  moves: gameState.moves,
-                ),
+                child: MoveHistory(moves: gameState.moves),
               ),
           ],
         ),
@@ -192,11 +190,9 @@ class _CPUGameScreenState extends ConsumerState<CPUGameScreen> {
                     flipped: !gameState.playerIsWhite,
                     blindfold: ref.watch(blindfoldModeProvider),
                     onMove: (from, to, {promotion}) {
-                      ref.read(cpuGameProvider.notifier).makePlayerMove(
-                            from,
-                            to,
-                            promotion: promotion,
-                          );
+                      ref
+                          .read(cpuGameProvider.notifier)
+                          .makePlayerMove(from, to, promotion: promotion);
                     },
                     onUndo: gameState.moves.isNotEmpty
                         ? () => ref.read(cpuGameProvider.notifier).undoMove()
@@ -217,7 +213,8 @@ class _CPUGameScreenState extends ConsumerState<CPUGameScreen> {
           child: Container(
             decoration: BoxDecoration(
               border: Border(
-                  left: BorderSide(color: Colors.grey[300] ?? Colors.grey)),
+                left: BorderSide(color: Colors.grey[300] ?? Colors.grey),
+              ),
             ),
             child: Padding(
               padding: const EdgeInsets.all(16),
@@ -253,153 +250,152 @@ class _CPUGameScreenState extends ConsumerState<CPUGameScreen> {
   Widget _buildStatusBar(CpuGameState gameState) {
     final l10n = AppLocalizations.of(context);
     return Container(
-        padding: const EdgeInsets.all(12),
-        decoration: BoxDecoration(
-          color: Theme.of(context).primaryColor.withOpacity(0.1),
-          borderRadius: BorderRadius.circular(8),
-        ),
-        child: Row(
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-          children: [
-            Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  gameState.playerIsWhite ? l10n.cpuYouWhite : l10n.cpuYouBlack,
-                  style: Theme.of(context).textTheme.labelMedium,
-                ),
-                Text(
-                  gameState.isPlayerTurn ? l10n.cpuYourTurn : l10n.cpuThinking,
-                  style: Theme.of(context).textTheme.bodySmall,
-                ),
-              ],
-            ),
-            if (gameState.isAIThinking)
-              const SizedBox(
-                width: 20,
-                height: 20,
-                child: CircularProgressIndicator(strokeWidth: 2),
-              )
-            else
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: Theme.of(context).primaryColor.withOpacity(0.1),
+        borderRadius: BorderRadius.circular(8),
+      ),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
               Text(
-                l10n.cpuDifficultyLabel(difficultyName(l10n, widget.difficulty)),
-                style: Theme.of(context).textTheme.labelSmall,
+                gameState.playerIsWhite ? l10n.cpuYouWhite : l10n.cpuYouBlack,
+                style: Theme.of(context).textTheme.labelMedium,
               ),
-            Column(
-              crossAxisAlignment: CrossAxisAlignment.end,
-              children: [
-                Text(
-                  gameState.playerIsWhite ? l10n.cpuCpuBlack : l10n.cpuCpuWhite,
-                  style: Theme.of(context).textTheme.labelMedium,
-                ),
-                Text(
-                  gameState.isPlayerTurn ? l10n.cpuIdle : l10n.cpuPlaying,
-                  style: Theme.of(context).textTheme.bodySmall,
-                ),
-              ],
+              Text(
+                gameState.isPlayerTurn ? l10n.cpuYourTurn : l10n.cpuThinking,
+                style: Theme.of(context).textTheme.bodySmall,
+              ),
+            ],
+          ),
+          if (gameState.isAIThinking)
+            const SizedBox(
+              width: 20,
+              height: 20,
+              child: CircularProgressIndicator(strokeWidth: 2),
+            )
+          else
+            Text(
+              l10n.cpuDifficultyLabel(difficultyName(l10n, widget.difficulty)),
+              style: Theme.of(context).textTheme.labelSmall,
             ),
-          ],
-        ),
-      );
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.end,
+            children: [
+              Text(
+                gameState.playerIsWhite ? l10n.cpuCpuBlack : l10n.cpuCpuWhite,
+                style: Theme.of(context).textTheme.labelMedium,
+              ),
+              Text(
+                gameState.isPlayerTurn ? l10n.cpuIdle : l10n.cpuPlaying,
+                style: Theme.of(context).textTheme.bodySmall,
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
   }
 
   Widget _buildGameInfoPanel(CpuGameState gameState) {
     final l10n = AppLocalizations.of(context);
     return Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            l10n.cpuGameInfo,
-            style: Theme.of(context).textTheme.titleSmall,
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(l10n.cpuGameInfo, style: Theme.of(context).textTheme.titleSmall),
+        const SizedBox(height: 12),
+        _buildInfoRow(
+          l10n.cpuMoves,
+          (gameState.moves.length / 2).ceil().toString(),
+        ),
+        _buildInfoRow(
+          l10n.cpuDuration,
+          _formatDuration(gameState.gameDuration),
+        ),
+        _buildInfoRow(
+          l10n.cpuDifficulty,
+          difficultyName(l10n, widget.difficulty),
+        ),
+        const SizedBox(height: 16),
+        SizedBox(
+          width: double.infinity,
+          child: FilledButton(
+            onPressed: _showResignDialog,
+            child: Text(l10n.cpuResign),
           ),
-          const SizedBox(height: 12),
-          _buildInfoRow(
-            l10n.cpuMoves,
-            (gameState.moves.length / 2).ceil().toString(),
-          ),
-          _buildInfoRow(
-            l10n.cpuDuration,
-            _formatDuration(gameState.gameDuration),
-          ),
-          _buildInfoRow(
-            l10n.cpuDifficulty,
-            difficultyName(l10n, widget.difficulty),
-          ),
-          const SizedBox(height: 16),
-          SizedBox(
-            width: double.infinity,
-            child: FilledButton(
-              onPressed: _showResignDialog,
-              child: Text(l10n.cpuResign),
-            ),
-          ),
-        ],
+        ),
+      ],
     );
   }
 
   Widget _buildInfoRow(String label, String value) => Padding(
-        padding: const EdgeInsets.symmetric(vertical: 4),
-        child: Row(
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-          children: [
-            Text(
-              label,
-              style: Theme.of(context).textTheme.bodySmall,
-            ),
-            Text(
-              value,
-              style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                    fontWeight: FontWeight.bold,
-                  ),
-            ),
-          ],
+    padding: const EdgeInsets.symmetric(vertical: 4),
+    child: Row(
+      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+      children: [
+        Text(label, style: Theme.of(context).textTheme.bodySmall),
+        Text(
+          value,
+          style: Theme.of(
+            context,
+          ).textTheme.bodySmall?.copyWith(fontWeight: FontWeight.bold),
         ),
-      );
+      ],
+    ),
+  );
 
-  Widget _buildGameOverScreen(CpuGameState gameState) => Center(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            GameResult(
-              result: gameState.result ?? 'draw',
-              method: gameState.endReason ?? 'unknown',
-              moves: (gameState.moves.length / 2).ceil(),
-              duration: gameState.gameDuration,
-              onNewGame: () {
-                ref.read(cpuGameProvider.notifier).reset();
-              },
-              onHome: () {
-                Navigator.of(context).pop();
-              },
-              onAnalyze: () => _openAnalysis(gameState),
-              onShare: () => _shareGameGif(gameState),
-              isSharing: _isSharing,
-            ),
-            if (gameState.moves.isNotEmpty) ...[
-              const SizedBox(height: 12),
-              Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 24),
-                child: OneTapWeaknessButton(
-                  moves: gameState.moves
-                      .map((m) => GameMove(
-                            moveNumber: 0,
-                            from: m.fromAlgebraic,
-                            to: m.toAlgebraic,
-                            promotion: m.promotion?.name,
-                            timestamp: gameState.startTime,
-                            playerId: 'unused',
-                          ))
-                      .toList(),
-                  gameId: 'cpu-${gameState.startTime.millisecondsSinceEpoch}',
-                  whitePlayerId: widget.playerIsWhite ? 'player' : 'cpu',
-                  blackPlayerId: widget.playerIsWhite ? 'cpu' : 'player',
-                  startingFen: gameState.startingFen,
-                ),
+  Widget _buildGameOverScreen(CpuGameState gameState) => SafeArea(
+    child: SingleChildScrollView(
+      padding: const EdgeInsets.symmetric(vertical: 16),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          GameResult(
+            result: gameState.result ?? 'draw',
+            method: gameState.endReason ?? 'unknown',
+            moves: (gameState.moves.length / 2).ceil(),
+            duration: gameState.gameDuration,
+            onNewGame: () {
+              ref.read(cpuGameProvider.notifier).reset();
+            },
+            onHome: () {
+              Navigator.of(context).pop();
+            },
+            onAnalyze: () => _openAnalysis(gameState),
+            onShare: () => _shareGameGif(gameState),
+            isSharing: _isSharing,
+          ),
+          if (gameState.moves.isNotEmpty) ...[
+            const SizedBox(height: 12),
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 24),
+              child: OneTapWeaknessButton(
+                moves: gameState.moves
+                    .map(
+                      (m) => GameMove(
+                        moveNumber: 0,
+                        from: m.fromAlgebraic,
+                        to: m.toAlgebraic,
+                        promotion: m.promotion?.name,
+                        timestamp: gameState.startTime,
+                        playerId: 'unused',
+                      ),
+                    )
+                    .toList(),
+                gameId: 'cpu-${gameState.startTime.millisecondsSinceEpoch}',
+                whitePlayerId: widget.playerIsWhite ? 'player' : 'cpu',
+                blackPlayerId: widget.playerIsWhite ? 'cpu' : 'player',
+                startingFen: gameState.startingFen,
               ),
-            ],
+            ),
           ],
-        ),
-      );
+        ],
+      ),
+    ),
+  );
 
   /// Replays the just-finished game as an animated GIF and opens the share
   /// sheet (X/Twitter among its targets) with a result caption - the
@@ -413,11 +409,13 @@ class _CPUGameScreenState extends ConsumerState<CPUGameScreen> {
 
     try {
       final moves = gameState.moves
-          .map((m) => (
-                from: m.fromAlgebraic,
-                to: m.toAlgebraic,
-                promotion: m.promotion?.name,
-              ))
+          .map(
+            (m) => (
+              from: m.fromAlgebraic,
+              to: m.toAlgebraic,
+              promotion: m.promotion?.name,
+            ),
+          )
           .toList();
 
       final gifBytes = await _gifService.generateGif(
@@ -471,14 +469,16 @@ class _CPUGameScreenState extends ConsumerState<CPUGameScreen> {
     final cpuName = 'CPU (${widget.difficulty.name})';
 
     final moves = gameState.moves
-        .map((m) => GameMove(
-              moveNumber: 0,
-              from: m.fromAlgebraic,
-              to: m.toAlgebraic,
-              promotion: m.promotion?.name,
-              timestamp: gameState.startTime,
-              playerId: 'unused',
-            ))
+        .map(
+          (m) => GameMove(
+            moveNumber: 0,
+            from: m.fromAlgebraic,
+            to: m.toAlgebraic,
+            promotion: m.promotion?.name,
+            timestamp: gameState.startTime,
+            playerId: 'unused',
+          ),
+        )
         .toList();
 
     final syntheticGame = OnlineGame(

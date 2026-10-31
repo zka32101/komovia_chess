@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../../l10n/app_localizations.dart';
 
 /// Game result display with statistics
 class GameResult extends StatelessWidget {
@@ -32,16 +33,16 @@ class GameResult extends StatelessWidget {
   /// spinner instead of letting a slow GIF encode look like a dead tap.
   final bool isSharing;
 
-  String _getResultTitle() {
+  String _getResultTitle(AppLocalizations l10n) {
     switch (result) {
       case 'white_win':
-        return 'White Wins!';
+        return l10n.gameResultWhiteWins;
       case 'black_win':
-        return 'Black Wins!';
+        return l10n.gameResultBlackWins;
       case 'draw':
-        return 'Draw';
+        return l10n.gameResultDraw;
       default:
-        return 'Game Over';
+        return l10n.gameResultOver;
     }
   }
 
@@ -64,27 +65,27 @@ class GameResult extends StatelessWidget {
   // 'threefold_repetition'; online_game_service.dart's 'abandonment'/
   // 'abandonment_forfeit'), so a result dialog for any of those showed
   // the title/icon with a silently blank subtitle underneath.
-  String _getMethodDescription() {
+  String _getMethodDescription(AppLocalizations l10n) {
     switch (method) {
       case 'checkmate':
-        return 'by Checkmate';
+        return l10n.gameResultByCheckmate;
       case 'resignation':
-        return 'by Resignation';
+        return l10n.gameResultByResignation;
       case 'stalemate':
-        return 'by Stalemate';
+        return l10n.gameResultByStalemate;
       case 'timeout':
-        return 'by Timeout';
+        return l10n.gameResultByTimeout;
       case 'draw_agreement':
-        return 'by Agreement';
+        return l10n.gameResultByAgreement;
       case 'insufficient_material':
-        return 'by Insufficient Material';
+        return l10n.gameResultByInsufficientMaterial;
       case 'fifty_move_rule':
-        return 'by 50-Move Rule';
+        return l10n.gameResultByFiftyMove;
       case 'threefold_repetition':
-        return 'by Threefold Repetition';
+        return l10n.gameResultByRepetition;
       case 'abandonment':
       case 'abandonment_forfeit':
-        return 'by Abandonment';
+        return l10n.gameResultByAbandonment;
       default:
         return '';
     }
@@ -102,6 +103,7 @@ class GameResult extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final isMobile = MediaQuery.of(context).size.width < 600;
+    final l10n = AppLocalizations.of(context);
 
     return Dialog(
       shape: RoundedRectangleBorder(
@@ -123,7 +125,7 @@ class GameResult extends StatelessWidget {
 
               // Result title
               Text(
-                _getResultTitle(),
+                _getResultTitle(l10n),
                 style: Theme.of(context).textTheme.headlineSmall?.copyWith(
                       fontWeight: FontWeight.bold,
                     ),
@@ -133,7 +135,7 @@ class GameResult extends StatelessWidget {
 
               // Result method
               Text(
-                _getMethodDescription(),
+                _getMethodDescription(l10n),
                 style: Theme.of(context).textTheme.bodyMedium?.copyWith(
                       color: Colors.grey,
                     ),
@@ -145,7 +147,7 @@ class GameResult extends StatelessWidget {
               Container(
                 padding: const EdgeInsets.all(16),
                 decoration: BoxDecoration(
-                  color: Colors.grey[100],
+                  color: Theme.of(context).colorScheme.surfaceContainerHighest,
                   borderRadius: BorderRadius.circular(8),
                 ),
                 child: Column(
@@ -154,7 +156,7 @@ class GameResult extends StatelessWidget {
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
                         Text(
-                          'Total Moves:',
+                          '${l10n.gameResultTotalMoves}:',
                           style: Theme.of(context).textTheme.bodyMedium,
                         ),
                         Text(
@@ -171,7 +173,7 @@ class GameResult extends StatelessWidget {
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
                         Text(
-                          'Duration:',
+                          '${l10n.gameResultDuration}:',
                           style: Theme.of(context).textTheme.bodyMedium,
                         ),
                         Text(
@@ -208,16 +210,17 @@ class GameResult extends StatelessWidget {
                         child: FilledButton.icon(
                           onPressed: onNewGame,
                           icon: const Icon(Icons.refresh),
-                          label: const Text('New Game'),
+                          label: Text(l10n.gameResultNewGame),
                         ),
                       ),
                     if (onShare != null || onAnalyze != null)
                       const SizedBox(height: 12),
                     if (onShare != null || onAnalyze != null)
-                      Row(
+                      Column(
                         children: [
                           if (onShare != null)
-                            Expanded(
+                            SizedBox(
+                              width: double.infinity,
                               child: OutlinedButton.icon(
                                 onPressed: isSharing ? null : onShare,
                                 icon: isSharing
@@ -228,18 +231,20 @@ class GameResult extends StatelessWidget {
                                             strokeWidth: 2),
                                       )
                                     : const Icon(Icons.ios_share, size: 18),
-                                label: Text(
-                                    isSharing ? 'Sharing...' : 'Share on X'),
+                                label: Text(isSharing
+                                    ? l10n.gameResultSharing
+                                    : l10n.gameResultShare),
                               ),
                             ),
                           if (onShare != null && onAnalyze != null)
-                            const SizedBox(width: 8),
+                            const SizedBox(height: 8),
                           if (onAnalyze != null)
-                            Expanded(
+                            SizedBox(
+                              width: double.infinity,
                               child: OutlinedButton.icon(
                                 onPressed: onAnalyze,
                                 icon: const Icon(Icons.analytics, size: 18),
-                                label: const Text('Analyze'),
+                                label: Text(l10n.gameResultAnalyze),
                               ),
                             ),
                         ],
@@ -251,7 +256,7 @@ class GameResult extends StatelessWidget {
                         child: TextButton.icon(
                           onPressed: onHome,
                           icon: const Icon(Icons.home),
-                          label: const Text('Home'),
+                          label: Text(l10n.gameResultHome),
                         ),
                       ),
                   ],
@@ -264,7 +269,7 @@ class GameResult extends StatelessWidget {
                       FilledButton.icon(
                         onPressed: onNewGame,
                         icon: const Icon(Icons.refresh),
-                        label: const Text('New Game'),
+                        label: Text(l10n.gameResultNewGame),
                       ),
                     if (onNewGame != null) const SizedBox(height: 12),
                     Row(
@@ -282,7 +287,7 @@ class GameResult extends StatelessWidget {
                                   )
                                 : const Icon(Icons.ios_share, size: 18),
                             label: Text(
-                                isSharing ? 'Sharing...' : 'Share on X'),
+                                isSharing ? l10n.gameResultSharing : l10n.gameResultShare),
                           ),
                         if (onShare != null && onAnalyze != null)
                           const SizedBox(width: 12),
@@ -290,7 +295,7 @@ class GameResult extends StatelessWidget {
                           OutlinedButton.icon(
                             onPressed: onAnalyze,
                             icon: const Icon(Icons.analytics, size: 18),
-                            label: const Text('Analyze'),
+                            label: Text(l10n.gameResultAnalyze),
                           ),
                         if (onHome != null &&
                             (onShare != null || onAnalyze != null))
@@ -299,7 +304,7 @@ class GameResult extends StatelessWidget {
                           TextButton.icon(
                             onPressed: onHome,
                             icon: const Icon(Icons.home),
-                            label: const Text('Home'),
+                            label: Text(l10n.gameResultHome),
                           ),
                       ],
                     ),
