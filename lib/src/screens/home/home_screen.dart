@@ -6,6 +6,7 @@ import '../../providers/auth_provider.dart';
 import '../../providers/notification_provider.dart';
 import '../../providers/direct_message_provider.dart';
 import '../../utils/animations.dart';
+import '../../models/avatar_frames.dart';
 import '../../widgets/avatar_picker.dart';
 import '../puzzle/puzzle_screen.dart';
 import '../settings/settings_screen.dart';
@@ -328,6 +329,7 @@ class _UserStatusSection extends StatelessWidget {
                         ),
                         child: AvatarEmoji(
                           avatarId: user.avatarId,
+                          frame: resolveDisplayedFrame(user),
                           radius: 12,
                         ),
                       ),

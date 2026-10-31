@@ -1,4 +1,5 @@
 import 'dart:async' show unawaited;
+import '../models/avatar_frames.dart';
 import 'dart:math' show Random;
 import 'package:flutter/foundation.dart' show debugPrint;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -483,6 +484,8 @@ class CpuGameNotifier extends StateNotifier<CpuGameState> {
         actualScore,
       );
       final ratingDelta = newRating - currentRating;
+      // Persist peak-rating avatar frames the moment they're reached.
+      final earnedFrames = peakFrameIdsForStats(rating: newRating);
 
       await userRef.update({
         'rating': FieldValue.increment(ratingDelta),
@@ -490,6 +493,8 @@ class CpuGameNotifier extends StateNotifier<CpuGameState> {
         if (playerResult == 'win') 'wins': FieldValue.increment(1),
         if (playerResult == 'loss') 'losses': FieldValue.increment(1),
         if (playerResult == 'draw') 'draws': FieldValue.increment(1),
+        if (earnedFrames.isNotEmpty)
+          'unlockedFrameIds': FieldValue.arrayUnion(earnedFrames),
       });
 
       // AnalyticsDashboardService.getPlayerDashboard caches its result

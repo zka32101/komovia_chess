@@ -1,4 +1,5 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
+import '../models/avatar_frames.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../models/puzzle.dart';
@@ -160,6 +161,11 @@ class PuzzleService {
           update['puzzlesSolved'] = FieldValue.increment(1);
           update['dailyStreak'] = newStreak;
           update['lastPuzzleSolvedDate'] = todayKey;
+          // Persist the streak avatar frame once reached (peak unlock).
+          final earnedFrames = peakFrameIdsForStats(puzzleStreak: newStreak);
+          if (earnedFrames.isNotEmpty) {
+            update['unlockedFrameIds'] = FieldValue.arrayUnion(earnedFrames);
+          }
         }
 
         transaction.update(userRef, update);

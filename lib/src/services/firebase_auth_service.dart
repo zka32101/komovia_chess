@@ -535,6 +535,11 @@ class FirebaseAuthService {
     // Cosmetic skin selections (see UserModel.boardSkinId/pieceSkinId).
     String? boardSkinId,
     String? pieceSkinId,
+    // Avatar frame (kAvatarFrames). [clearFrameId] selects "no frame".
+    String? frameId,
+    bool clearFrameId = false,
+    // Point-in-time frame unlocks to persist (arrayUnion, never removed).
+    List<String> addUnlockedFrameIds = const [],
   }) async {
     try {
       final user = _auth.currentUser;
@@ -559,6 +564,12 @@ class FirebaseAuthService {
         if (avatarId != null) 'avatarId': avatarId,
         if (boardSkinId != null) 'boardSkinId': boardSkinId,
         if (pieceSkinId != null) 'pieceSkinId': pieceSkinId,
+        if (clearFrameId)
+          'frameId': FieldValue.delete()
+        else if (frameId != null)
+          'frameId': frameId,
+        if (addUnlockedFrameIds.isNotEmpty)
+          'unlockedFrameIds': FieldValue.arrayUnion(addUnlockedFrameIds),
       });
 
       _logger.i('User profile updated');
