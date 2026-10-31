@@ -880,5 +880,14 @@
   "cpuNoMoves": "No moves yet",
   "cpuResignTitle": "Resign Game",
   "cpuResignBody": "Are you sure you want to resign? You will lose this game.",
-  "cpuCancel": "Cancel"
+  "cpuCancel": "Cancel",
+  "boardWhiteToMove": "White to move",
+  "boardBlackToMove": "Black to move",
+  "boardUndo": "Undo",
+  "boardOfferDraw": "Offer draw",
+  "boardPromoteTitle": "Promote pawn",
+  "boardQueen": "Queen",
+  "boardRook": "Rook",
+  "boardBishop": "Bishop",
+  "boardKnight": "Knight"
 }

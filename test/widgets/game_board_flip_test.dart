@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:chess/chess.dart' as chess_lib;
+import 'package:komovia_chess/l10n/app_localizations.dart';
 import 'package:komovia_chess/src/widgets/game_board.dart';
 import 'package:komovia_chess/src/widgets/piece_glyph.dart';
 
@@ -23,6 +24,8 @@ void main() {
     final game = chess_lib.Chess.fromFEN(cornersFen);
     await tester.pumpWidget(
       MaterialApp(
+        localizationsDelegates: AppLocalizations.localizationsDelegates,
+        supportedLocales: AppLocalizations.supportedLocales,
         home: Scaffold(
           body: GameBoard(gameState: game, showMaterial: false, flipped: flipped),
         ),
@@ -80,6 +83,8 @@ void main() {
 
       await tester.pumpWidget(
         MaterialApp(
+        localizationsDelegates: AppLocalizations.localizationsDelegates,
+        supportedLocales: AppLocalizations.supportedLocales,
           home: Scaffold(
             body: GameBoard(
               gameState: game,

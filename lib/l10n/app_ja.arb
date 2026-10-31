@@ -508,5 +508,14 @@
   "cpuNoMoves": "まだ指していません",
   "cpuResignTitle": "投了",
   "cpuResignBody": "投了しますか?この対局は負けになります。",
-  "cpuCancel": "キャンセル"
+  "cpuCancel": "キャンセル",
+  "boardWhiteToMove": "白の番です",
+  "boardBlackToMove": "黒の番です",
+  "boardUndo": "一手戻す",
+  "boardOfferDraw": "引き分けを申し込む",
+  "boardPromoteTitle": "ポーンの昇格",
+  "boardQueen": "クイーン",
+  "boardRook": "ルーク",
+  "boardBishop": "ビショップ",
+  "boardKnight": "ナイト"
 }
