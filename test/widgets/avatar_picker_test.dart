@@ -43,7 +43,7 @@ void main() {
 
   group('showAvatarPickerSheet', () {
     testWidgets('shows every preset from kAvatarIcons', (tester) async {
-      late Future<String?> result;
+      late Future<AvatarPickerResult?> result;
       await tester.pumpWidget(
         wrap(
           Builder(
@@ -70,7 +70,7 @@ void main() {
 
     testWidgets('tapping a preset then Save resolves with its id',
         (tester) async {
-      String? selected;
+      AvatarPickerResult? selected;
       await tester.pumpWidget(
         wrap(
           Builder(
@@ -99,12 +99,13 @@ void main() {
       await tester.tap(find.text('Save'));
       await tester.pumpAndSettle();
 
-      expect(selected, 'owl');
+      expect(selected?.avatarId, 'owl');
+      expect(selected?.frameId, isNull);
     });
 
     testWidgets('dismissing without a selection resolves with null',
         (tester) async {
-      String? selected = 'not-yet-resolved';
+      Object? selected = 'not-yet-resolved';
       await tester.pumpWidget(
         wrap(
           Builder(

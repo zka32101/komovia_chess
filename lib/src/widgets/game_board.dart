@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:chess/chess.dart' as chess_lib;
 import '../../l10n/app_localizations.dart';
 import '../models/board_theme.dart';
+import '../models/piece_skin.dart';
 import '../services/attack_map_service.dart';
 import 'captured_pieces.dart';
 import 'piece_glyph.dart';
@@ -19,6 +20,7 @@ class GameBoard extends StatefulWidget {
     this.showMaterial = true,
     this.isPlayerTurn = true,
     this.theme = BoardThemeCatalog.classic,
+    this.pieceSkin = PieceSkinCatalog.standard,
     this.showCoordinates = true,
     this.premoveColor,
     this.onPremove,
@@ -35,6 +37,9 @@ class GameBoard extends StatefulWidget {
   final bool showMaterial;
   final bool isPlayerTurn;
   final BoardTheme theme;
+
+  /// Piece-set skin applied to every [PieceGlyph] on this board.
+  final PieceSkin pieceSkin;
   final bool showCoordinates;
 
   /// When true, piece glyphs are not drawn on the board at all - the
@@ -114,11 +119,11 @@ class _GameBoardState extends State<GameBoard> {
                   ? l10n.boardWhiteToMove
                   : l10n.boardBlackToMove,
               style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                    fontWeight: FontWeight.bold,
-                    color: widget.gameState.turn == chess_lib.Color.WHITE
-                        ? Colors.grey[300]
-                        : Colors.grey[700],
-                  ),
+                fontWeight: FontWeight.bold,
+                color: widget.gameState.turn == chess_lib.Color.WHITE
+                    ? Colors.grey[300]
+                    : Colors.grey[700],
+              ),
             ),
           ),
 
@@ -140,8 +145,9 @@ class _GameBoardState extends State<GameBoard> {
                 children: [
                   if (widget.onUndo != null)
                     ElevatedButton.icon(
-                      onPressed:
-                          widget.moveHistory.isEmpty ? null : widget.onUndo,
+                      onPressed: widget.moveHistory.isEmpty
+                          ? null
+                          : widget.onUndo,
                       icon: const Icon(Icons.undo),
                       label: Text(l10n.boardUndo),
                     ),
@@ -172,7 +178,9 @@ class _GameBoardState extends State<GameBoard> {
     final isPremoveMode = !widget.isPlayerTurn && widget.premoveColor != null;
     if (!widget.isPlayerTurn && !isPremoveMode) return;
 
-    final activeColor = isPremoveMode ? widget.premoveColor! : widget.gameState.turn;
+    final activeColor = isPremoveMode
+        ? widget.premoveColor!
+        : widget.gameState.turn;
     List<String> movesForSquare(String sq) => isPremoveMode
         ? _getPremoveDestinations(sq, activeColor)
         : _getLegalMovesForSquare(sq);
@@ -347,67 +355,85 @@ class _GameBoardState extends State<GameBoard> {
   }
 
   Widget _buildBoard() => AspectRatio(
-        aspectRatio: 1,
-        child: LayoutBuilder(
-          builder: (context, constraints) {
-            final boardSize = constraints.maxWidth;
-            final squareSize = boardSize / 8;
+    aspectRatio: 1,
+    child: LayoutBuilder(
+      builder: (context, constraints) {
+        final boardSize = constraints.maxWidth;
+        final squareSize = boardSize / 8;
 
-            return GestureDetector(
-              onTapDown: (details) {
-                final file = (details.localPosition.dx / squareSize).floor();
-                final rank = (details.localPosition.dy / squareSize).floor();
-                if (file < 0 || file > 7 || rank < 0 || rank > 7) return;
-                _handleSquareTap(_squareFromIndices(rank, file));
-              },
-              child: Container(
-                decoration: BoxDecoration(
-                  border: Border.all(color: Colors.grey.shade400, width: 2),
-                  borderRadius: BorderRadius.circular(8),
+        return GestureDetector(
+          onTapDown: (details) {
+            final file = (details.localPosition.dx / squareSize).floor();
+            final rank = (details.localPosition.dy / squareSize).floor();
+            if (file < 0 || file > 7 || rank < 0 || rank > 7) return;
+            _handleSquareTap(_squareFromIndices(rank, file));
+          },
+          child: Container(
+            decoration: BoxDecoration(
+              border: Border.all(color: Colors.grey.shade400, width: 2),
+              borderRadius: BorderRadius.circular(8),
+            ),
+            child: Stack(
+              children: [
+                CustomPaint(
+                  painter: _GameBoardPainter(
+                    size: boardSize,
+                    theme: widget.theme,
+                    selectedSquare: _selectedSquare,
+                    legalMoveSquares: _availableMoves,
+                    showCoordinates: widget.showCoordinates,
+                    flipped: widget.flipped,
+                    attackMap: widget.showAttackMap
+                        ? AttackMapService.compute(widget.gameState)
+                        : null,
+                  ),
+                  size: Size(boardSize, boardSize),
                 ),
-                child: Stack(
-                  children: [
-                    CustomPaint(
-                      painter: _GameBoardPainter(
-                        size: boardSize,
-                        theme: widget.theme,
-                        selectedSquare: _selectedSquare,
-                        legalMoveSquares: _availableMoves,
-                        showCoordinates: widget.showCoordinates,
-                        flipped: widget.flipped,
-                        attackMap: widget.showAttackMap
-                            ? AttackMapService.compute(widget.gameState)
-                            : null,
+                if (widget.theme.textureAsset case final texture?)
+                  Positioned.fill(
+                    child: IgnorePointer(
+                      child: Opacity(
+                        // Low enough that square contrast, selection
+                        // and legal-move highlights stay readable.
+                        opacity: 0.28,
+                        child: Image.asset(
+                          texture,
+                          key: const ValueKey('board-skin-texture'),
+                          repeat: ImageRepeat.repeat,
+                          scale: 2,
+                          errorBuilder: (_, __, ___) => const SizedBox.shrink(),
+                        ),
                       ),
-                      size: Size(boardSize, boardSize),
                     ),
-                    if (!widget.blindfold)
-                      for (var rank = 0; rank < 8; rank++)
-                        for (var file = 0; file < 8; file++)
-                          if (widget.gameState.get(_squareFromIndices(rank, file))
-                              case final piece?)
-                          Positioned(
-                            left: file * squareSize,
-                            top: rank * squareSize,
-                            width: squareSize,
-                            height: squareSize,
-                            child: Center(
-                              child: PieceGlyph(
-                                type: piece.type.name,
-                                isWhite: piece.color == chess_lib.Color.WHITE,
-                                fontSize: squareSize * 0.6,
-                                whiteColor: widget.theme.whitePieceColor,
-                                blackColor: widget.theme.blackPieceColor,
-                              ),
+                  ),
+                if (!widget.blindfold)
+                  for (var rank = 0; rank < 8; rank++)
+                    for (var file = 0; file < 8; file++)
+                      if (widget.gameState.get(_squareFromIndices(rank, file))
+                          case final piece?)
+                        Positioned(
+                          left: file * squareSize,
+                          top: rank * squareSize,
+                          width: squareSize,
+                          height: squareSize,
+                          child: Center(
+                            child: PieceGlyph(
+                              type: piece.type.name,
+                              isWhite: piece.color == chess_lib.Color.WHITE,
+                              fontSize: squareSize * 0.6,
+                              whiteColor: widget.theme.whitePieceColor,
+                              blackColor: widget.theme.blackPieceColor,
+                              skin: widget.pieceSkin,
                             ),
                           ),
-                  ],
-                ),
-              ),
-            );
-          },
-        ),
-      );
+                        ),
+              ],
+            ),
+          ),
+        );
+      },
+    ),
+  );
 
   /// Maps a (rank, file) grid position - rank 0 = top row, file 0 = left
   /// column, as iterated everywhere in this widget (rendering, tap
@@ -488,8 +514,9 @@ class _GameBoardPainter extends CustomPainter {
         final square = _squareFromIndices(rank, file);
         final isLight = (rank + file) % 2 == 0;
 
-        var baseColor =
-            isLight ? theme.lightSquareColor : theme.darkSquareColor;
+        var baseColor = isLight
+            ? theme.lightSquareColor
+            : theme.darkSquareColor;
         final attackers = attackMap?[square];
         if (attackers != null && !attackers.isEmpty) {
           // Intensity grows with how many pieces attack the square (capped
@@ -501,8 +528,8 @@ class _GameBoardPainter extends CustomPainter {
           final tint = attackers.isContested
               ? _contestedColor
               : attackers.white > 0
-                  ? _whiteAttackColor
-                  : _blackAttackColor;
+              ? _whiteAttackColor
+              : _blackAttackColor;
           baseColor = Color.lerp(baseColor, tint, intensity)!;
         }
 
@@ -652,10 +679,7 @@ class _GameBoardPainter extends CustomPainter {
         ),
       );
       textPainter.layout();
-      textPainter.paint(
-        canvas,
-        Offset(padding, i * squareSize + padding),
-      );
+      textPainter.paint(canvas, Offset(padding, i * squareSize + padding));
     }
   }
 

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../models/piece_skin.dart';
 
 /// A chess piece drawn from a Unicode glyph, readable on both square colors.
 ///
@@ -14,6 +15,7 @@ class PieceGlyph extends StatelessWidget {
     required this.fontSize,
     required this.whiteColor,
     required this.blackColor,
+    this.skin,
     Key? key,
   }) : super(key: key);
 
@@ -24,6 +26,10 @@ class PieceGlyph extends StatelessWidget {
   final Color whiteColor;
   final Color blackColor;
 
+  /// Optional piece-set skin. Its fills (when set) override
+  /// [whiteColor]/[blackColor]; its outline/weight replace the defaults.
+  final PieceSkin? skin;
+
   /// The solid glyphs, used for both colors (the color comes from the paint).
   static const Map<String, String> solidGlyphs = {
     'k': '♚',
@@ -31,15 +37,26 @@ class PieceGlyph extends StatelessWidget {
     'r': '♜',
     'b': '♝',
     'n': '♞',
-    'p': '♟︎', // VS15 forces the text (not emoji) presentation
+    // U+265F has an emoji presentation that Android renders as a grey picture
+    // ignoring the paint color (and VS15, U+FE0E, does not prevent it), so the
+    // pawn uses the hollow U+2659 shape, which has no emoji form. Known
+    // limitation: being hollow, the pawn's inside shows the square color
+    // instead of the piece color; drawing the pawn as a custom shape would fix
+    // that.
+    'p': '♙',
   };
 
   @override
   Widget build(BuildContext context) {
     final glyph = solidGlyphs[type] ?? '?';
-    final fill = isWhite ? whiteColor : blackColor;
-    final outline = isWhite ? const Color(0xFF1A1A1A) : const Color(0x99FFFFFF);
-    final strokeWidth = fontSize * (isWhite ? 0.09 : 0.04);
+    final s = skin ?? PieceSkinCatalog.standard;
+    final fill = isWhite
+        ? (s.whiteFill ?? whiteColor)
+        : (s.blackFill ?? blackColor);
+    final outline = isWhite ? s.whiteOutline : s.blackOutline;
+    final strokeWidth =
+        fontSize * (isWhite ? s.whiteStrokeScale : s.blackStrokeScale);
+    final weight = s.fontWeight;
 
     return Stack(
       alignment: Alignment.center,
@@ -48,7 +65,7 @@ class PieceGlyph extends StatelessWidget {
           glyph,
           style: TextStyle(
             fontSize: fontSize,
-            fontWeight: FontWeight.bold,
+            fontWeight: weight,
             foreground: Paint()
               ..style = PaintingStyle.stroke
               ..strokeWidth = strokeWidth
@@ -58,11 +75,7 @@ class PieceGlyph extends StatelessWidget {
         ),
         Text(
           glyph,
-          style: TextStyle(
-            fontSize: fontSize,
-            fontWeight: FontWeight.bold,
-            color: fill,
-          ),
+          style: TextStyle(fontSize: fontSize, fontWeight: weight, color: fill),
         ),
       ],
     );

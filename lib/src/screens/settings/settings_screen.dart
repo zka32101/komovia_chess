@@ -8,8 +8,9 @@ import '../../providers/user_preferences_provider.dart';
 import '../../utils/komovia_cross_promo_roster.dart';
 import 'sound_preferences_screen.dart';
 import 'legal_documents_screen.dart';
-import 'board_themes_screen.dart';
+import 'cosmetic_shop_screen.dart';
 import '../../providers/board_theme_provider.dart';
+import '../../models/avatar_frames.dart';
 import '../../widgets/avatar_picker.dart';
 import '../../../l10n/app_localizations.dart';
 
@@ -185,6 +186,7 @@ class SettingsScreen extends ConsumerWidget {
                         return ListTile(
                           leading: AvatarEmoji(
                             avatarId: currentUser.value?.avatarId,
+                            frame: resolveDisplayedFrame(currentUser.value),
                             radius: 18,
                           ),
                           title: Text(l10n.settingsAvatarTitle),
@@ -646,7 +648,7 @@ class SettingsScreen extends ConsumerWidget {
         Navigator.push(
           context,
           MaterialPageRoute(
-            builder: (context) => const BoardThemesScreen(),
+            builder: (context) => const CosmeticShopScreen(),
           ),
         );
       },
@@ -677,13 +679,23 @@ class SettingsScreen extends ConsumerWidget {
     WidgetRef ref,
     UserModel user,
   ) async {
-    final selectedId =
-        await showAvatarPickerSheet(context, currentAvatarId: user.avatarId);
-    if (selectedId == null || selectedId == user.avatarId) return;
+    final result = await showAvatarPickerSheet(
+      context,
+      currentAvatarId: user.avatarId,
+      user: user,
+    );
+    if (result == null) return;
+    final newPeaks = newlyEarnedPeakFrameIds(user);
+    final avatarChanged = result.avatarId != user.avatarId;
+    final frameChanged = result.frameId != resolveDisplayedFrame(user)?.id;
+    if (!avatarChanged && !frameChanged && newPeaks.isEmpty) return;
 
-    await ref
-        .read(authStateNotifierProvider.notifier)
-        .updateUserProfile(avatarId: selectedId);
+    await ref.read(authStateNotifierProvider.notifier).updateUserProfile(
+          avatarId: avatarChanged ? result.avatarId : null,
+          frameId: frameChanged ? result.frameId : null,
+          clearFrameId: frameChanged && result.frameId == null,
+          addUnlockedFrameIds: newPeaks,
+        );
     ref.invalidate(currentUserProvider);
   }
 

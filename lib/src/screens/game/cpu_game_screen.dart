@@ -12,6 +12,7 @@ import '../../widgets/game_board.dart';
 import '../../widgets/game_result.dart';
 import '../../widgets/move_history.dart';
 import '../../widgets/game/one_tap_weakness_button.dart';
+import '../../providers/cosmetic_provider.dart';
 import '../../providers/cpu_game_provider.dart';
 import '../../providers/board_theme_provider.dart';
 import '../../providers/user_preferences_provider.dart';
@@ -126,6 +127,7 @@ class _CPUGameScreenState extends ConsumerState<CPUGameScreen> {
             GameBoard(
               gameState: gameState.gameState,
               theme: boardTheme,
+              pieceSkin: ref.watch(selectedPieceSkinProvider),
               showCoordinates: showCoordinates,
               flipped: !gameState.playerIsWhite,
               blindfold: ref.watch(blindfoldModeProvider),
@@ -185,6 +187,7 @@ class _CPUGameScreenState extends ConsumerState<CPUGameScreen> {
                   child: GameBoard(
                     gameState: gameState.gameState,
                     theme: boardTheme,
+                    pieceSkin: ref.watch(selectedPieceSkinProvider),
                     showCoordinates: showCoordinates,
                     flipped: !gameState.playerIsWhite,
                     blindfold: ref.watch(blindfoldModeProvider),
