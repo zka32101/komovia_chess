@@ -37,18 +37,14 @@ class PieceGlyph extends StatelessWidget {
     'r': '♜',
     'b': '♝',
     'n': '♞',
-    // U+265F has an emoji presentation that Android renders as a grey picture
-    // ignoring the paint color (and VS15, U+FE0E, does not prevent it), so the
-    // pawn uses the hollow U+2659 shape, which has no emoji form. Known
-    // limitation: being hollow, the pawn's inside shows the square color
-    // instead of the piece color; drawing the pawn as a custom shape would fix
-    // that.
-    'p': '♙',
+    // The pawn is not a glyph: U+265F has an emoji presentation that Android
+    // renders as a grey picture ignoring the paint color (and VS15 does not
+    // prevent it), and the hollow U+2659 shows the square color inside, so
+    // black and white pawns looked alike. It is drawn by [_PawnPainter].
   };
 
   @override
   Widget build(BuildContext context) {
-    final glyph = solidGlyphs[type] ?? '?';
     final s = skin ?? PieceSkinCatalog.standard;
     final fill = isWhite
         ? (s.whiteFill ?? whiteColor)
@@ -58,6 +54,18 @@ class PieceGlyph extends StatelessWidget {
         fontSize * (isWhite ? s.whiteStrokeScale : s.blackStrokeScale);
     final weight = s.fontWeight;
 
+    if (type == 'p') {
+      return CustomPaint(
+        size: Size.square(fontSize),
+        painter: _PawnPainter(
+          fill: fill,
+          outline: outline,
+          strokeWidth: strokeWidth,
+        ),
+      );
+    }
+
+    final glyph = solidGlyphs[type] ?? '?';
     return Stack(
       alignment: Alignment.center,
       children: [
@@ -80,4 +88,65 @@ class PieceGlyph extends StatelessWidget {
       ],
     );
   }
+}
+
+/// A solid pawn silhouette (head, collar, body, base) in a unit square, so it
+/// takes the piece color like the other solid glyphs do.
+class _PawnPainter extends CustomPainter {
+  const _PawnPainter({
+    required this.fill,
+    required this.outline,
+    required this.strokeWidth,
+  });
+
+  final Color fill;
+  final Color outline;
+  final double strokeWidth;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final w = size.width;
+    final h = size.height;
+    Offset at(double x, double y) => Offset(x * w, y * h);
+
+    final head = Path()
+      ..addOval(Rect.fromCircle(center: at(0.5, 0.30), radius: 0.12 * w));
+    final collar = Path()
+      ..addRRect(RRect.fromRectAndRadius(
+        Rect.fromPoints(at(0.35, 0.41), at(0.65, 0.47)),
+        Radius.circular(0.03 * w),
+      ));
+    final body = Path()
+      ..moveTo(at(0.41, 0.46).dx, at(0.41, 0.46).dy)
+      ..lineTo(at(0.59, 0.46).dx, at(0.59, 0.46).dy)
+      ..lineTo(at(0.68, 0.72).dx, at(0.68, 0.72).dy)
+      ..lineTo(at(0.32, 0.72).dx, at(0.32, 0.72).dy)
+      ..close();
+    final base = Path()
+      ..addRRect(RRect.fromRectAndRadius(
+        Rect.fromPoints(at(0.26, 0.72), at(0.74, 0.82)),
+        Radius.circular(0.04 * w),
+      ));
+
+    final silhouette = [head, collar, body, base].reduce(
+      (a, b) => Path.combine(PathOperation.union, a, b),
+    );
+
+    canvas
+      ..drawPath(
+        silhouette,
+        Paint()
+          ..style = PaintingStyle.stroke
+          ..strokeWidth = strokeWidth
+          ..strokeJoin = StrokeJoin.round
+          ..color = outline,
+      )
+      ..drawPath(silhouette, Paint()..color = fill);
+  }
+
+  @override
+  bool shouldRepaint(_PawnPainter old) =>
+      old.fill != fill ||
+      old.outline != outline ||
+      old.strokeWidth != strokeWidth;
 }

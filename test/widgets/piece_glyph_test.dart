@@ -130,4 +130,21 @@ void main() {
       expect(c.distinct, greaterThan(200), reason: '駒 $type');
     }
   });
+
+  testWidgets('ポーンは中身が駒の色で塗られ、白黒の区別がつく(空洞ではない)', (tester) async {
+    // 駒は 120 の升の中央に 72 四方で描かれる。胴体の中心はその少し下。
+    double bodyLuma(({Uint8List rgba, int width, int height}) img) {
+      final x = (img.width * 0.5).round();
+      final y = (img.height * 0.56).round();
+      return _luma(img.rgba, (y * img.width + x) * 4);
+    }
+
+    final white =
+        await _render(tester, isWhite: true, square: light, type: 'p');
+    final black =
+        await _render(tester, isWhite: false, square: light, type: 'p');
+
+    expect(bodyLuma(white), greaterThan(220));
+    expect(bodyLuma(black), lessThan(80));
+  });
 }
