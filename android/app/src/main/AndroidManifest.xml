@@ -3,7 +3,7 @@
          Analytics) and other network calls in release builds. -->
     <uses-permission android:name="android.permission.INTERNET"/>
     <application
-        android:label="Chess Tactics Master"
+        android:label="チェス紀行"
         android:name="${applicationName}"
         android:icon="@mipmap/ic_launcher">
         <activity

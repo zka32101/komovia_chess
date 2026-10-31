@@ -16,7 +16,7 @@ class ChessTacticsMasterApp extends ConsumerWidget {
     final themeMode = ref.watch(themeModeProvider);
 
     return MaterialApp(
-      title: 'Chess Tactics Master',
+      title: 'チェス紀行',
       theme: ChessTheme.getLightTheme(),
       darkTheme: ChessTheme.getDarkTheme(),
       themeMode: themeMode,
