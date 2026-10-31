@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:komovia_core/komovia_core.dart' hide GameResult;
+import '../../../l10n/app_localizations.dart';
 import '../../models/active_cpu_game.dart';
 import '../../models/cpu_game_state.dart';
 import '../../models/online_game.dart';
@@ -16,6 +17,7 @@ import '../../providers/board_theme_provider.dart';
 import '../../providers/user_preferences_provider.dart';
 import '../../providers/auth_provider.dart';
 import '../online/game_review_screen.dart';
+import 'cpu_game_selection_screen.dart' show difficultyName;
 
 class CPUGameScreen extends ConsumerStatefulWidget {
   const CPUGameScreen({
@@ -77,7 +79,7 @@ class _CPUGameScreenState extends ConsumerState<CPUGameScreen> {
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Play vs CPU'),
+        title: Text(AppLocalizations.of(context).cpuGameTitle),
         centerTitle: true,
         elevation: 0,
       ),
@@ -220,7 +222,7 @@ class _CPUGameScreenState extends ConsumerState<CPUGameScreen> {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
-                    'Move History',
+                    AppLocalizations.of(context).cpuMoveHistory,
                     style: Theme.of(context).textTheme.titleMedium,
                   ),
                   const SizedBox(height: 12),
@@ -228,7 +230,7 @@ class _CPUGameScreenState extends ConsumerState<CPUGameScreen> {
                     child: gameState.moves.isEmpty
                         ? Center(
                             child: Text(
-                              'No moves yet',
+                              AppLocalizations.of(context).cpuNoMoves,
                               style: TextStyle(color: Colors.grey[600]),
                             ),
                           )
@@ -245,7 +247,9 @@ class _CPUGameScreenState extends ConsumerState<CPUGameScreen> {
     );
   }
 
-  Widget _buildStatusBar(CpuGameState gameState) => Container(
+  Widget _buildStatusBar(CpuGameState gameState) {
+    final l10n = AppLocalizations.of(context);
+    return Container(
         padding: const EdgeInsets.all(12),
         decoration: BoxDecoration(
           color: Theme.of(context).primaryColor.withOpacity(0.1),
@@ -258,11 +262,11 @@ class _CPUGameScreenState extends ConsumerState<CPUGameScreen> {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  gameState.playerIsWhite ? 'You (White)' : 'You (Black)',
+                  gameState.playerIsWhite ? l10n.cpuYouWhite : l10n.cpuYouBlack,
                   style: Theme.of(context).textTheme.labelMedium,
                 ),
                 Text(
-                  gameState.isPlayerTurn ? 'Your Turn' : 'Thinking...',
+                  gameState.isPlayerTurn ? l10n.cpuYourTurn : l10n.cpuThinking,
                   style: Theme.of(context).textTheme.bodySmall,
                 ),
               ],
@@ -275,18 +279,18 @@ class _CPUGameScreenState extends ConsumerState<CPUGameScreen> {
               )
             else
               Text(
-                'Difficulty: ${widget.difficulty.displayName}',
+                l10n.cpuDifficultyLabel(difficultyName(l10n, widget.difficulty)),
                 style: Theme.of(context).textTheme.labelSmall,
               ),
             Column(
               crossAxisAlignment: CrossAxisAlignment.end,
               children: [
                 Text(
-                  gameState.playerIsWhite ? 'CPU (Black)' : 'CPU (White)',
+                  gameState.playerIsWhite ? l10n.cpuCpuBlack : l10n.cpuCpuWhite,
                   style: Theme.of(context).textTheme.labelMedium,
                 ),
                 Text(
-                  gameState.isPlayerTurn ? 'Idle' : 'Playing...',
+                  gameState.isPlayerTurn ? l10n.cpuIdle : l10n.cpuPlaying,
                   style: Theme.of(context).textTheme.bodySmall,
                 ),
               ],
@@ -294,37 +298,41 @@ class _CPUGameScreenState extends ConsumerState<CPUGameScreen> {
           ],
         ),
       );
+  }
 
-  Widget _buildGameInfoPanel(CpuGameState gameState) => Column(
+  Widget _buildGameInfoPanel(CpuGameState gameState) {
+    final l10n = AppLocalizations.of(context);
+    return Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(
-            'Game Info',
+            l10n.cpuGameInfo,
             style: Theme.of(context).textTheme.titleSmall,
           ),
           const SizedBox(height: 12),
           _buildInfoRow(
-            'Moves',
+            l10n.cpuMoves,
             (gameState.moves.length / 2).ceil().toString(),
           ),
           _buildInfoRow(
-            'Duration',
+            l10n.cpuDuration,
             _formatDuration(gameState.gameDuration),
           ),
           _buildInfoRow(
-            'Difficulty',
-            widget.difficulty.displayName,
+            l10n.cpuDifficulty,
+            difficultyName(l10n, widget.difficulty),
           ),
           const SizedBox(height: 16),
           SizedBox(
             width: double.infinity,
             child: FilledButton(
               onPressed: _showResignDialog,
-              child: const Text('Resign'),
+              child: Text(l10n.cpuResign),
             ),
           ),
         ],
-      );
+    );
+  }
 
   Widget _buildInfoRow(String label, String value) => Padding(
         padding: const EdgeInsets.symmetric(vertical: 4),
@@ -516,20 +524,19 @@ class _CPUGameScreenState extends ConsumerState<CPUGameScreen> {
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text('Resign Game'),
-        content: const Text(
-            'Are you sure you want to resign? You will lose this game.'),
+        title: Text(AppLocalizations.of(context).cpuResignTitle),
+        content: Text(AppLocalizations.of(context).cpuResignBody),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context),
-            child: const Text('Cancel'),
+            child: Text(AppLocalizations.of(context).cpuCancel),
           ),
           FilledButton(
             onPressed: () {
               ref.read(cpuGameProvider.notifier).resign();
               Navigator.pop(context);
             },
-            child: const Text('Resign'),
+            child: Text(AppLocalizations.of(context).cpuResign),
           ),
         ],
       ),
