@@ -6,7 +6,7 @@
   "homeLeaderboardTooltip": "Leaderboard",
   "homeWatchLiveGamesTooltip": "Watch Live Games",
   "homePremiumTooltip": "Premium",
-  "homeAppTitle": "♟️ Chess Tactics Master",
+  "homeAppTitle": "♟️ チェス紀行",
   "homeErrorTitle": "Error",
   "homeErrorMessage": "Error: {error}",
   "@homeErrorMessage": {
@@ -44,7 +44,7 @@
   "authBackToLoginButton": "Back to Login",
 
   "loginTitle": "Sign In",
-  "loginAppTitle": "♟️ Chess Tactics Master",
+  "loginAppTitle": "♟️ チェス紀行",
   "loginAppSubtitle": "Learn chess through tactics",
   "loginEmailLabel": "Email",
   "loginEmailHint": "your@email.com",
@@ -77,7 +77,7 @@
   },
 
   "registerTitle": "Create Account",
-  "registerHeading": "Join Chess Tactics Master",
+  "registerHeading": "Join チェス紀行",
   "registerSubtitle": "Start your chess learning journey",
   "registerNameLabel": "Full Name",
   "registerNameHint": "Enter your name",

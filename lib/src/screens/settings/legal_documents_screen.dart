@@ -54,7 +54,7 @@ class LegalDocumentsScreen extends StatelessWidget {
           _buildSection(
             context,
             '1. Introduction',
-            'Chess Tactics Master ("we", "us", or "our") operates the Chess Tactics Master app. '
+            'チェス紀行 ("we", "us", or "our") operates the チェス紀行 app. '
                 'This page informs you of our policies regarding the collection, use, and disclosure of personal data when you use our app.',
           ),
           _buildSection(
@@ -104,13 +104,13 @@ class LegalDocumentsScreen extends StatelessWidget {
           _buildSection(
             context,
             '1. Acceptance of Terms',
-            'By accessing and using the Chess Tactics Master app, you accept and agree to be bound by the terms '
+            'By accessing and using the チェス紀行 app, you accept and agree to be bound by the terms '
                 'and provision of this agreement.',
           ),
           _buildSection(
             context,
             '2. Use License',
-            'Permission is granted to temporarily download one copy of the materials (information or software) on Chess Tactics Master for personal, '
+            'Permission is granted to temporarily download one copy of the materials (information or software) on チェス紀行 for personal, '
                 'non-commercial transitory viewing only. This is the grant of a license, not a transfer of title, and under this license you may not:\n\n'
                 '• Modify or copy the materials\n'
                 '• Use the materials for any commercial purpose or for any public display\n'
@@ -121,40 +121,40 @@ class LegalDocumentsScreen extends StatelessWidget {
           _buildSection(
             context,
             '3. Disclaimer',
-            'The materials on Chess Tactics Master are provided on an "as is" basis. Chess Tactics Master makes no warranties, expressed or implied, '
+            'The materials on チェス紀行 are provided on an "as is" basis. チェス紀行 makes no warranties, expressed or implied, '
                 'and hereby disclaims and negates all other warranties including, without limitation, implied warranties or conditions of merchantability, '
                 'fitness for a particular purpose, or non-infringement of intellectual property or other violation of rights.',
           ),
           _buildSection(
             context,
             '4. Limitations',
-            'In no event shall Chess Tactics Master or its suppliers be liable for any damages (including, without limitation, damages for loss of data '
-                'or profit, or due to business interruption) arising out of the use or inability to use the materials on the Chess Tactics Master app, '
+            'In no event shall チェス紀行 or its suppliers be liable for any damages (including, without limitation, damages for loss of data '
+                'or profit, or due to business interruption) arising out of the use or inability to use the materials on the チェス紀行 app, '
                 'even if we or our authorized representative has been notified orally or in writing of the possibility of such damage.',
           ),
           _buildSection(
             context,
             '5. Accuracy of Materials',
-            'The materials appearing on Chess Tactics Master could include technical, typographical, or photographic errors. '
-                'Chess Tactics Master does not warrant that any of the materials on its app are accurate, complete, or current. '
-                'Chess Tactics Master may make changes to the materials contained on its app at any time without notice.',
+            'The materials appearing on チェス紀行 could include technical, typographical, or photographic errors. '
+                'チェス紀行 does not warrant that any of the materials on its app are accurate, complete, or current. '
+                'チェス紀行 may make changes to the materials contained on its app at any time without notice.',
           ),
           _buildSection(
             context,
             '6. Links',
-            'Chess Tactics Master has not reviewed all of the sites linked to its app and is not responsible for the contents of any such linked site. '
-                'The inclusion of any link does not imply endorsement by Chess Tactics Master of the site. Use of any such linked website is at the user\'s own risk.',
+            'チェス紀行 has not reviewed all of the sites linked to its app and is not responsible for the contents of any such linked site. '
+                'The inclusion of any link does not imply endorsement by チェス紀行 of the site. Use of any such linked website is at the user\'s own risk.',
           ),
           _buildSection(
             context,
             '7. Modifications',
-            'Chess Tactics Master may revise these terms of service for its app at any time without notice. '
+            'チェス紀行 may revise these terms of service for its app at any time without notice. '
                 'By using this app, you are agreeing to be bound by the then current version of these terms of service.',
           ),
           _buildSection(
             context,
             '8. Governing Law',
-            'These terms and conditions are governed by and construed in accordance with the laws of the jurisdiction in which Chess Tactics Master operates, '
+            'These terms and conditions are governed by and construed in accordance with the laws of the jurisdiction in which チェス紀行 operates, '
                 'and you irrevocably submit to the exclusive jurisdiction of the courts in that location.',
           ),
         ],
