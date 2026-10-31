@@ -35,3 +35,7 @@ The source repo's root and `docs/` directory contained a large number of fabrica
 ## Firestore / Cloud Functions
 
 `firestore.rules` / `firestore.indexes.json` and `functions/src/*.js` (rating system, matchmaking, game validation, timeout handling) were carried over from the source repo as-is; not yet re-audited against the Komovia conventions used by sibling apps.
+
+## Release signing
+
+`android/app/build.gradle` previously signed release builds with the debug key (a `flutter create` placeholder), meaning a real release build could never actually be uploaded to the Play Store. A real release keystore has been generated and handed to the project owner directly (not committed — keystores and their passwords must never go in git). `android/app/build.gradle` now loads `android/key.properties` (gitignored, already excluded by the stock `android/.gitignore`) if present and signs release builds with it; see `android/key.properties.example` for the expected shape. Without `key.properties` present, a release build still works locally (falls back to the debug key with a build warning) but is not suitable for a store upload.
