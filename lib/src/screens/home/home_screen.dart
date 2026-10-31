@@ -283,10 +283,8 @@ class _UserStatusSection extends StatelessWidget {
           gradient: LinearGradient(
             begin: Alignment.topLeft,
             end: Alignment.bottomRight,
-            colors: [
-              Theme.of(context).primaryColor,
-              Theme.of(context).primaryColor.withOpacity(0.7),
-            ],
+            // 白い文字が読めるよう、テーマの明るい青ではなく濃い青に固定する。
+            colors: const [Color(0xFF1F5A9E), Color(0xFF123A66)],
           ),
         ),
         child: Column(
