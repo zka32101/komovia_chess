@@ -132,7 +132,17 @@ class DirectMessageService {
           'lastMessage': trimmed,
           'lastMessageAt': Timestamp.fromDate(now),
           'lastSenderUid': fromUid,
-          'unreadCount.$toUid': FieldValue.increment(1),
+          // A nested map, NOT the 'unreadCount.<toUid>' dot-path key this
+          // used to be: dot notation is only interpreted as a field path by
+          // update(), while set() (merge or not) stores it as a literal
+          // top-level field literally named "unreadCount.<uid>". The real
+          // unreadCount map was therefore never incremented (the unread
+          // badge never moved), and firestore.rules' send branch - which
+          // requires the recipient's unreadCount entry to rise by exactly 1
+          // and only lists 'unreadCount' among the changeable keys -
+          // rejected every reply in an already-existing thread. A merge
+          // set deep-merges nested maps, so only toUid's entry is touched.
+          'unreadCount': {toUid: FieldValue.increment(1)},
         },
         SetOptions(merge: true),
       );
