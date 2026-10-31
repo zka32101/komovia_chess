@@ -9,6 +9,9 @@ import '../../screens/learn/opening_course_screen.dart';
 import '../../screens/learn/strategy_screen.dart';
 import '../../screens/learn/tactics_screen.dart';
 import '../../services/chess_analysis_service.dart';
+import '../../providers/premium_provider.dart';
+import '../../services/ai_analysis_gate.dart';
+import '../premium/ai_analysis_upsell.dart';
 
 /// One-tap "analyze this game, then take me straight to the lesson for my
 /// weakest area" button, for the result screen right after a game ends.
@@ -70,6 +73,11 @@ class _OneTapWeaknessButtonState extends ConsumerState<OneTapWeaknessButton> {
 
     setState(() => _isRunning = true);
     try {
+      final access = await ref.read(aiAnalysisGateProvider).tryAcquire();
+      if (access == AiAnalysisAccess.blocked) {
+        if (mounted) await showAiAnalysisUpsellDialog(context);
+        return;
+      }
       final analysis = await ChessAnalysisService().analyzeGame(
         widget.moves,
         startingFen: widget.startingFen ?? standardStartingFen,

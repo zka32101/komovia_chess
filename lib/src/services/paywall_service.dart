@@ -34,6 +34,15 @@ class PaywallService {
     'premium': 'chess_premium_monthly',
   };
 
+  /// Product id for the AI分析プラン (AI Analysis Plan, ~¥990/month) - a
+  /// separately purchasable subscription, independent of the 'pro'/
+  /// 'premium' tiers above (a user may hold either, both, or neither).
+  /// Deliberately NOT part of [_productIdsByTier]: buying it must never
+  /// overwrite `subscriptionTier`. Its entitlement lives in its own
+  /// `aiAnalysisPlanExpiry` field on users/{uid}. Monthly only for now.
+  static const String aiAnalysisPlanMonthlyProductId =
+      'chess_ai_analysis_monthly';
+
   StreamSubscription<List<PurchaseDetails>>? _subscription;
   bool _isAvailable = false;
   bool _initialized = false;
@@ -86,6 +95,9 @@ class PaywallService {
             .key;
         if (tier.isNotEmpty) {
           await _persistEntitlement(tier);
+        } else if (purchaseDetails.productID ==
+            aiAnalysisPlanMonthlyProductId) {
+          await _persistAiAnalysisPlan();
         } else if (ChessCosmeticCatalog.purchasableProductIds.contains(
           purchaseDetails.productID,
         )) {
@@ -130,6 +142,28 @@ class PaywallService {
       'subscriptionExpiry': Timestamp.fromDate(expiry),
       'isLifetime': false,
     }, SetOptions(merge: true));
+  }
+
+  /// Records the AI分析プラン entitlement in its own field so it never
+  /// clobbers the separate pro/premium `subscriptionTier`. Same documented
+  /// client-trust gap as [_persistEntitlement].
+  Future<void> _persistAiAnalysisPlan() async {
+    final user = _auth.currentUser;
+    if (user == null) return;
+    final expiry = DateTime.now().add(const Duration(days: 30));
+    await _firestore.collection('users').doc(user.uid).set({
+      'aiAnalysisPlanExpiry': Timestamp.fromDate(expiry),
+    }, SetOptions(merge: true));
+  }
+
+  /// Buy the AI分析プラン (monthly). Same flow as [purchaseSubscription].
+  Future<void> purchaseAiAnalysisPlan() async {
+    if (!_isAvailable) {
+      throw PurchaseUnavailableException(
+        'In-app purchases are not available on this device',
+      );
+    }
+    await _buyNonConsumable(aiAnalysisPlanMonthlyProductId);
   }
 
   /// Records a one-time cosmetic skin purchase on the user's own doc.

@@ -8,6 +8,9 @@ import '../../providers/fair_play_provider.dart';
 import '../../providers/weakness_analysis_provider.dart';
 import '../../services/chess_analysis_service.dart';
 import '../../services/move_commentary_service.dart';
+import '../../providers/premium_provider.dart';
+import '../../services/ai_analysis_gate.dart';
+import '../../widgets/premium/ai_analysis_upsell.dart';
 
 /// Shows Stockfish-based per-move analysis for a finished game - see
 /// ChessAnalysisService's own doc comment for what "analysis" means here
@@ -55,6 +58,10 @@ class _GameAnalysisScreenState extends ConsumerState<GameAnalysisScreen> {
   int _total = 0;
   String? _error;
 
+  /// True when the free daily AI-analysis quota is exhausted and the user
+  /// has no AI分析プラン - the screen shows an upsell instead of analyzing.
+  bool _blocked = false;
+
   @override
   void initState() {
     super.initState();
@@ -64,6 +71,13 @@ class _GameAnalysisScreenState extends ConsumerState<GameAnalysisScreen> {
 
   Future<void> _runAnalysis() async {
     try {
+      final access = await ref.read(aiAnalysisGateProvider).tryAcquire();
+      if (access == AiAnalysisAccess.blocked) {
+        if (!mounted) return;
+        setState(() => _blocked = true);
+        await showAiAnalysisUpsellDialog(context);
+        return;
+      }
       final result = await _service.analyzeGame(
         widget.moves,
         startingFen: widget.startingFen ?? standardStartingFen,
@@ -107,7 +121,9 @@ class _GameAnalysisScreenState extends ConsumerState<GameAnalysisScreen> {
       return; // Spectator/analysis of someone else's game - nothing to record.
     }
 
-    await ref.read(weaknessAnalysisServiceProvider).recordGameAnalysis(
+    await ref
+        .read(weaknessAnalysisServiceProvider)
+        .recordGameAnalysis(
           uid: uid,
           gameId: gameId,
           analysis: result,
@@ -134,7 +150,10 @@ class _GameAnalysisScreenState extends ConsumerState<GameAnalysisScreen> {
     final whiteId = widget.whitePlayerId;
     final blackId = widget.blackPlayerId;
     if (gameId == null || whiteId == null || blackId == null) return;
-    if (whiteId == 'player' || whiteId == 'cpu' || blackId == 'player' || blackId == 'cpu') {
+    if (whiteId == 'player' ||
+        whiteId == 'cpu' ||
+        blackId == 'player' ||
+        blackId == 'cpu') {
       return;
     }
 
@@ -155,91 +174,117 @@ class _GameAnalysisScreenState extends ConsumerState<GameAnalysisScreen> {
 
   @override
   Widget build(BuildContext context) => Scaffold(
-        appBar: AppBar(title: const Text('Game Analysis')),
-        body: _error != null
-            ? Center(child: Text('Analysis failed: $_error'))
-            : _result == null
-                ? Center(
-                    child: Column(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        const CircularProgressIndicator(),
-                        const SizedBox(height: 16),
-                        Text(_total == 0
-                            ? 'Analyzing...'
-                            : 'Analyzing move $_done of $_total...'),
-                      ],
-                    ),
-                  )
-                : _buildResult(_result!),
-      );
+    appBar: AppBar(title: const Text('Game Analysis')),
+    body: _blocked
+        ? _buildBlocked(context)
+        : _error != null
+        ? Center(child: Text('Analysis failed: $_error'))
+        : _result == null
+        ? Center(
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                const CircularProgressIndicator(),
+                const SizedBox(height: 16),
+                Text(
+                  _total == 0
+                      ? 'Analyzing...'
+                      : 'Analyzing move $_done of $_total...',
+                ),
+              ],
+            ),
+          )
+        : _buildResult(_result!),
+  );
+
+  Widget _buildBlocked(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.all(24),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Icon(Icons.lock_outline, size: 48),
+            const SizedBox(height: 12),
+            Text(
+              l10n.aiAnalysisLimitTitle,
+              textAlign: TextAlign.center,
+              style: const TextStyle(fontWeight: FontWeight.bold),
+            ),
+            const SizedBox(height: 16),
+            FilledButton(
+              onPressed: () async {
+                if (await purchaseAiAnalysisPlan(context, ref) && mounted) {
+                  setState(() => _blocked = false);
+                  _runAnalysis();
+                }
+              },
+              child: Text(l10n.aiAnalysisSubscribeButton),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
 
   Widget _buildResult(GameAnalysis analysis) => ListView(
-        padding: const EdgeInsets.all(16),
+    padding: const EdgeInsets.all(16),
+    children: [
+      Row(
         children: [
-          Row(
-            children: [
-              Expanded(
-                child: _buildAccuracyCard(
-                  widget.whitePlayerName,
-                  analysis.whiteAccuracy,
-                ),
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: _buildAccuracyCard(
-                  widget.blackPlayerName,
-                  analysis.blackAccuracy,
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 24),
-          if (analysis.blunders.isNotEmpty) ...[
-            Text(
-              'Blunders',
-              style: Theme.of(context).textTheme.titleMedium,
+          Expanded(
+            child: _buildAccuracyCard(
+              widget.whitePlayerName,
+              analysis.whiteAccuracy,
             ),
-            const SizedBox(height: 8),
-            for (final m in analysis.blunders) _buildMoveTile(m),
-            const SizedBox(height: 16),
-          ],
-          if (analysis.mistakes.isNotEmpty) ...[
-            Text(
-              'Mistakes',
-              style: Theme.of(context).textTheme.titleMedium,
-            ),
-            const SizedBox(height: 8),
-            for (final m in analysis.mistakes) _buildMoveTile(m),
-            const SizedBox(height: 16),
-          ],
-          Text(
-            'All moves',
-            style: Theme.of(context).textTheme.titleMedium,
           ),
-          const SizedBox(height: 8),
-          for (final m in analysis.moves) _buildMoveTile(m),
+          const SizedBox(width: 12),
+          Expanded(
+            child: _buildAccuracyCard(
+              widget.blackPlayerName,
+              analysis.blackAccuracy,
+            ),
+          ),
         ],
-      );
+      ),
+      const SizedBox(height: 24),
+      if (analysis.blunders.isNotEmpty) ...[
+        Text('Blunders', style: Theme.of(context).textTheme.titleMedium),
+        const SizedBox(height: 8),
+        for (final m in analysis.blunders) _buildMoveTile(m),
+        const SizedBox(height: 16),
+      ],
+      if (analysis.mistakes.isNotEmpty) ...[
+        Text('Mistakes', style: Theme.of(context).textTheme.titleMedium),
+        const SizedBox(height: 8),
+        for (final m in analysis.mistakes) _buildMoveTile(m),
+        const SizedBox(height: 16),
+      ],
+      Text('All moves', style: Theme.of(context).textTheme.titleMedium),
+      const SizedBox(height: 8),
+      for (final m in analysis.moves) _buildMoveTile(m),
+    ],
+  );
 
   Widget _buildAccuracyCard(String name, double accuracy) => Container(
-        padding: const EdgeInsets.all(16),
-        decoration: BoxDecoration(
-          color: Colors.grey.shade100,
-          borderRadius: BorderRadius.circular(12),
+    padding: const EdgeInsets.all(16),
+    decoration: BoxDecoration(
+      color: Colors.grey.shade100,
+      borderRadius: BorderRadius.circular(12),
+    ),
+    child: Column(
+      children: [
+        Text(name, overflow: TextOverflow.ellipsis),
+        const SizedBox(height: 8),
+        Text(
+          '${accuracy.toStringAsFixed(1)}%',
+          style: const TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
         ),
-        child: Column(
-          children: [
-            Text(name, overflow: TextOverflow.ellipsis),
-            const SizedBox(height: 8),
-            Text(
-              '${accuracy.toStringAsFixed(1)}%',
-              style: const TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
-            ),
-            const Text('accuracy', style: TextStyle(fontSize: 12)),
-          ],
-        ),
-      );
+        const Text('accuracy', style: TextStyle(fontSize: 12)),
+      ],
+    ),
+  );
 
   Widget _buildMoveTile(MoveAnalysis move) {
     final l10n = AppLocalizations.of(context);
@@ -261,10 +306,9 @@ class _GameAnalysisScreenState extends ConsumerState<GameAnalysisScreen> {
           const SizedBox(height: 2),
           Text(
             MoveCommentaryService.generate(l10n, move),
-            style: Theme.of(context)
-                .textTheme
-                .bodySmall
-                ?.copyWith(fontStyle: FontStyle.italic),
+            style: Theme.of(
+              context,
+            ).textTheme.bodySmall?.copyWith(fontStyle: FontStyle.italic),
           ),
         ],
       ),

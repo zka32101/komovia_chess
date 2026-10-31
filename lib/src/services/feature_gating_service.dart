@@ -28,7 +28,17 @@ class FeatureGatingService {
   static const Map<String, int> DAILY_LIMITS = {
     'daily_puzzles': 3,
     'daily_games': 10,
+    // AI post-game analysis (GameAnalysisScreen / OneTapWeaknessButton).
+    // Unlike the two keys above, this quota is NOT lifted by the
+    // 'pro'/'premium' tiers: unlimited AI analysis is sold as its own
+    // separate product (the AI分析プラン - see AiAnalysisGate), so callers
+    // always evaluate this key with the 'free' tier argument and bypass it
+    // entirely only when that separate plan is active.
+    AI_ANALYSIS_ACTION: 3,
   };
+
+  /// Daily-quota key for AI post-game analysis.
+  static const String AI_ANALYSIS_ACTION = 'ai_analysis';
 
   static FeatureGatingService get instance => _instance;
 

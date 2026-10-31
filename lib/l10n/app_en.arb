@@ -919,5 +919,18 @@
   "avatarFrameReqRating": "Reach rating {count}",
   "@avatarFrameReqRating": {"placeholders": {"count": {"type": "int"}}},
   "avatarFrameReqStreak": "{count}-day puzzle streak",
-  "@avatarFrameReqStreak": {"placeholders": {"count": {"type": "int"}}}
+  "@avatarFrameReqStreak": {"placeholders": {"count": {"type": "int"}}},
+  "aiAnalysisPlanName": "AI Analysis Plan",
+  "aiAnalysisPlanPrice": "¥990 / month",
+  "aiAnalysisPlanDescription": "Unlimited AI post-game analysis (move-by-move evaluation, commentary and weakness analysis). Separate from Pro/Premium.",
+  "aiAnalysisPlanActive": "AI Analysis Plan active",
+  "aiAnalysisSubscribeButton": "Subscribe to AI Analysis Plan",
+  "aiAnalysisLimitTitle": "Daily free AI analyses used up",
+  "aiAnalysisLimitMessage": "Free users can run {count} AI analyses per day. The limit resets at midnight. Subscribe to the AI Analysis Plan for unlimited analyses.",
+  "@aiAnalysisLimitMessage": {"placeholders": {"count": {"type": "int"}}},
+  "aiAnalysisLater": "Maybe later",
+  "aiAnalysisPurchaseSuccess": "AI Analysis Plan activated!",
+  "aiAnalysisPurchaseFailed": "Purchase failed: {error}",
+  "@aiAnalysisPurchaseFailed": {"placeholders": {"error": {"type": "String"}}},
+  "aiAnalysisUnavailable": "The AI Analysis Plan is not available for purchase yet."
 }

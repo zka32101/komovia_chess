@@ -4,6 +4,7 @@ import '../../models/subscription.dart' show PremiumFeature;
 import '../../providers/premium_provider.dart';
 import '../../services/paywall_service.dart' show PurchaseUnavailableException;
 import '../../utils/animations.dart';
+import '../../widgets/premium/ai_analysis_upsell.dart';
 
 /// A purchasable premium plan (mirrors the tiers [UserSubscription] supports)
 class _PremiumPlan {
@@ -157,6 +158,10 @@ class _PremiumScreenState extends ConsumerState<PremiumScreen> {
                   ],
                 ),
               ),
+
+              // Separately purchasable AI分析プラン (independent of Pro/Premium).
+              const SizedBox(height: 16),
+              const AiAnalysisPlanCard(),
 
               // Features section
               Padding(
