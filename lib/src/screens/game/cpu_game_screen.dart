@@ -445,7 +445,9 @@ class _CPUGameScreenState extends ConsumerState<CPUGameScreen> {
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Could not create share GIF: $e')),
+          SnackBar(
+            content: Text(AppLocalizations.of(context).shareGifFailed('$e')),
+          ),
         );
       }
     } finally {

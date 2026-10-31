@@ -1,3 +1,4 @@
+import '../../../l10n/app_localizations.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:komovia_core/komovia_core.dart';
@@ -106,7 +107,9 @@ class _OnlineGameResultScreenState
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Could not create share GIF: $e')),
+          SnackBar(
+            content: Text(AppLocalizations.of(context).shareGifFailed('$e')),
+          ),
         );
       }
     } finally {
