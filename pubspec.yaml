@@ -90,13 +90,12 @@ dev_dependencies:
   flutter_launcher_icons: ^0.13.1
   fake_cloud_firestore: ^2.5.2
 
-# `flutter pub run flutter_launcher_icons` regenerates every Android
-# mipmap-*/ic_launcher.png from assets/images/app_icon_master.png - those
-# files were hand-resized with Pillow in this sandbox (no Flutter SDK
-# available here to run the generator), so running it for real once
-# Flutter tooling exists will reproduce/refresh the same result rather
-# than introduce a new icon. No ios/ directory exists in this repo (the
-# app is Android-only), so no iOS icon set is configured.
+# `dart run flutter_launcher_icons` regenerates every Android
+# mipmap-*/ic_launcher.png from assets/images/app_icon_master.png. As of
+# 2026-10-31 this is generated for real with Flutter tooling (Flutter SDK
+# is available in this sandbox again) from the Komovia-branded chess icon
+# designed in Canva. No ios/ directory exists in this repo (the app is
+# Android-only), so no iOS icon set is configured.
 flutter_launcher_icons:
   android: true
   ios: false
