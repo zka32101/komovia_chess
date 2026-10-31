@@ -5,6 +5,19 @@ plugins {
     id "dev.flutter.flutter-gradle-plugin"
 }
 
+// Release signing config, loaded from android/key.properties (gitignored; never commit
+// the keystore or its passwords). See android/key.properties.example for the expected
+// shape. Falls back to debug signing with a warning when the file is absent, so a plain
+// `flutter run --release`/local build still works without the real release key.
+def keystorePropertiesFile = rootProject.file("key.properties")
+def keystoreProperties = new Properties()
+def hasReleaseSigningConfig = keystorePropertiesFile.exists()
+if (hasReleaseSigningConfig) {
+    keystoreProperties.load(new FileInputStream(keystorePropertiesFile))
+} else {
+    logger.warn("android/key.properties not found - release builds will be signed with the debug key, not suitable for a store upload. See android/key.properties.example.")
+}
+
 android {
     namespace = "com.yourwish.komovia_chess"
     compileSdk = flutter.compileSdkVersion
@@ -29,11 +42,20 @@ android {
         versionName = flutter.versionName
     }
 
+    signingConfigs {
+        if (hasReleaseSigningConfig) {
+            release {
+                keyAlias = keystoreProperties["keyAlias"]
+                keyPassword = keystoreProperties["keyPassword"]
+                storeFile = keystoreProperties["storeFile"] ? file(keystoreProperties["storeFile"]) : null
+                storePassword = keystoreProperties["storePassword"]
+            }
+        }
+    }
+
     buildTypes {
         release {
-            // TODO: Add your own signing config for the release build.
-            // Signing with the debug keys for now, so `flutter run --release` works.
-            signingConfig = signingConfigs.debug
+            signingConfig = hasReleaseSigningConfig ? signingConfigs.release : signingConfigs.debug
         }
     }
 }

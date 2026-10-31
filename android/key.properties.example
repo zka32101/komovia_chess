@@ -1,0 +1,7 @@
+# Copy this file to android/key.properties (which is gitignored) and fill in the
+# real values for the release keystore. NEVER commit key.properties or the
+# keystore file itself.
+storePassword=REPLACE_WITH_STORE_PASSWORD
+keyPassword=REPLACE_WITH_KEY_PASSWORD
+keyAlias=komoviachess
+storeFile=/absolute/path/to/komovia_chess_release.jks
