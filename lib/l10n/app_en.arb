@@ -33,6 +33,7 @@
   "homePlayCpuButton": "Play CPU",
   "homeRecentGamesTitle": "Recent Games",
   "homeViewAllButton": "View All",
+  "homeNoRecentGames": "No games yet. Find an opponent to play!",
 
   "authErrorTitle": "Error",
   "authErrorMessage": "Error: {error}",

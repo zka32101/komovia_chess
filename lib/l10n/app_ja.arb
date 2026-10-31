@@ -28,6 +28,7 @@
   "homePlayCpuButton": "CPU対戦",
   "homeRecentGamesTitle": "最近の対局",
   "homeViewAllButton": "すべて見る",
+  "homeNoRecentGames": "まだ対局がありません。対戦相手を探してみましょう",
 
   "authErrorTitle": "エラー",
   "authErrorMessage": "エラー: {error}",

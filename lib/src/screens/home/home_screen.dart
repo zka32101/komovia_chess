@@ -5,6 +5,8 @@ import '../../models/user.dart';
 import '../../providers/auth_provider.dart';
 import '../../providers/notification_provider.dart';
 import '../../providers/direct_message_provider.dart';
+import '../../providers/online_game_provider.dart';
+import '../../models/online_game.dart';
 import '../../utils/animations.dart';
 import '../../models/avatar_frames.dart';
 import '../../widgets/avatar_picker.dart';
@@ -772,32 +774,15 @@ class _NoveltyEventCard extends ConsumerWidget {
   }
 }
 
-class _RecentGamesSection extends StatelessWidget {
+class _RecentGamesSection extends ConsumerWidget {
   const _RecentGamesSection();
 
   @override
-  Widget build(BuildContext context) {
-    // Mock data for now
-    final mockGames = [
-      {
-        'opponent': 'AlexChess',
-        'result': 'Win',
-        'ratingChange': '+18',
-        'time': '2 hours ago',
-      },
-      {
-        'opponent': 'ChessMaster99',
-        'result': 'Loss',
-        'ratingChange': '-12',
-        'time': 'Yesterday',
-      },
-      {
-        'opponent': 'PuzzleKing',
-        'result': 'Draw',
-        'ratingChange': '+0',
-        'time': '3 days ago',
-      },
-    ];
+  Widget build(BuildContext context, WidgetRef ref) {
+    final l10n = AppLocalizations.of(context);
+    final uid = ref.watch(currentUserProvider).value?.uid;
+    final games = ref.watch(userRecentGamesProvider).value ?? const [];
+    final recent = games.take(3).toList();
 
     return Padding(
       padding: const EdgeInsets.all(16),
@@ -854,23 +839,63 @@ class _RecentGamesSection extends StatelessWidget {
             ],
           ),
           const SizedBox(height: 12),
-          ...mockGames.asMap().entries.map((entry) {
-            final index = entry.key;
-            final game = entry.value;
-            return SlideInAnimation(
-              direction: SlideDirection.left,
-              delay: Duration(milliseconds: index * 100),
-              child: _GameCard(
-                opponent: game['opponent']!,
-                result: game['result']!,
-                ratingChange: game['ratingChange']!,
-                time: game['time']!,
+          if (recent.isEmpty)
+            Padding(
+              padding: const EdgeInsets.symmetric(vertical: 16),
+              child: Text(
+                l10n.homeNoRecentGames,
+                style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                      color: Colors.grey,
+                    ),
               ),
-            );
-          }),
+            )
+          else
+            ...recent.asMap().entries.map((entry) {
+              final game = entry.value;
+              final isWhite = game.whitePlayerId == uid;
+              final delta =
+                  (isWhite ? game.whiteRatingDelta : game.blackRatingDelta) ??
+                      0;
+              return SlideInAnimation(
+                direction: SlideDirection.left,
+                delay: Duration(milliseconds: entry.key * 100),
+                child: _GameCard(
+                  opponent:
+                      (isWhite ? game.blackPlayerName : game.whitePlayerName),
+                  result: _resultKey(game, isWhite),
+                  resultLabel: switch (_resultKey(game, isWhite)) {
+                    'win' => l10n.matchHistoryResultWin,
+                    'loss' => l10n.matchHistoryResultLoss,
+                    _ => l10n.matchHistoryResultDraw,
+                  },
+                  ratingChange: delta >= 0 ? '+$delta' : '$delta',
+                  time: _timeAgo(
+                      l10n, game.endedAt ?? game.startedAt ?? game.createdAt),
+                ),
+              );
+            }),
         ],
       ),
     );
+  }
+
+  static String _resultKey(OnlineGame game, bool isWhite) {
+    switch (game.result) {
+      case 'white_win':
+        return isWhite ? 'win' : 'loss';
+      case 'black_win':
+        return isWhite ? 'loss' : 'win';
+      default:
+        return 'draw';
+    }
+  }
+
+  static String _timeAgo(AppLocalizations l10n, DateTime at) {
+    final d = DateTime.now().difference(at);
+    if (d.inMinutes < 1) return l10n.friendsJustNowLabel;
+    if (d.inHours < 1) return l10n.friendsMinutesAgoLabel(d.inMinutes);
+    if (d.inDays < 1) return l10n.friendsHoursAgoLabel(d.inHours);
+    return l10n.friendsDaysAgoLabel(d.inDays);
   }
 }
 
@@ -878,11 +903,13 @@ class _GameCard extends StatelessWidget {
   const _GameCard({
     required this.opponent,
     required this.result,
+    required this.resultLabel,
     required this.ratingChange,
     required this.time,
   });
   final String opponent;
   final String result;
+  final String resultLabel;
   final String ratingChange;
   final String time;
 
@@ -946,7 +973,7 @@ class _GameCard extends StatelessWidget {
                     borderRadius: BorderRadius.circular(4),
                   ),
                   child: Text(
-                    result,
+                    resultLabel,
                     style: TextStyle(
                       color: _getResultColor(),
                       fontSize: 12,
