@@ -9,8 +9,6 @@ import '../../services/game_gif_service.dart';
 import '../../services/game_share_service.dart';
 import '../../widgets/game_board.dart';
 import '../../providers/user_preferences_provider.dart';
-import '../../services/shogi_rank_service.dart';
-import '../../widgets/shogi_rank_display.dart';
 import '../premium/premium_screen.dart';
 import 'puzzle_rush_screen.dart';
 import '../../../l10n/app_localizations.dart';
@@ -208,7 +206,7 @@ class _PuzzleScreenState extends ConsumerState<PuzzleScreen> {
                 data: (stats) => Container(
                   padding: const EdgeInsets.all(16),
                   decoration: BoxDecoration(
-                    color: Colors.blue.shade50,
+                    color: Theme.of(context).colorScheme.surfaceContainerHighest,
                     borderRadius: BorderRadius.circular(12),
                   ),
                   child: Column(
@@ -238,20 +236,6 @@ class _PuzzleScreenState extends ConsumerState<PuzzleScreen> {
                             value: '${stats['puzzleRating'] ?? 1500}',
                           ),
                         ],
-                      ),
-                      const SizedBox(height: 12),
-                      // Previously puzzle rating had no kyu/dan mapping
-                      // of its own anywhere in the app - it was just a
-                      // bare number, unlike the chess rating shown
-                      // elsewhere (profile/leaderboard) via
-                      // ShogiRankService.
-                      ShogiRankDisplay(
-                        rank: ShogiRankService.calculateRank(
-                          (stats['puzzleRating'] as num?)?.toInt() ?? 1500,
-                        ),
-                        eloRating:
-                            (stats['puzzleRating'] as num?)?.toInt() ?? 1500,
-                        compact: true,
                       ),
                     ],
                   ),
