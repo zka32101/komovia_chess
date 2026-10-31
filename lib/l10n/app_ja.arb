@@ -539,5 +539,16 @@
   "avatarFrameReqGames": "{count}局対局する",
   "avatarFrameReqPuzzles": "パズルを{count}問解く",
   "avatarFrameReqRating": "レーティング{count}に到達",
-  "avatarFrameReqStreak": "パズル{count}日連続"
+  "avatarFrameReqStreak": "パズル{count}日連続",
+  "aiAnalysisPlanName": "AI分析プラン",
+  "aiAnalysisPlanPrice": "月額 ¥990",
+  "aiAnalysisPlanDescription": "対局後のAI分析（一手ごとの評価・解説・弱点分析）が無制限に。Pro/Premiumとは別のプランです。",
+  "aiAnalysisPlanActive": "AI分析プラン 加入中",
+  "aiAnalysisSubscribeButton": "AI分析プランに加入する",
+  "aiAnalysisLimitTitle": "本日の無料AI分析を使い切りました",
+  "aiAnalysisLimitMessage": "無料ユーザーはAI分析を1日{count}回まで利用できます（毎日0時にリセット）。AI分析プランに加入すると無制限に分析できます。",
+  "aiAnalysisLater": "あとで",
+  "aiAnalysisPurchaseSuccess": "AI分析プランを開始しました！",
+  "aiAnalysisPurchaseFailed": "購入に失敗しました: {error}",
+  "aiAnalysisUnavailable": "AI分析プランはまだ購入できません。"
 }

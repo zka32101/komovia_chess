@@ -5,6 +5,7 @@ import 'package:flutter/foundation.dart';
 import 'package:komovia_core/komovia_core.dart';
 import '../services/paywall_service.dart';
 import '../services/feature_gating_service.dart';
+import '../services/ai_analysis_gate.dart';
 import '../utils/entitlement_adapter.dart';
 
 /// User subscription state
@@ -154,4 +155,38 @@ final trackActionUsageProvider =
   final featureGatingService = ref.watch(featureGatingServiceProvider);
 
   await featureGatingService.trackActionUsage(action, subscription.tier);
+});
+
+/// Whether the signed-in user's separate AI分析プラン (see
+/// PaywallService.aiAnalysisPlanMonthlyProductId) is currently active -
+/// read from users/{uid}.aiAnalysisPlanExpiry, independent of
+/// subscriptionTier.
+final aiAnalysisPlanActiveProvider = FutureProvider<bool>((ref) async {
+  try {
+    final user = FirebaseAuth.instance.currentUser;
+    if (user == null) return false;
+    final doc = await FirebaseFirestore.instance
+        .collection('users')
+        .doc(user.uid)
+        .get();
+    final expiry = (doc.data()?['aiAnalysisPlanExpiry'] as Timestamp?)?.toDate();
+    return expiry?.isAfter(DateTime.now()) ?? false;
+  } catch (e) {
+    debugPrint('Error fetching AI analysis plan: $e');
+    return false;
+  }
+});
+
+/// Real wiring of [AiAnalysisGate]. The quota is always evaluated with the
+/// 'free' tier argument: pro/premium don't include unlimited AI analysis -
+/// only the separate AI分析プラン does.
+final aiAnalysisGateProvider = Provider<AiAnalysisGate>((ref) {
+  final gating = ref.watch(featureGatingServiceProvider);
+  return AiAnalysisGate(
+    hasAiAnalysisPlan: () => ref.read(aiAnalysisPlanActiveProvider.future),
+    remainingFreeAnalyses: () => gating.getRemainingDailyAttempts(
+        FeatureGatingService.AI_ANALYSIS_ACTION, 'free'),
+    consumeFreeAnalysis: () => gating.trackActionUsage(
+        FeatureGatingService.AI_ANALYSIS_ACTION, 'free'),
+  );
 });
