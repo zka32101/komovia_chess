@@ -6,6 +6,7 @@ import '../../providers/auth_provider.dart';
 import '../../providers/online_game_provider.dart';
 import '../../providers/premium_provider.dart';
 import '../premium/premium_screen.dart';
+import '../../services/match_start_quota_guard.dart';
 import 'online_game_screen.dart';
 import '../../../l10n/app_localizations.dart';
 
@@ -26,6 +27,16 @@ class _MatchmakingScreenState extends ConsumerState<MatchmakingScreen> {
   /// Drives MatchmakingService.tryMatch periodically while waiting - see
   /// that method's doc comment for why this has to be client-driven.
   Timer? _matchingTimer;
+
+  // Calls the service directly rather than trackActionUsageProvider: that
+  // FutureProvider.family is cached per action, so a second game in the
+  // same session would never have been counted.
+  late final MatchStartQuotaGuard _quotaGuard = MatchStartQuotaGuard(() async {
+    final subscription = await ref.read(userSubscriptionProvider.future);
+    await ref
+        .read(featureGatingServiceProvider)
+        .trackActionUsage('daily_games', subscription.tier);
+  });
 
   @override
   void dispose() {
@@ -162,6 +173,7 @@ class _MatchmakingScreenState extends ConsumerState<MatchmakingScreen> {
           WidgetsBinding.instance.addPostFrameCallback((_) {
             if (!mounted) return;
             _matchingTimer?.cancel();
+            _quotaGuard.onMatchStarted(entry.matchedGameId!);
             Navigator.of(context).pushReplacement(
               MaterialPageRoute(
                 builder: (_) => OnlineGameScreen(gameId: entry.matchedGameId!),
@@ -506,7 +518,8 @@ class _MatchmakingScreenState extends ConsumerState<MatchmakingScreen> {
             color: _selectedColor,
           );
 
-          await ref.read(trackActionUsageProvider('daily_games').future);
+          // Daily quota is no longer consumed here - see
+          // MatchStartQuotaGuard (consumed only once a game is created).
 
           setState(() => _currentQueueId = entry.queueId);
           _startMatchingTimer(entry.queueId);

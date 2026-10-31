@@ -27,7 +27,7 @@ class FeatureGatingService {
   // for free-tier users, instead of the intended 3/2).
   static const Map<String, int> DAILY_LIMITS = {
     'daily_puzzles': 3,
-    'daily_games': 2,
+    'daily_games': 10,
   };
 
   static FeatureGatingService get instance => _instance;
