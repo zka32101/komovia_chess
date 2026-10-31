@@ -467,5 +467,13 @@
   "cosmeticShopNote": "ガチャはありません。すべてのスキンは中身と価格を確認してから購入でき、購入したスキンはずっと使えます。",
   "cosmeticShopPurchaseSuccess": "購入が完了しました。スキンが使えるようになりました。",
   "cosmeticShopPurchaseFailed": "購入が完了しませんでした: {error}",
-  "cosmeticShopSignInRequired": "スキンの購入・使用にはログインが必要です。"
+  "cosmeticShopSignInRequired": "スキンの購入・使用にはログインが必要です。",
+  "avatarFrameSectionTitle": "アバターフレーム",
+  "avatarFrameNone": "フレームなし",
+  "avatarFrameLocked": "未解放: {req}",
+  "avatarFrameReqWins": "{count}勝する",
+  "avatarFrameReqGames": "{count}局対局する",
+  "avatarFrameReqPuzzles": "パズルを{count}問解く",
+  "avatarFrameReqRating": "レーティング{count}に到達",
+  "avatarFrameReqStreak": "パズル{count}日連続"
 }

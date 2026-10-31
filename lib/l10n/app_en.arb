@@ -840,5 +840,19 @@
   "cosmeticShopPurchaseSuccess": "Purchase complete. The skin is now yours.",
   "cosmeticShopPurchaseFailed": "Purchase did not complete: {error}",
   "@cosmeticShopPurchaseFailed": {"placeholders": {"error": {"type": "String"}}},
-  "cosmeticShopSignInRequired": "Sign in to buy or equip skins."
+  "cosmeticShopSignInRequired": "Sign in to buy or equip skins.",
+  "avatarFrameSectionTitle": "Avatar frame",
+  "avatarFrameNone": "No frame",
+  "avatarFrameLocked": "Locked: {req}",
+  "@avatarFrameLocked": {"placeholders": {"req": {"type": "String"}}},
+  "avatarFrameReqWins": "{count} wins",
+  "@avatarFrameReqWins": {"placeholders": {"count": {"type": "int"}}},
+  "avatarFrameReqGames": "{count} games played",
+  "@avatarFrameReqGames": {"placeholders": {"count": {"type": "int"}}},
+  "avatarFrameReqPuzzles": "{count} puzzles solved",
+  "@avatarFrameReqPuzzles": {"placeholders": {"count": {"type": "int"}}},
+  "avatarFrameReqRating": "Reach rating {count}",
+  "@avatarFrameReqRating": {"placeholders": {"count": {"type": "int"}}},
+  "avatarFrameReqStreak": "{count}-day puzzle streak",
+  "@avatarFrameReqStreak": {"placeholders": {"count": {"type": "int"}}}
 }

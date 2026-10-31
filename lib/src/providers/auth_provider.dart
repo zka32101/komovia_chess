@@ -135,6 +135,9 @@ class AuthStateNotifier extends StateNotifier<AsyncValue<UserModel?>> {
     String? avatarId,
     String? boardSkinId,
     String? pieceSkinId,
+    String? frameId,
+    bool clearFrameId = false,
+    List<String> addUnlockedFrameIds = const [],
   }) async {
     try {
       await _authService.updateUserProfile(
@@ -144,6 +147,9 @@ class AuthStateNotifier extends StateNotifier<AsyncValue<UserModel?>> {
         avatarId: avatarId,
         boardSkinId: boardSkinId,
         pieceSkinId: pieceSkinId,
+        frameId: frameId,
+        clearFrameId: clearFrameId,
+        addUnlockedFrameIds: addUnlockedFrameIds,
       );
       // Refresh user data
       final user = await _authService.getCurrentUser();

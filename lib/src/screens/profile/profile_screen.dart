@@ -11,6 +11,7 @@ import '../../providers/online_game_provider.dart';
 import '../../providers/rewards_provider.dart';
 import '../../models/user.dart';
 import '../../models/online_game.dart';
+import '../../models/avatar_frames.dart';
 import '../../widgets/avatar_picker.dart';
 import '../online/game_review_screen.dart';
 import 'edit_profile_screen.dart';
@@ -163,6 +164,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                                   ),
                                   child: AvatarEmoji(
                                     avatarId: user.avatarId,
+                                    frame: resolveDisplayedFrame(user),
                                     radius: 18,
                                   ),
                                 ),
@@ -553,15 +555,23 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
   // currentUserProvider only re-emits on an auth-state change, not on a
   // plain Firestore write, so it has to be invalidated explicitly here too.
   Future<void> _handleAvatarTap(UserModel user) async {
-    final selectedId = await showAvatarPickerSheet(
+    final result = await showAvatarPickerSheet(
       context,
       currentAvatarId: user.avatarId,
+      user: user,
     );
-    if (selectedId == null || selectedId == user.avatarId) return;
+    if (result == null) return;
+    final newPeaks = newlyEarnedPeakFrameIds(user);
+    final avatarChanged = result.avatarId != user.avatarId;
+    final frameChanged = result.frameId != resolveDisplayedFrame(user)?.id;
+    if (!avatarChanged && !frameChanged && newPeaks.isEmpty) return;
 
-    await ref
-        .read(authStateNotifierProvider.notifier)
-        .updateUserProfile(avatarId: selectedId);
+    await ref.read(authStateNotifierProvider.notifier).updateUserProfile(
+          avatarId: avatarChanged ? result.avatarId : null,
+          frameId: frameChanged ? result.frameId : null,
+          clearFrameId: frameChanged && result.frameId == null,
+          addUnlockedFrameIds: newPeaks,
+        );
     ref.invalidate(currentUserProvider);
   }
 

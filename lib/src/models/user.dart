@@ -49,6 +49,16 @@ abstract class UserModel with _$UserModel {
     // One-time cosmetic IAP product ids this user has bought (written by
     // PaywallService's purchase listener via arrayUnion).
     @Default(<String>[]) List<String> purchasedCosmeticProductIds,
+    // Puzzle daily streak, written by puzzle_provider.dart (already
+    // persisted on the user doc; surfaced here for avatar-frame unlocks).
+    @Default(0) int dailyStreak,
+    // Selected avatar frame id (kAvatarFrames, free/earned only). null =
+    // no frame. Resolve via `resolveDisplayedFrame`, never read raw - a
+    // selected-but-not-unlocked id renders as no frame.
+    String? frameId,
+    // Point-in-time frame unlocks that can't be re-derived from current
+    // stats (peak rating, longest puzzle streak). See avatar_frames.dart.
+    @Default(<String>[]) List<String> unlockedFrameIds,
   }) = _UserModel;
 
   factory UserModel.fromJson(Map<String, dynamic> json) =>
