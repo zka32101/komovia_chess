@@ -1,23 +1,21 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../models/board_theme.dart';
+import 'auth_provider.dart';
+import 'cosmetic_provider.dart';
 import 'user_preferences_provider.dart';
-import 'premium_provider.dart';
 
-/// The user's currently selected board/piece theme pack.
+/// The user's currently applied board skin.
 ///
-/// Reuses `UserPreferences.boardStyle` (already persisted to Firestore via
-/// `UserPreferencesService.setStyles`) as the theme id, rather than adding a
-/// parallel preference field.
+/// Source of truth is `UserModel.boardSkinId` (written by the cosmetic
+/// shop, same save path as `avatarId`). Users who picked a theme before
+/// the shop existed only have the legacy `UserPreferences.boardStyle`, so
+/// that's the fallback. Locked (not owned) skins resolve to Classic.
 final selectedBoardThemeProvider = Provider<BoardTheme>((ref) {
-  final preferences = ref.watch(userPreferencesProvider);
-  return preferences.when(
-    data: (prefs) => BoardThemeCatalog.byId(prefs.boardStyle),
-    loading: () => BoardThemeCatalog.classic,
-    error: (_, __) => BoardThemeCatalog.classic,
+  final user = ref.watch(currentUserProvider).value;
+  final legacy = ref.watch(userPreferencesProvider).value?.boardStyle;
+  return resolveBoardSkin(
+    user?.boardSkinId ?? legacy,
+    hasActiveSubscription: ref.watch(hasActiveSubscriptionProvider),
+    purchasedProductIds: ref.watch(purchasedCosmeticProductIdsProvider),
   );
 });
-
-/// Whether the signed-in user has unlocked the premium board themes.
-final boardThemesUnlockedProvider = FutureProvider<bool>((ref) => ref.watch(
-      premiumFeatureProvider(BoardThemeCatalog.premiumFeatureKey).future,
-    ));

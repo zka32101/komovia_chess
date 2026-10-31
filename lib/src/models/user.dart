@@ -40,6 +40,15 @@ abstract class UserModel with _$UserModel {
     // displayed, never read this field directly, since it safely falls
     // back to the default icon for null/empty/unknown ids.
     String? avatarId,
+    // Selected cosmetic skins (BoardThemeCatalog / PieceSkinCatalog ids).
+    // Same rule as avatarId: resolve via the catalogs' byId (plus the
+    // ownership check in cosmetic_provider.dart), never read raw - null
+    // or unknown ids fall back to the default skin.
+    String? boardSkinId,
+    String? pieceSkinId,
+    // One-time cosmetic IAP product ids this user has bought (written by
+    // PaywallService's purchase listener via arrayUnion).
+    @Default(<String>[]) List<String> purchasedCosmeticProductIds,
   }) = _UserModel;
 
   factory UserModel.fromJson(Map<String, dynamic> json) =>

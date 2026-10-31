@@ -453,5 +453,19 @@
   "hybridReasonStalemate": "将棋側の玉がステイルメイト（チェスのルールで引き分け）",
   "hybridReasonNoLegalMoves": "チェス側のキングに合法手なし（将棋のルールで負け）",
   "hybridReasonResignation": "投了",
-  "hybridChessPromotionTitle": "ポーンの昇格先"
+  "hybridChessPromotionTitle": "ポーンの昇格先",
+  "cosmeticShopTitle": "スキンショップ",
+  "cosmeticShopBoardTab": "盤面",
+  "cosmeticShopPieceTab": "駒",
+  "cosmeticShopFree": "無料",
+  "cosmeticShopIncludedWithSubscription": "Pro/Premiumに含まれます",
+  "cosmeticShopOwned": "所持済み",
+  "cosmeticShopEquipped": "使用中",
+  "cosmeticShopEquip": "使用する",
+  "cosmeticShopBuy": "購入",
+  "cosmeticShopSubscribe": "サブスクで解放",
+  "cosmeticShopNote": "ガチャはありません。すべてのスキンは中身と価格を確認してから購入でき、購入したスキンはずっと使えます。",
+  "cosmeticShopPurchaseSuccess": "購入が完了しました。スキンが使えるようになりました。",
+  "cosmeticShopPurchaseFailed": "購入が完了しませんでした: {error}",
+  "cosmeticShopSignInRequired": "スキンの購入・使用にはログインが必要です。"
 }

@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:chess/chess.dart' as chess_lib;
 import '../../models/online_game.dart';
+import '../../providers/board_theme_provider.dart';
+import '../../providers/cosmetic_provider.dart';
 import '../../providers/online_game_provider.dart';
 import '../../providers/user_preferences_provider.dart';
 import '../../widgets/game_board.dart';
@@ -243,6 +245,8 @@ class _OnlineGameScreenState extends ConsumerState<OnlineGameScreen> {
           padding: const EdgeInsets.symmetric(vertical: 16),
           child: GameBoard(
             gameState: gameState,
+            theme: ref.watch(selectedBoardThemeProvider),
+            pieceSkin: ref.watch(selectedPieceSkinProvider),
             showCoordinates: showCoordinates,
             flipped: game.whitePlayerId != _getCurrentPlayerId(),
             blindfold: ref.watch(blindfoldModeProvider),

@@ -2,6 +2,7 @@ import 'dart:async';
 import 'package:in_app_purchase/in_app_purchase.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import '../models/cosmetic_catalog.dart';
 
 /// Thrown when a purchase can't be started - the store isn't available on
 /// this device, or the requested plan's product id isn't configured in
@@ -85,6 +86,10 @@ class PaywallService {
             .key;
         if (tier.isNotEmpty) {
           await _persistEntitlement(tier);
+        } else if (ChessCosmeticCatalog.purchasableProductIds.contains(
+          purchaseDetails.productID,
+        )) {
+          await _persistCosmeticPurchase(purchaseDetails.productID);
         }
       }
 
@@ -127,6 +132,17 @@ class PaywallService {
     }, SetOptions(merge: true));
   }
 
+  /// Records a one-time cosmetic skin purchase on the user's own doc.
+  /// Same documented client-trust gap as [_persistEntitlement] (no
+  /// server-side receipt verification yet).
+  Future<void> _persistCosmeticPurchase(String productId) async {
+    final user = _auth.currentUser;
+    if (user == null) return;
+    await _firestore.collection('users').doc(user.uid).set({
+      'purchasedCosmeticProductIds': FieldValue.arrayUnion([productId]),
+    }, SetOptions(merge: true));
+  }
+
   /// Restore previously made purchases (triggers updates on
   /// [_handlePurchaseUpdates], which re-persists entitlement for any
   /// still-valid subscription the store returns).
@@ -139,8 +155,8 @@ class PaywallService {
     }
 
     try {
-      final ProductDetailsResponse response =
-          await _inAppPurchase.queryProductDetails(productIds.toSet());
+      final ProductDetailsResponse response = await _inAppPurchase
+          .queryProductDetails(productIds.toSet());
       return response.productDetails;
     } catch (e) {
       print('Error getting products: $e');
@@ -165,7 +181,26 @@ class PaywallService {
     if (productId == null) {
       throw PurchaseUnavailableException('Unknown plan: $tier');
     }
+    await _buyNonConsumable(productId);
+  }
 
+  /// Buy a one-time cosmetic skin ([productId] must be one of
+  /// [ChessCosmeticCatalog.purchasableProductIds]). Same flow as
+  /// [purchaseSubscription]: waits for the store's result; ownership is
+  /// persisted by the [initialize] listener.
+  Future<void> purchaseCosmetic(String productId) async {
+    if (!_isAvailable) {
+      throw PurchaseUnavailableException(
+        'In-app purchases are not available on this device',
+      );
+    }
+    if (!ChessCosmeticCatalog.purchasableProductIds.contains(productId)) {
+      throw PurchaseUnavailableException('Unknown item: $productId');
+    }
+    await _buyNonConsumable(productId);
+  }
+
+  Future<void> _buyNonConsumable(String productId) async {
     final response = await _inAppPurchase.queryProductDetails({productId});
     if (response.error != null) {
       // A real store/network error querying the product - distinct from
@@ -182,8 +217,10 @@ class PaywallService {
       // what's registered in App Store Connect / Play Console. Logging
       // the id here is what makes that second case diagnosable instead
       // of silently indistinguishable from the first.
-      print('Product not found in store: $productId '
-          '(notFoundIDs: ${response.notFoundIDs})');
+      print(
+        'Product not found in store: $productId '
+        '(notFoundIDs: ${response.notFoundIDs})',
+      );
       throw PurchaseUnavailableException(
         'This plan is not yet available for purchase',
       );
