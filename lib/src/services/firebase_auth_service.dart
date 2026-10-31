@@ -532,6 +532,9 @@ class FirebaseAuthService {
     // photoUrl this is a local app-profile field only, not a Firebase
     // Auth property, so there's no parallel `user.updateX()` call for it.
     String? avatarId,
+    // Cosmetic skin selections (see UserModel.boardSkinId/pieceSkinId).
+    String? boardSkinId,
+    String? pieceSkinId,
   }) async {
     try {
       final user = _auth.currentUser;
@@ -554,6 +557,8 @@ class FirebaseAuthService {
         else if (photoUrl != null)
           'photoUrl': photoUrl,
         if (avatarId != null) 'avatarId': avatarId,
+        if (boardSkinId != null) 'boardSkinId': boardSkinId,
+        if (pieceSkinId != null) 'pieceSkinId': pieceSkinId,
       });
 
       _logger.i('User profile updated');

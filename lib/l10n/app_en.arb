@@ -825,5 +825,20 @@
   "hybridReasonStalemate": "Shogi king stalemated (chess rules: draw)",
   "hybridReasonNoLegalMoves": "Chess king has no legal move (shogi rules: loss)",
   "hybridReasonResignation": "Resignation",
-  "hybridChessPromotionTitle": "Promote pawn to"
+  "hybridChessPromotionTitle": "Promote pawn to",
+  "cosmeticShopTitle": "Skin Shop",
+  "cosmeticShopBoardTab": "Boards",
+  "cosmeticShopPieceTab": "Pieces",
+  "cosmeticShopFree": "Free",
+  "cosmeticShopIncludedWithSubscription": "Included with Pro/Premium",
+  "cosmeticShopOwned": "Owned",
+  "cosmeticShopEquipped": "Equipped",
+  "cosmeticShopEquip": "Equip",
+  "cosmeticShopBuy": "Buy",
+  "cosmeticShopSubscribe": "Subscribe to unlock",
+  "cosmeticShopNote": "No random draws: every skin shows exactly what you get and a fixed price. Purchases are permanent.",
+  "cosmeticShopPurchaseSuccess": "Purchase complete. The skin is now yours.",
+  "cosmeticShopPurchaseFailed": "Purchase did not complete: {error}",
+  "@cosmeticShopPurchaseFailed": {"placeholders": {"error": {"type": "String"}}},
+  "cosmeticShopSignInRequired": "Sign in to buy or equip skins."
 }

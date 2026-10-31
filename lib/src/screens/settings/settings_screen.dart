@@ -8,7 +8,7 @@ import '../../providers/user_preferences_provider.dart';
 import '../../utils/komovia_cross_promo_roster.dart';
 import 'sound_preferences_screen.dart';
 import 'legal_documents_screen.dart';
-import 'board_themes_screen.dart';
+import 'cosmetic_shop_screen.dart';
 import '../../providers/board_theme_provider.dart';
 import '../../widgets/avatar_picker.dart';
 import '../../../l10n/app_localizations.dart';
@@ -646,7 +646,7 @@ class SettingsScreen extends ConsumerWidget {
         Navigator.push(
           context,
           MaterialPageRoute(
-            builder: (context) => const BoardThemesScreen(),
+            builder: (context) => const CosmeticShopScreen(),
           ),
         );
       },

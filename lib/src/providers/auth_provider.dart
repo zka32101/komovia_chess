@@ -133,6 +133,8 @@ class AuthStateNotifier extends StateNotifier<AsyncValue<UserModel?>> {
     String? photoUrl,
     bool clearPhotoUrl = false,
     String? avatarId,
+    String? boardSkinId,
+    String? pieceSkinId,
   }) async {
     try {
       await _authService.updateUserProfile(
@@ -140,6 +142,8 @@ class AuthStateNotifier extends StateNotifier<AsyncValue<UserModel?>> {
         photoUrl: photoUrl,
         clearPhotoUrl: clearPhotoUrl,
         avatarId: avatarId,
+        boardSkinId: boardSkinId,
+        pieceSkinId: pieceSkinId,
       );
       // Refresh user data
       final user = await _authService.getCurrentUser();
