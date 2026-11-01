@@ -29,12 +29,56 @@ class PaywallService {
   /// `queryProductDetails` simply returns nothing for them and
   /// purchaseSubscription reports that honestly via
   /// PurchaseUnavailableException rather than faking success.
-  static const Map<String, String> _productIdsByTier = {
-    'pro': 'chess_pro_monthly',
-    'premium': 'chess_premium_monthly',
+  /// Each tier is sold in two billing periods (monthly / annual). The
+  /// pro/premium feature difference is unchanged; only the period varies.
+  static const Map<String, Map<BillingPeriod, String>> _productIdsByTier = {
+    'pro': {
+      BillingPeriod.monthly: 'chess_pro_monthly',
+      BillingPeriod.annual: 'chess_pro_annual',
+    },
+    'premium': {
+      BillingPeriod.monthly: 'chess_premium_monthly',
+      BillingPeriod.annual: 'chess_premium_annual',
+    },
   };
 
-  /// Product id for the AI分析プラン (AI Analysis Plan, ~¥990/month) - a
+  /// Fallback display prices (JPY) used when the store's localized price
+  /// isn't available. Same for both tiers and unified with the sibling
+  /// Komovia apps (komovia_go: ¥300/month, ¥2,400/year). The real price is
+  /// whatever is configured in App Store Connect / Play Console.
+  static const Map<BillingPeriod, int> fallbackPriceYenByPeriod = {
+    BillingPeriod.monthly: 300,
+    BillingPeriod.annual: 2400,
+  };
+
+  /// Fallback display price (JPY) for the AI分析プラン (monthly).
+  static const int aiAnalysisPlanMonthlyFallbackPriceYen = 990;
+
+  /// Product id for [tier] + [period], or null for an unknown tier.
+  static String? productIdFor(String tier, BillingPeriod period) =>
+      _productIdsByTier[tier]?[period];
+
+  /// Every pro/premium subscription product id (all tiers, all periods).
+  static List<String> get allSubscriptionProductIds => [
+        for (final byPeriod in _productIdsByTier.values) ...byPeriod.values,
+      ];
+
+  /// Reverse lookup: which tier/period a store product id belongs to.
+  static ({String tier, BillingPeriod period})? planForProductId(
+    String productId,
+  ) {
+    for (final tierEntry in _productIdsByTier.entries) {
+      for (final periodEntry in tierEntry.value.entries) {
+        if (periodEntry.value == productId) {
+          return (tier: tierEntry.key, period: periodEntry.key);
+        }
+      }
+    }
+    return null;
+  }
+
+  /// Product id for the AI分析プラン (AI Analysis Plan, ¥990/month - see
+  /// [aiAnalysisPlanMonthlyFallbackPriceYen]) - a
   /// separately purchasable subscription, independent of the 'pro'/
   /// 'premium' tiers above (a user may hold either, both, or neither).
   /// Deliberately NOT part of [_productIdsByTier]: buying it must never
@@ -87,14 +131,9 @@ class PaywallService {
     for (final purchaseDetails in purchaseDetailsList) {
       if (purchaseDetails.status == PurchaseStatus.purchased ||
           purchaseDetails.status == PurchaseStatus.restored) {
-        final tier = _productIdsByTier.entries
-            .firstWhere(
-              (e) => e.value == purchaseDetails.productID,
-              orElse: () => const MapEntry('', ''),
-            )
-            .key;
-        if (tier.isNotEmpty) {
-          await _persistEntitlement(tier);
+        final plan = planForProductId(purchaseDetails.productID);
+        if (plan != null) {
+          await _persistEntitlement(plan.tier, plan.period);
         } else if (purchaseDetails.productID ==
             aiAnalysisPlanMonthlyProductId) {
           await _persistAiAnalysisPlan();
@@ -132,11 +171,11 @@ class PaywallService {
   /// instead of fixing the bypass. Same documented-but-unfixed category as
   /// this app's other self-reported purchase fields (see
   /// firebase_auth_service.dart's account/profile writes).
-  Future<void> _persistEntitlement(String tier) async {
+  Future<void> _persistEntitlement(String tier, BillingPeriod period) async {
     final user = _auth.currentUser;
     if (user == null) return;
 
-    final expiry = DateTime.now().add(const Duration(days: 30));
+    final expiry = DateTime.now().add(period.entitlementLength);
     await _firestore.collection('users').doc(user.uid).set({
       'subscriptionTier': tier,
       'subscriptionExpiry': Timestamp.fromDate(expiry),
@@ -204,14 +243,17 @@ class PaywallService {
   /// the single listener set up in [initialize], not by this method, so
   /// it's correctly recorded even if the app is killed mid-purchase and
   /// the result only arrives on a later launch.
-  Future<void> purchaseSubscription(String tier) async {
+  Future<void> purchaseSubscription(
+    String tier, {
+    BillingPeriod period = BillingPeriod.monthly,
+  }) async {
     if (!_isAvailable) {
       throw PurchaseUnavailableException(
         'In-app purchases are not available on this device',
       );
     }
 
-    final productId = _productIdsByTier[tier];
+    final productId = productIdFor(tier, period);
     if (productId == null) {
       throw PurchaseUnavailableException('Unknown plan: $tier');
     }
@@ -350,6 +392,16 @@ class PaywallService {
   void dispose() {
     _subscription?.cancel();
   }
+}
+
+/// Billing period of a pro/premium subscription (independent of the tier).
+enum BillingPeriod {
+  monthly(Duration(days: 30)),
+  annual(Duration(days: 365));
+
+  /// How long one purchase/renewal grants the entitlement for.
+  final Duration entitlementLength;
+  const BillingPeriod(this.entitlementLength);
 }
 
 /// Subscription tier enum
