@@ -2,7 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../models/subscription.dart' show PremiumFeature;
 import '../../providers/premium_provider.dart';
-import '../../services/paywall_service.dart' show PurchaseUnavailableException;
+import '../../services/paywall_service.dart'
+    show BillingPeriod, PaywallService, PurchaseUnavailableException;
 import '../../utils/animations.dart';
 import '../../widgets/premium/ai_analysis_upsell.dart';
 
@@ -11,17 +12,24 @@ class _PremiumPlan {
   const _PremiumPlan({
     required this.tier,
     required this.displayName,
-    required this.monthlyPrice,
   });
   final String tier;
   final String displayName;
-  final double monthlyPrice;
 }
 
-const _proPlan =
-    _PremiumPlan(tier: 'pro', displayName: 'Pro', monthlyPrice: 4.99);
-const _premiumPlan =
-    _PremiumPlan(tier: 'premium', displayName: 'Premium', monthlyPrice: 9.99);
+const _proPlan = _PremiumPlan(tier: 'pro', displayName: 'Pro');
+const _premiumPlan = _PremiumPlan(tier: 'premium', displayName: 'Premium');
+
+/// Formats a yen amount with thousands separators, e.g. 2400 -> "¥2,400".
+String _formatYen(int yen) {
+  final digits = yen.toString();
+  final buf = StringBuffer();
+  for (var i = 0; i < digits.length; i++) {
+    if (i > 0 && (digits.length - i) % 3 == 0) buf.write(',');
+    buf.write(digits[i]);
+  }
+  return '¥$buf';
+}
 
 class PremiumScreen extends ConsumerStatefulWidget {
   const PremiumScreen({Key? key}) : super(key: key);
@@ -32,13 +40,14 @@ class PremiumScreen extends ConsumerStatefulWidget {
 
 class _PremiumScreenState extends ConsumerState<PremiumScreen> {
   bool _isLoading = false;
+  BillingPeriod _period = BillingPeriod.monthly;
 
   Future<void> _handlePurchase(_PremiumPlan plan) async {
     setState(() => _isLoading = true);
 
     try {
       final service = ref.read(paywallServiceProvider);
-      await service.purchaseSubscription(plan.tier);
+      await service.purchaseSubscription(plan.tier, period: _period);
 
       if (mounted) {
         ref.invalidate(userSubscriptionProvider);
@@ -200,6 +209,22 @@ class _PremiumScreenState extends ConsumerState<PremiumScreen> {
                       style: Theme.of(context).textTheme.titleLarge?.copyWith(
                             fontWeight: FontWeight.bold,
                           ),
+                    ),
+                    const SizedBox(height: 16),
+                    SegmentedButton<BillingPeriod>(
+                      segments: const [
+                        ButtonSegment(
+                          value: BillingPeriod.monthly,
+                          label: Text('Monthly'),
+                        ),
+                        ButtonSegment(
+                          value: BillingPeriod.annual,
+                          label: Text('Annual'),
+                        ),
+                      ],
+                      selected: {_period},
+                      onSelectionChanged: (s) =>
+                          setState(() => _period = s.first),
                     ),
                     const SizedBox(height: 16),
                     _buildPricingCard(
@@ -430,7 +455,9 @@ class _PremiumScreenState extends ConsumerState<PremiumScreen> {
                   Row(
                     children: [
                       Text(
-                        '\$${plan.monthlyPrice.toStringAsFixed(2)}',
+                        _formatYen(
+                          PaywallService.fallbackPriceYenByPeriod[_period]!,
+                        ),
                         style: const TextStyle(
                           fontSize: 24,
                           fontWeight: FontWeight.bold,
@@ -438,7 +465,7 @@ class _PremiumScreenState extends ConsumerState<PremiumScreen> {
                       ),
                       const SizedBox(width: 4),
                       Text(
-                        '/month',
+                        _period == BillingPeriod.annual ? '/year' : '/month',
                         style: TextStyle(
                           fontSize: 12,
                           color: Colors.grey.shade600,
