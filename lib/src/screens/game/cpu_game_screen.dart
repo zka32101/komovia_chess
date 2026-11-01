@@ -279,7 +279,7 @@ class _CPUGameScreenState extends ConsumerState<CPUGameScreen> {
             )
           else
             Text(
-              l10n.cpuDifficultyLabel(difficultyName(l10n, widget.difficulty)),
+              l10n.cpuDifficultyLabel(difficultyName(l10n, gameState.difficulty)),
               style: Theme.of(context).textTheme.labelSmall,
             ),
           Column(
@@ -317,7 +317,7 @@ class _CPUGameScreenState extends ConsumerState<CPUGameScreen> {
         ),
         _buildInfoRow(
           l10n.cpuDifficulty,
-          difficultyName(l10n, widget.difficulty),
+          difficultyName(l10n, gameState.difficulty),
         ),
         const SizedBox(height: 16),
         SizedBox(

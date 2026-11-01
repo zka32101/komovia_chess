@@ -95,7 +95,6 @@ class _GameBoardState extends State<GameBoard> {
 
   @override
   Widget build(BuildContext context) {
-    final isMobile = MediaQuery.of(context).size.width < 600;
     final l10n = AppLocalizations.of(context);
 
     return SingleChildScrollView(
@@ -136,39 +135,40 @@ class _GameBoardState extends State<GameBoard> {
             child: _buildBoard(),
           ),
 
-          // Game controls
-          if (!isMobile)
-            Padding(
-              padding: const EdgeInsets.all(16),
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                children: [
-                  if (widget.onUndo != null)
-                    ElevatedButton.icon(
-                      onPressed: widget.moveHistory.isEmpty
-                          ? null
-                          : widget.onUndo,
-                      icon: const Icon(Icons.undo),
-                      label: Text(l10n.boardUndo),
+          // Game controls (also on phones: Wrap keeps 3 buttons on-screen)
+          Padding(
+            padding: const EdgeInsets.all(16),
+            child: Wrap(
+              alignment: WrapAlignment.spaceEvenly,
+              spacing: 12,
+              runSpacing: 8,
+              children: [
+                if (widget.onUndo != null)
+                  ElevatedButton.icon(
+                    onPressed: widget.moveHistory.isEmpty
+                        ? null
+                        : widget.onUndo,
+                    icon: const Icon(Icons.undo),
+                    label: Text(l10n.boardUndo),
+                  ),
+                if (widget.onResign != null)
+                  ElevatedButton.icon(
+                    onPressed: widget.onResign,
+                    icon: const Icon(Icons.flag),
+                    label: Text(l10n.cpuResign),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: Colors.red,
                     ),
-                  if (widget.onResign != null)
-                    ElevatedButton.icon(
-                      onPressed: widget.onResign,
-                      icon: const Icon(Icons.flag),
-                      label: Text(l10n.cpuResign),
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: Colors.red,
-                      ),
-                    ),
-                  if (widget.onDraw != null)
-                    ElevatedButton.icon(
-                      onPressed: widget.onDraw,
-                      icon: const Icon(Icons.handshake),
-                      label: Text(l10n.boardOfferDraw),
-                    ),
-                ],
-              ),
+                  ),
+                if (widget.onDraw != null)
+                  ElevatedButton.icon(
+                    onPressed: widget.onDraw,
+                    icon: const Icon(Icons.handshake),
+                    label: Text(l10n.boardOfferDraw),
+                  ),
+              ],
             ),
+          ),
         ],
       ),
     );
