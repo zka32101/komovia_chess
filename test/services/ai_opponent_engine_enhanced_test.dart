@@ -145,7 +145,7 @@ void main() {
         aiEngine.getBestMove();
         final tableStats = aiEngine.getTableStats();
         expect(tableStats.containsKey('entries'), true);
-        expect(tableStats.containsKey('fills'), true);
+        expect(tableStats.containsKey('fillPercentage'), true);
       });
     });
 

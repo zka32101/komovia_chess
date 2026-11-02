@@ -457,7 +457,9 @@ void main() {
           );
         }
 
-        expect(currentRating, greaterThan(1680)); // At least 80+ points gained
+        // The delta now comes from komovia_core's shared Elo (#181): 5 wins at
+        // equal rating gain ~73 points, so assert clear growth, not an exact 80+.
+        expect(currentRating, greaterThan(1650));
       });
 
       test('multiple consecutive losses show rating decline', () {
@@ -472,7 +474,7 @@ void main() {
           );
         }
 
-        expect(currentRating, lessThan(1520)); // At least 80+ points lost
+        expect(currentRating, lessThan(1550)); // clear decline (~73 points lost)
       });
     });
 

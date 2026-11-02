@@ -102,8 +102,10 @@ class OpeningBook {
     final parts = fen.split(' ');
     if (parts.length >= 6) {
       final moveNumber = int.tryParse(parts[5]) ?? 1;
-      // Each full move (white + black) is 2 plies
-      return (moveNumber - 1) * 2;
+      // Each full move (white + black) is 2 plies; with black to move, white
+      // has already played its half of the current move.
+      final blackToMove = parts[1] == 'b';
+      return (moveNumber - 1) * 2 + (blackToMove ? 1 : 0);
     }
     return 0;
   }
