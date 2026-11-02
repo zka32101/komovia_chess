@@ -20,7 +20,16 @@ class ActiveCpuGameService {
   }
 
   Future<ActiveCpuGame?> getActive(String uid) async {
-    final doc = await _collection.doc(uid).get();
+    final ref = _collection.doc(uid);
+    // 対局画面から戻った直後は、直前の save/clear がまだサーバーに届いて
+    // いない。キャッシュには未送信の書き込みも反映されているので、まず
+    // キャッシュを読む（キャッシュに無いときだけサーバーへ）。
+    DocumentSnapshot<Map<String, dynamic>> doc;
+    try {
+      doc = await ref.get(const GetOptions(source: Source.cache));
+    } catch (_) {
+      doc = await ref.get();
+    }
     if (!doc.exists) return null;
     return ActiveCpuGame.fromFirestore(doc);
   }
