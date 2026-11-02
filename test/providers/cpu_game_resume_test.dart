@@ -190,6 +190,30 @@ void main() {
     });
   });
 
+  group('CpuGameNotifier.resumeFrom on a finished game', () {
+    test('shows the final result without resuming play', () {
+      final container = ProviderContainer();
+      addTearDown(container.dispose);
+      final notifier = container.read(cpuGameProvider.notifier);
+
+      // Fool's mate: 1.f3 e5 2.g4 Qh4#, white (the player) is mated.
+      notifier.resumeFrom(
+        ActiveCpuGame(
+          uid: 'u1',
+          moveUcis: const ['f2f3', 'e7e5', 'g2g4', 'd8h4'],
+          difficultyName: 'medium',
+          playerIsWhite: true,
+          startTime: DateTime(2026, 1, 1),
+        ),
+      );
+
+      final state = container.read(cpuGameProvider);
+      expect(state.isGameOver, isTrue);
+      expect(state.result, 'black_win');
+      expect(state.endReason, 'checkmate');
+    });
+  });
+
   group('CpuGameNotifier.initGame', () {
     test('quickGame defaults to false and is settable', () {
       final container = ProviderContainer();

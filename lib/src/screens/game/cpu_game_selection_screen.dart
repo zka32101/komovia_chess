@@ -421,7 +421,10 @@ class _CPUGameSelectionScreenState
 
   Future<void> _startGame() async {
     // 続きの対局があるまま始めると、その対局は上書きされて失われる。
-    if (ref.read(activeCpuGameProvider).valueOrNull != null) {
+    // 対局画面から戻った直後は表示用の値が古いので、読み直してから判定する。
+    final active = await ref.refresh(activeCpuGameProvider.future);
+    if (!mounted) return;
+    if (active != null) {
       final l10n = AppLocalizations.of(context);
       final ok = await showDialog<bool>(
         context: context,
@@ -442,7 +445,7 @@ class _CPUGameSelectionScreenState
       );
       if (ok != true || !mounted) return;
     }
-    Navigator.of(context).push(
+    await Navigator.of(context).push(
       SmoothPageTransition(
         page: CPUGameScreen(
           difficulty: _selectedDifficulty,
@@ -452,6 +455,8 @@ class _CPUGameSelectionScreenState
         ),
       ),
     );
+    // 戻ってきたら「続きから」カードを最新の保存状態に更新する。
+    if (mounted) ref.invalidate(activeCpuGameProvider);
   }
 
   Widget _buildResumeCard(ActiveCpuGame activeGame) {
@@ -464,11 +469,14 @@ class _CPUGameSelectionScreenState
           _resumeSubtitle(AppLocalizations.of(context), activeGame),
         ),
         trailing: const Icon(Icons.chevron_right),
-        onTap: () => Navigator.of(context).push(
-          SmoothPageTransition(
-            page: CPUGameScreen(resumeGame: activeGame),
-          ),
-        ),
+        onTap: () async {
+          await Navigator.of(context).push(
+            SmoothPageTransition(
+              page: CPUGameScreen(resumeGame: activeGame),
+            ),
+          );
+          if (mounted) ref.invalidate(activeCpuGameProvider);
+        },
       ),
     );
   }

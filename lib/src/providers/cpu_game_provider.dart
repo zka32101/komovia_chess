@@ -136,6 +136,12 @@ class CpuGameNotifier extends StateNotifier<CpuGameState> {
       playerIsWhite: saved.playerIsWhite,
       startingFen: saved.startingFen,
     );
+
+    // 終局済みの対局が保存されたまま残っていた場合は、再開せず終了画面を
+    // 見せるだけにする（結果の二重記録とレーティングの二重加算を防ぐ）。
+    if (_isGameOver()) {
+      _endGame(record: false);
+    }
   }
 
   /// [move]をUCI形式の文字列に変換する（`makeAIMove`が
@@ -170,11 +176,12 @@ class CpuGameNotifier extends StateNotifier<CpuGameState> {
     }
 
     _updateGameState(newMoves);
-    _persistActiveGame();
 
     // Check if game is over after player move
     if (_isGameOver()) {
       _endGame();
+    } else {
+      _persistActiveGame();
     }
   }
 
@@ -260,11 +267,12 @@ class CpuGameNotifier extends StateNotifier<CpuGameState> {
 
     _updateGameState(newMoves);
     state = state.copyWith(isAIThinking: false);
-    _persistActiveGame();
 
     // Check if game is over after AI move
     if (_isGameOver()) {
       _endGame();
+    } else {
+      _persistActiveGame();
     }
   }
 
@@ -363,7 +371,7 @@ class CpuGameNotifier extends StateNotifier<CpuGameState> {
   bool _isGameOver() => _chess.isGameOver();
 
   /// Helper: End the game and determine result
-  void _endGame() {
+  void _endGame({bool record = true}) {
     String? result;
     String? endReason;
 
@@ -393,7 +401,7 @@ class CpuGameNotifier extends StateNotifier<CpuGameState> {
       endTime: DateTime.now(),
     );
 
-    if (result != null) {
+    if (record && result != null) {
       final playerWon = (result == 'white_win') == state.playerIsWhite;
       _recordResult(result == 'draw' ? 'draw' : (playerWon ? 'win' : 'loss'));
     }
