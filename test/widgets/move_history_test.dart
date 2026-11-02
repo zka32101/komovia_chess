@@ -3,6 +3,16 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:chess/chess.dart' as chess_lib;
 import 'package:komovia_chess/src/widgets/move_history.dart';
 
+/// Plays [from]->[to] on [game] and returns the [chess_lib.Move] that was made
+/// (chess 0.7's Move is built by the engine, not constructed by hand).
+chess_lib.Move playMove(chess_lib.Chess game, String from, String to) {
+  final move = game
+      .generate_moves()
+      .firstWhere((m) => m.fromAlgebraic == from && m.toAlgebraic == to);
+  game.make_move(move);
+  return move;
+}
+
 void main() {
   group('MoveHistory', () {
     testWidgets('displays empty state when no moves',
@@ -22,10 +32,11 @@ void main() {
 
     testWidgets('displays move numbers', (WidgetTester tester) async {
       final game = chess_lib.Chess();
-      game.move(chess_lib.Move(fromAlgebraic: 'e2', toAlgebraic: 'e4'));
-      game.move(chess_lib.Move(fromAlgebraic: 'c7', toAlgebraic: 'c5'));
+      final played = <chess_lib.Move>[];
+      played.add(playMove(game, 'e2', 'e4'));
+      played.add(playMove(game, 'c7', 'c5'));
 
-      final moves = game.moves() as List<chess_lib.Move>;
+      final moves = played;
 
       await tester.pumpWidget(
         MaterialApp(
@@ -43,11 +54,12 @@ void main() {
     testWidgets('displays moves in pairs (white and black)',
         (WidgetTester tester) async {
       final game = chess_lib.Chess();
-      game.move(chess_lib.Move(fromAlgebraic: 'e2', toAlgebraic: 'e4'));
-      game.move(chess_lib.Move(fromAlgebraic: 'c7', toAlgebraic: 'c5'));
-      game.move(chess_lib.Move(fromAlgebraic: 'g1', toAlgebraic: 'f3'));
+      final played = <chess_lib.Move>[];
+      played.add(playMove(game, 'e2', 'e4'));
+      played.add(playMove(game, 'c7', 'c5'));
+      played.add(playMove(game, 'g1', 'f3'));
 
-      final moves = game.moves() as List<chess_lib.Move>;
+      final moves = played;
 
       await tester.pumpWidget(
         MaterialApp(
@@ -64,10 +76,11 @@ void main() {
 
     testWidgets('renders move buttons', (WidgetTester tester) async {
       final game = chess_lib.Chess();
-      game.move(chess_lib.Move(fromAlgebraic: 'e2', toAlgebraic: 'e4'));
-      game.move(chess_lib.Move(fromAlgebraic: 'e7', toAlgebraic: 'e5'));
+      final played = <chess_lib.Move>[];
+      played.add(playMove(game, 'e2', 'e4'));
+      played.add(playMove(game, 'e7', 'e5'));
 
-      final moves = game.moves() as List<chess_lib.Move>;
+      final moves = played;
 
       await tester.pumpWidget(
         MaterialApp(
@@ -84,10 +97,11 @@ void main() {
 
     testWidgets('highlights current move', (WidgetTester tester) async {
       final game = chess_lib.Chess();
-      game.move(chess_lib.Move(fromAlgebraic: 'e2', toAlgebraic: 'e4'));
-      game.move(chess_lib.Move(fromAlgebraic: 'e7', toAlgebraic: 'e5'));
+      final played = <chess_lib.Move>[];
+      played.add(playMove(game, 'e2', 'e4'));
+      played.add(playMove(game, 'e7', 'e5'));
 
-      final moves = game.moves() as List<chess_lib.Move>;
+      final moves = played;
 
       await tester.pumpWidget(
         MaterialApp(
@@ -106,10 +120,11 @@ void main() {
     testWidgets('calls callback when move selected',
         (WidgetTester tester) async {
       final game = chess_lib.Chess();
-      game.move(chess_lib.Move(fromAlgebraic: 'e2', toAlgebraic: 'e4'));
-      game.move(chess_lib.Move(fromAlgebraic: 'e7', toAlgebraic: 'e5'));
+      final played = <chess_lib.Move>[];
+      played.add(playMove(game, 'e2', 'e4'));
+      played.add(playMove(game, 'e7', 'e5'));
 
-      final moves = game.moves() as List<chess_lib.Move>;
+      final moves = played;
       int? selectedIndex;
 
       await tester.pumpWidget(
@@ -135,11 +150,12 @@ void main() {
 
     testWidgets('handles odd number of moves', (WidgetTester tester) async {
       final game = chess_lib.Chess();
-      game.move(chess_lib.Move(fromAlgebraic: 'e2', toAlgebraic: 'e4'));
-      game.move(chess_lib.Move(fromAlgebraic: 'e7', toAlgebraic: 'e5'));
-      game.move(chess_lib.Move(fromAlgebraic: 'g1', toAlgebraic: 'f3'));
+      final played = <chess_lib.Move>[];
+      played.add(playMove(game, 'e2', 'e4'));
+      played.add(playMove(game, 'e7', 'e5'));
+      played.add(playMove(game, 'g1', 'f3'));
 
-      final moves = game.moves() as List<chess_lib.Move>;
+      final moves = played;
 
       await tester.pumpWidget(
         MaterialApp(
@@ -157,9 +173,10 @@ void main() {
 
     testWidgets('displays move notation', (WidgetTester tester) async {
       final game = chess_lib.Chess();
-      game.move(chess_lib.Move(fromAlgebraic: 'e2', toAlgebraic: 'e4'));
+      final played = <chess_lib.Move>[];
+      played.add(playMove(game, 'e2', 'e4'));
 
-      final moves = game.moves() as List<chess_lib.Move>;
+      final moves = played;
 
       await tester.pumpWidget(
         MaterialApp(
@@ -177,14 +194,15 @@ void main() {
 
     testWidgets('scrollable with many moves', (WidgetTester tester) async {
       final game = chess_lib.Chess();
-      // Make 20 moves
-      for (int i = 0; i < 20 && !game.game_over(); i++) {
-        final moves = game.moves() as List<chess_lib.Move>;
-        if (moves.isEmpty) break;
-        game.move(moves[0]);
+      final played = <chess_lib.Move>[];
+      // Make 20 moves: always play the first legal move.
+      for (int i = 0; i < 20 && !game.game_over; i++) {
+        final move = game.generate_moves().first;
+        game.make_move(move);
+        played.add(move);
       }
 
-      final moves = game.moves() as List<chess_lib.Move>;
+      final moves = played;
 
       await tester.pumpWidget(
         MaterialApp(
@@ -205,10 +223,11 @@ void main() {
     testWidgets('shows both white and black moves',
         (WidgetTester tester) async {
       final game = chess_lib.Chess();
-      game.move(chess_lib.Move(fromAlgebraic: 'e2', toAlgebraic: 'e4'));
-      game.move(chess_lib.Move(fromAlgebraic: 'c7', toAlgebraic: 'c5'));
+      final played = <chess_lib.Move>[];
+      played.add(playMove(game, 'e2', 'e4'));
+      played.add(playMove(game, 'c7', 'c5'));
 
-      final moves = game.moves() as List<chess_lib.Move>;
+      final moves = played;
 
       await tester.pumpWidget(
         MaterialApp(
