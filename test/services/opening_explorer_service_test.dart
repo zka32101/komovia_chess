@@ -1,3 +1,4 @@
+import 'package:fake_cloud_firestore/fake_cloud_firestore.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:komovia_chess/src/services/opening_explorer_service.dart';
 
@@ -19,7 +20,7 @@ void main() {
     late OpeningExplorerService service;
 
     setUp(() {
-      service = OpeningExplorerService();
+      service = OpeningExplorerService(firestore: FakeFirebaseFirestore());
     });
 
     test('returns no candidates when there are no games', () {

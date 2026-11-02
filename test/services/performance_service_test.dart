@@ -1,3 +1,4 @@
+import 'package:fake_cloud_firestore/fake_cloud_firestore.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:komovia_chess/src/services/performance_service.dart';
 
@@ -6,7 +7,7 @@ void main() {
     late PerformanceService service;
 
     setUp(() {
-      service = PerformanceService();
+      service = PerformanceService(firestore: FakeFirebaseFirestore());
     });
 
     group('Win Rate Calculation', () {

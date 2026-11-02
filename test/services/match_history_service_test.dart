@@ -1,3 +1,4 @@
+import 'package:fake_cloud_firestore/fake_cloud_firestore.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:komovia_chess/src/services/match_history_service.dart';
@@ -67,7 +68,7 @@ void main() {
     late MatchHistoryService service;
 
     setUp(() {
-      service = MatchHistoryService();
+      service = MatchHistoryService(firestore: FakeFirebaseFirestore());
     });
 
     group('CSV Export', () {

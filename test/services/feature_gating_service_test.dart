@@ -1,12 +1,36 @@
+import 'package:fake_cloud_firestore/fake_cloud_firestore.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:komovia_chess/src/services/feature_gating_service.dart';
+
+/// Minimal signed-in user/auth: the gating service only reads `currentUser.uid`.
+class _FakeUser implements User {
+  @override
+  String get uid => 'test-user';
+
+  @override
+  dynamic noSuchMethod(Invocation invocation) =>
+      throw UnimplementedError('Unexpected User call: $invocation');
+}
+
+class _FakeAuth implements FirebaseAuth {
+  @override
+  User? get currentUser => _FakeUser();
+
+  @override
+  dynamic noSuchMethod(Invocation invocation) =>
+      throw UnimplementedError('Unexpected FirebaseAuth call: $invocation');
+}
 
 void main() {
   group('FeatureGatingService', () {
     late FeatureGatingService featureGating;
 
     setUp(() {
-      featureGating = FeatureGatingService.instance;
+      featureGating = FeatureGatingService.forTesting(
+        auth: _FakeAuth(),
+        firestore: FakeFirebaseFirestore(),
+      );
     });
 
     group('Feature tier access', () {
@@ -78,7 +102,7 @@ void main() {
           'daily_games',
           'free',
         );
-        expect(remaining, 2); // Free tier daily limit
+        expect(remaining, FeatureGatingService.DAILY_LIMITS['daily_games']);
       });
 
       test('pro tier has unlimited attempts', () async {
