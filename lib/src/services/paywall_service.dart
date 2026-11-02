@@ -2,6 +2,8 @@ import 'dart:async';
 import 'package:in_app_purchase/in_app_purchase.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:komovia_core/komovia_core.dart' show SubscriptionPlan;
+import '../models/avatar_frames.dart';
 import '../models/cosmetic_catalog.dart';
 
 /// Thrown when a purchase can't be started - the store isn't available on
@@ -39,6 +41,10 @@ class PaywallService {
     'premium': {
       BillingPeriod.monthly: 'chess_premium_monthly',
       BillingPeriod.annual: 'chess_premium_annual',
+      // Lifetime (one-time, never expires) is offered on the top 'premium'
+      // tier ONLY - deliberately not on 'pro', so the lower tier and the
+      // permanent top-tier purchase stay clearly distinct.
+      BillingPeriod.lifetime: 'chess_premium_lifetime',
     },
   };
 
@@ -49,7 +55,12 @@ class PaywallService {
   static const Map<BillingPeriod, int> fallbackPriceYenByPeriod = {
     BillingPeriod.monthly: 300,
     BillingPeriod.annual: 2400,
+    BillingPeriod.lifetime: 9800,
   };
+
+  /// Billing periods actually sold for [tier] (lifetime is premium-only).
+  static List<BillingPeriod> periodsFor(String tier) =>
+      _productIdsByTier[tier]?.keys.toList() ?? const [];
 
   /// Fallback display price (JPY) for the AI分析プラン (monthly).
   static const int aiAnalysisPlanMonthlyFallbackPriceYen = 990;
@@ -175,13 +186,37 @@ class PaywallService {
     final user = _auth.currentUser;
     if (user == null) return;
 
-    final expiry = DateTime.now().add(period.entitlementLength);
-    await _firestore.collection('users').doc(user.uid).set({
+    final userRef = _firestore.collection('users').doc(user.uid);
+    final length = period.entitlementLength;
+    if (length == null) {
+      await userRef.set(
+        lifetimeEntitlementUpdate(tier),
+        SetOptions(merge: true),
+      );
+      return;
+    }
+    // Never downgrade a lifetime purchaser back to an expiring plan (e.g.
+    // a restore that also redelivers an old monthly receipt).
+    final existing = await userRef.get();
+    if (existing.data()?['isLifetime'] == true) return;
+    final expiry = DateTime.now().add(length);
+    await userRef.set({
       'subscriptionTier': tier,
       'subscriptionExpiry': Timestamp.fromDate(expiry),
       'isLifetime': false,
     }, SetOptions(merge: true));
   }
+
+  /// Firestore fields written when a lifetime purchase resolves: permanent
+  /// [tier] entitlement plus every lifetime-exclusive avatar frame added to
+  /// the user's unlocked set (komovia_core [AvatarFrame.lifetimeExclusive]:
+  /// the one documented exception to "frames are earned, never bought").
+  static Map<String, Object?> lifetimeEntitlementUpdate(String tier) => {
+    'subscriptionTier': tier,
+    'subscriptionExpiry': null,
+    'isLifetime': true,
+    'unlockedFrameIds': FieldValue.arrayUnion(lifetimeExclusiveFrameIds),
+  };
 
   /// Records the AI分析プラン entitlement in its own field so it never
   /// clobbers the separate pro/premium `subscriptionTier`. Same documented
@@ -395,13 +430,21 @@ class PaywallService {
 }
 
 /// Billing period of a pro/premium subscription (independent of the tier).
+/// Names mirror komovia_core's [SubscriptionPlan] (monthly/annual/lifetime).
 enum BillingPeriod {
   monthly(Duration(days: 30)),
-  annual(Duration(days: 365));
+  annual(Duration(days: 365)),
 
-  /// How long one purchase/renewal grants the entitlement for.
-  final Duration entitlementLength;
+  /// One-time purchase that never expires (premium tier only).
+  lifetime(null);
+
+  /// How long one purchase/renewal grants the entitlement for; null for
+  /// [lifetime] (never expires).
+  final Duration? entitlementLength;
   const BillingPeriod(this.entitlementLength);
+
+  /// The equivalent komovia_core plan.
+  SubscriptionPlan get plan => SubscriptionPlan.values.byName(name);
 }
 
 /// Subscription tier enum

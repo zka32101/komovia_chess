@@ -170,6 +170,8 @@ class _SkinCardState extends ConsumerState<_SkinCard> {
       status = l10n.cosmeticShopOwned;
     } else if (item.includedWithSubscription) {
       status = l10n.cosmeticShopIncludedWithSubscription;
+    } else if (item.includedWithLifetime) {
+      status = l10n.cosmeticShopIncludedWithLifetime;
     } else {
       status = price ?? '';
     }

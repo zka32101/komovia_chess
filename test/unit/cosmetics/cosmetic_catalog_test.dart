@@ -171,4 +171,30 @@ void main() {
       );
     }
   });
+
+  group('Lifetime-exclusive skin', () {
+    final crown = PieceSkinCatalog.eternalCrown.cosmetic;
+    test('not owned by a monthly/annual subscriber', () {
+      expect(crown.includedWithLifetime, isTrue);
+      expect(crown.iapProductId, isNull);
+      expect(
+        crown.isOwnedBy(
+          hasActiveSubscription: true,
+          purchasedProductIds: const {},
+        ),
+        isFalse,
+      );
+    });
+    test('owned by a lifetime purchaser', () {
+      expect(
+        crown.isOwnedBy(
+          hasActiveSubscription: true,
+          purchasedProductIds: const {},
+          isLifetimePurchaser: true,
+        ),
+        isTrue,
+      );
+    });
+  });
 }
+

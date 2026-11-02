@@ -17,6 +17,7 @@ String avatarFrameRequirementLabel(
   AppLocalizations l10n,
   AvatarFrameRequirement r,
 ) => switch (r.stat) {
+  null => l10n.avatarFrameReqLifetime,
   FrameStat.wins => l10n.avatarFrameReqWins(r.threshold),
   FrameStat.gamesPlayed => l10n.avatarFrameReqGames(r.threshold),
   FrameStat.puzzlesSolved => l10n.avatarFrameReqPuzzles(r.threshold),

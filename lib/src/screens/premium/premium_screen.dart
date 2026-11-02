@@ -42,12 +42,18 @@ class _PremiumScreenState extends ConsumerState<PremiumScreen> {
   bool _isLoading = false;
   BillingPeriod _period = BillingPeriod.monthly;
 
-  Future<void> _handlePurchase(_PremiumPlan plan) async {
+  Future<void> _handlePurchase(
+    _PremiumPlan plan, {
+    BillingPeriod? period,
+  }) async {
     setState(() => _isLoading = true);
 
     try {
       final service = ref.read(paywallServiceProvider);
-      await service.purchaseSubscription(plan.tier, period: _period);
+      await service.purchaseSubscription(
+        plan.tier,
+        period: period ?? _period,
+      );
 
       if (mounted) {
         ref.invalidate(userSubscriptionProvider);
@@ -238,6 +244,12 @@ class _PremiumScreenState extends ConsumerState<PremiumScreen> {
                       plan: _premiumPlan,
                       isSelected: status.tier == _premiumPlan.tier,
                       onTap: () => _handlePurchase(_premiumPlan),
+                      onLifetimeTap: status.isLifetime
+                          ? null
+                          : () => _handlePurchase(
+                                _premiumPlan,
+                                period: BillingPeriod.lifetime,
+                              ),
                       isLoading: _isLoading,
                       isPopular: true,
                     ),
@@ -381,6 +393,7 @@ class _PremiumScreenState extends ConsumerState<PremiumScreen> {
     required VoidCallback onTap,
     required bool isLoading,
     bool isPopular = false,
+    VoidCallback? onLifetimeTap,
   }) =>
       Stack(
         children: [
@@ -489,6 +502,22 @@ class _PremiumScreenState extends ConsumerState<PremiumScreen> {
                             ),
                     ),
                   ),
+                  // Lifetime (one-time) option - premium tier only.
+                  if (onLifetimeTap != null) ...[
+                    const SizedBox(height: 8),
+                    SizedBox(
+                      width: double.infinity,
+                      child: OutlinedButton.icon(
+                        key: const Key('premium_lifetime_button'),
+                        onPressed: _isLoading ? null : onLifetimeTap,
+                        icon: const Icon(Icons.all_inclusive, size: 18),
+                        label: Text(
+                          'Lifetime ${_formatYen(PaywallService.fallbackPriceYenByPeriod[BillingPeriod.lifetime]!)}'
+                          ' (one-time) + exclusive skin & frame',
+                        ),
+                      ),
+                    ),
+                  ],
                 ],
               ),
             ),

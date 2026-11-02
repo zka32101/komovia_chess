@@ -14,10 +14,18 @@ class UserSubscription {
     required this.tier,
     required this.isActive,
     this.expiryDate,
+    this.isLifetime = false,
   });
   final String tier; // 'free', 'pro', 'premium'
   final DateTime? expiryDate;
   final bool isActive;
+
+  /// True only for a one-time lifetime purchase (never for monthly/annual).
+  final bool isLifetime;
+
+  /// Whether lifetime-exclusive perks (komovia_core
+  /// `CosmeticItem.includedWithLifetime`) apply.
+  bool get isLifetimePurchaser => isLifetime && isActive;
 
   bool get isPro => tier == 'pro' && isActive;
   bool get isPremium => tier == 'premium' && isActive;
@@ -68,6 +76,7 @@ final userSubscriptionProvider = FutureProvider<UserSubscription>((ref) async {
       tier: tier,
       expiryDate: expiryDate,
       isActive: isActive,
+      isLifetime: isLifetime,
     );
   } catch (e) {
     debugPrint('Error fetching subscription: $e');

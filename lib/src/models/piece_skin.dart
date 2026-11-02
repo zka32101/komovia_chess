@@ -21,6 +21,7 @@ class PieceSkin {
     this.blackStrokeScale = 0.04,
     this.fontWeight = FontWeight.bold,
     this.includedWithSubscription = false,
+    this.includedWithLifetime = false,
     this.iapProductId,
   });
 
@@ -38,6 +39,10 @@ class PieceSkin {
   final double blackStrokeScale;
   final FontWeight fontWeight;
   final bool includedWithSubscription;
+
+  /// Granted only to premium lifetime purchasers (NOT to monthly/annual
+  /// subscribers) - komovia_core [CosmeticItem.includedWithLifetime].
+  final bool includedWithLifetime;
   final String? iapProductId;
 
   CosmeticItem get cosmetic => CosmeticItem(
@@ -45,6 +50,7 @@ class PieceSkin {
     category: PieceSkinCatalog.cosmeticCategory,
     name: displayName,
     includedWithSubscription: includedWithSubscription,
+    includedWithLifetime: includedWithLifetime,
     iapProductId: iapProductId,
   );
 }
@@ -126,6 +132,21 @@ class PieceSkinCatalog {
     iapProductId: 'chess_skin_pieces_sapphire',
   );
 
+  // --- Lifetime-purchase exclusive ---
+
+  /// Granted only by the premium lifetime (one-time) purchase.
+  static const PieceSkin eternalCrown = PieceSkin(
+    id: 'eternal_crown',
+    displayName: 'Eternal Crown',
+    whiteFill: Color(0xFFFFF4D6),
+    blackFill: Color(0xFF2A0F3D),
+    whiteOutline: Color(0xFF5C3D00),
+    blackOutline: Color(0xCCFFD86B),
+    whiteStrokeScale: 0.1,
+    blackStrokeScale: 0.05,
+    includedWithLifetime: true,
+  );
+
   static const List<PieceSkin> all = [
     standard,
     boldOutline,
@@ -133,6 +154,7 @@ class PieceSkinCatalog {
     ebony,
     goldOnyx,
     sapphire,
+    eternalCrown,
   ];
 
   static PieceSkin byId(String? id) =>
