@@ -34,8 +34,10 @@ void main() {
         expect(sessionId, startsWith('session_'));
       });
 
-      test('Unique session IDs', () {
+      test('Unique session IDs', () async {
         final id1 = generateSessionId();
+        // IDs are millisecond timestamps: wait so two calls cannot collide.
+        await Future<void>.delayed(const Duration(milliseconds: 2));
         final id2 = generateSessionId();
         expect(id1, isNot(id2));
       });

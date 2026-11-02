@@ -248,7 +248,7 @@ void main() {
       ]);
 
       final delta = profiler.getMemoryDeltaMB(0, 1);
-      expect(delta, equals(23)); // (60+15+8) - (50+10+5) = 83 - 65 = 18
+      expect(delta, equals(18)); // (60+15+8) - (50+10+5) = 83 - 65 = 18
     });
 
     test('getPeakMemoryMB returns maximum usage', () {

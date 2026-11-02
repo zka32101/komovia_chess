@@ -147,8 +147,9 @@ void main() {
           );
 
           expect(modifiedGame.gameId, baseGame.gameId);
+          // i == 0 subtracts nothing, so the copy equals the base value.
           expect(modifiedGame.whiteTimeRemainingMs,
-              lessThan(baseGame.whiteTimeRemainingMs));
+              lessThanOrEqualTo(baseGame.whiteTimeRemainingMs));
         }
 
         metrics.recordEnd(copyCount);
