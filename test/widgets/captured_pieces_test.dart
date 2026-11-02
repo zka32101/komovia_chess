@@ -23,10 +23,8 @@ void main() {
 
     testWidgets('displays white captured pieces', (WidgetTester tester) async {
       final whiteCaptured = [
-        chess_lib.Piece(
-            color: chess_lib.Color.WHITE, type: chess_lib.PieceType.pawn),
-        chess_lib.Piece(
-            color: chess_lib.Color.WHITE, type: chess_lib.PieceType.knight),
+        chess_lib.Piece(chess_lib.PieceType.PAWN, chess_lib.Color.WHITE),
+        chess_lib.Piece(chess_lib.PieceType.KNIGHT, chess_lib.Color.WHITE),
       ];
 
       await tester.pumpWidget(
@@ -45,10 +43,8 @@ void main() {
 
     testWidgets('displays black captured pieces', (WidgetTester tester) async {
       final blackCaptured = [
-        chess_lib.Piece(
-            color: chess_lib.Color.BLACK, type: chess_lib.PieceType.pawn),
-        chess_lib.Piece(
-            color: chess_lib.Color.BLACK, type: chess_lib.PieceType.bishop),
+        chess_lib.Piece(chess_lib.PieceType.PAWN, chess_lib.Color.BLACK),
+        chess_lib.Piece(chess_lib.PieceType.BISHOP, chess_lib.Color.BLACK),
       ];
 
       await tester.pumpWidget(
@@ -67,12 +63,10 @@ void main() {
 
     testWidgets('displays both captured pieces', (WidgetTester tester) async {
       final whiteCaptured = [
-        chess_lib.Piece(
-            color: chess_lib.Color.WHITE, type: chess_lib.PieceType.pawn),
+        chess_lib.Piece(chess_lib.PieceType.PAWN, chess_lib.Color.WHITE),
       ];
       final blackCaptured = [
-        chess_lib.Piece(
-            color: chess_lib.Color.BLACK, type: chess_lib.PieceType.queen),
+        chess_lib.Piece(chess_lib.PieceType.QUEEN, chess_lib.Color.BLACK),
       ];
 
       await tester.pumpWidget(
@@ -92,12 +86,10 @@ void main() {
     testWidgets('shows material advantage for white',
         (WidgetTester tester) async {
       final whiteCaptured = [
-        chess_lib.Piece(
-            color: chess_lib.Color.WHITE, type: chess_lib.PieceType.queen), // 9
+        chess_lib.Piece(chess_lib.PieceType.QUEEN, chess_lib.Color.WHITE), // 9
       ];
       final blackCaptured = [
-        chess_lib.Piece(
-            color: chess_lib.Color.BLACK, type: chess_lib.PieceType.pawn), // 1
+        chess_lib.Piece(chess_lib.PieceType.PAWN, chess_lib.Color.BLACK), // 1
       ];
 
       await tester.pumpWidget(
@@ -118,12 +110,10 @@ void main() {
     testWidgets('shows material advantage for black',
         (WidgetTester tester) async {
       final whiteCaptured = [
-        chess_lib.Piece(
-            color: chess_lib.Color.WHITE, type: chess_lib.PieceType.pawn), // 1
+        chess_lib.Piece(chess_lib.PieceType.PAWN, chess_lib.Color.WHITE), // 1
       ];
       final blackCaptured = [
-        chess_lib.Piece(
-            color: chess_lib.Color.BLACK, type: chess_lib.PieceType.rook), // 5
+        chess_lib.Piece(chess_lib.PieceType.ROOK, chess_lib.Color.BLACK), // 5
       ];
 
       await tester.pumpWidget(
@@ -143,12 +133,10 @@ void main() {
     testWidgets('shows equal material as no advantage',
         (WidgetTester tester) async {
       final whiteCaptured = [
-        chess_lib.Piece(
-            color: chess_lib.Color.WHITE, type: chess_lib.PieceType.pawn),
+        chess_lib.Piece(chess_lib.PieceType.PAWN, chess_lib.Color.WHITE),
       ];
       final blackCaptured = [
-        chess_lib.Piece(
-            color: chess_lib.Color.BLACK, type: chess_lib.PieceType.pawn),
+        chess_lib.Piece(chess_lib.PieceType.PAWN, chess_lib.Color.BLACK),
       ];
 
       await tester.pumpWidget(
@@ -169,12 +157,9 @@ void main() {
     testWidgets('displays multiple pieces of same type',
         (WidgetTester tester) async {
       final whiteCaptured = [
-        chess_lib.Piece(
-            color: chess_lib.Color.WHITE, type: chess_lib.PieceType.pawn),
-        chess_lib.Piece(
-            color: chess_lib.Color.WHITE, type: chess_lib.PieceType.pawn),
-        chess_lib.Piece(
-            color: chess_lib.Color.WHITE, type: chess_lib.PieceType.pawn),
+        chess_lib.Piece(chess_lib.PieceType.PAWN, chess_lib.Color.WHITE),
+        chess_lib.Piece(chess_lib.PieceType.PAWN, chess_lib.Color.WHITE),
+        chess_lib.Piece(chess_lib.PieceType.PAWN, chess_lib.Color.WHITE),
       ];
 
       await tester.pumpWidget(
@@ -195,10 +180,7 @@ void main() {
         (WidgetTester tester) async {
       final whiteCaptured = List<chess_lib.Piece>.generate(
         10,
-        (index) => chess_lib.Piece(
-          color: chess_lib.Color.WHITE,
-          type: chess_lib.PieceType.pawn,
-        ),
+        (index) => chess_lib.Piece(chess_lib.PieceType.PAWN, chess_lib.Color.WHITE),
       );
 
       await tester.pumpWidget(

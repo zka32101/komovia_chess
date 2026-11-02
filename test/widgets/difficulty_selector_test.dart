@@ -87,6 +87,13 @@ void main() {
 
     testWidgets('calls callback when difficulty selected',
         (WidgetTester tester) async {
+      // The dialog is taller than the default 800x600 test surface, which
+      // pushed 'Start Game' off-screen so the tap never hit it.
+      tester.view.physicalSize = const Size(800, 1400);
+      tester.view.devicePixelRatio = 1.0;
+      addTearDown(tester.view.resetPhysicalSize);
+      addTearDown(tester.view.resetDevicePixelRatio);
+
       AIDifficulty? selectedDifficulty;
 
       await tester.pumpWidget(
