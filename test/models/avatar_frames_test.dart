@@ -174,4 +174,25 @@ void main() {
       expect(result?.frameId, 'first_win');
     });
   });
+
+  group('lifetime-exclusive frame', () {
+    test('is never earned from stats, only from persisted unlock', () {
+      final r = avatarFrameById('eternal_laurel')!;
+      expect(r.frame.lifetimeExclusive, isTrue);
+      final maxed = _user(
+        rating: 3000,
+        wins: 9999,
+        gamesPlayed: 9999,
+        puzzlesSolved: 9999,
+        dailyStreak: 999,
+      );
+      expect(unlockedFrameIdsFor(maxed), isNot(contains('eternal_laurel')));
+      expect(newlyEarnedPeakFrameIds(maxed), isNot(contains('eternal_laurel')));
+      expect(
+        unlockedFrameIdsFor(_user(unlocked: const ['eternal_laurel'])),
+        contains('eternal_laurel'),
+      );
+    });
+  });
 }
+

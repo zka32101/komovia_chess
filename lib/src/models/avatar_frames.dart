@@ -10,7 +10,11 @@ import 'user.dart';
 ///   point", "had a 7-day puzzle streak"). The current value can drop
 ///   later, so once earned the id is persisted in
 ///   `UserModel.unlockedFrameIds` and stays unlocked forever.
-enum FrameUnlockKind { live, peak }
+///
+/// * [lifetimePurchase] - never earned from stats: granted (persisted in
+///   `unlockedFrameIds`) only when the user buys the premium lifetime
+///   plan. Backed by komovia_core [AvatarFrame.lifetimeExclusive].
+enum FrameUnlockKind { live, peak, lifetimePurchase }
 
 /// Which tracked stat a frame's threshold is measured against.
 enum FrameStat { wins, gamesPlayed, puzzlesSolved, rating, puzzleStreak }
@@ -24,12 +28,19 @@ class AvatarFrameRequirement {
     required this.kind,
   });
 
+  /// A frame granted only by the premium lifetime purchase.
+  const AvatarFrameRequirement.lifetimeExclusive(this.frame)
+    : stat = null,
+      threshold = 0,
+      kind = FrameUnlockKind.lifetimePurchase;
+
   final AvatarFrame frame;
-  final FrameStat stat;
+  final FrameStat? stat;
   final int threshold;
   final FrameUnlockKind kind;
 
   int _valueOf(UserModel user) => switch (stat) {
+    null => 0,
     FrameStat.wins => user.wins,
     FrameStat.gamesPlayed => user.gamesPlayed,
     FrameStat.puzzlesSolved => user.puzzlesSolved,
@@ -38,7 +49,9 @@ class AvatarFrameRequirement {
   };
 
   /// Whether the user's *current* stats meet the threshold.
-  bool isMetBy(UserModel user) => _valueOf(user) >= threshold;
+  /// Lifetime-purchase frames are never met by stats.
+  bool isMetBy(UserModel user) =>
+      kind != FrameUnlockKind.lifetimePurchase && _valueOf(user) >= threshold;
 }
 
 /// Free, earn-only avatar frames. Never purchasable - no IAP surface.
@@ -142,6 +155,22 @@ const List<AvatarFrameRequirement> kAvatarFrames = [
     threshold: 500,
     kind: FrameUnlockKind.live,
   ),
+  // Lifetime-purchase exclusive (granted by PaywallService on a premium
+  // lifetime purchase; never earnable, never sold on its own).
+  AvatarFrameRequirement.lifetimeExclusive(
+    AvatarFrame(
+      id: 'eternal_laurel',
+      name: 'Eternal Laurel',
+      tier: FrameTier.platinum,
+      lifetimeExclusive: true,
+    ),
+  ),
+];
+
+/// Ids of frames granted automatically by the premium lifetime purchase.
+List<String> get lifetimeExclusiveFrameIds => [
+  for (final r in kAvatarFrames)
+    if (r.frame.lifetimeExclusive) r.frame.id,
 ];
 
 AvatarFrameRequirement? avatarFrameById(String? id) {

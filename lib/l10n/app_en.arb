@@ -918,6 +918,8 @@
   "@avatarFrameReqPuzzles": {"placeholders": {"count": {"type": "int"}}},
   "avatarFrameReqRating": "Reach rating {count}",
   "@avatarFrameReqRating": {"placeholders": {"count": {"type": "int"}}},
+  "cosmeticShopIncludedWithLifetime": "Lifetime Premium exclusive",
+  "avatarFrameReqLifetime": "Lifetime Premium purchase",
   "avatarFrameReqStreak": "{count}-day puzzle streak",
   "@avatarFrameReqStreak": {"placeholders": {"count": {"type": "int"}}},
   "aiAnalysisPlanName": "AI Analysis Plan",

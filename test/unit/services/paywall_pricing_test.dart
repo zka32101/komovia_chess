@@ -1,4 +1,6 @@
 import 'package:flutter_test/flutter_test.dart';
+import 'package:komovia_core/komovia_core.dart' show SubscriptionPlan;
+import 'package:komovia_chess/src/models/avatar_frames.dart';
 import 'package:komovia_chess/src/services/paywall_service.dart';
 
 void main() {
@@ -14,7 +16,7 @@ void main() {
           'chess_premium_annual');
       expect(PaywallService.productIdFor('free', BillingPeriod.monthly),
           isNull);
-      expect(PaywallService.allSubscriptionProductIds, hasLength(4));
+      expect(PaywallService.allSubscriptionProductIds, hasLength(5));
     });
 
     test('reverse lookup resolves tier and period', () {
@@ -39,8 +41,38 @@ void main() {
     });
 
     test('entitlement length follows billing period', () {
-      expect(BillingPeriod.monthly.entitlementLength.inDays, 30);
-      expect(BillingPeriod.annual.entitlementLength.inDays, 365);
+      expect(BillingPeriod.monthly.entitlementLength!.inDays, 30);
+      expect(BillingPeriod.annual.entitlementLength!.inDays, 365);
+    });
+  });
+
+  group('Lifetime plan', () {
+    test('offered on premium only', () {
+      expect(PaywallService.productIdFor('premium', BillingPeriod.lifetime),
+          'chess_premium_lifetime');
+      expect(PaywallService.productIdFor('pro', BillingPeriod.lifetime),
+          isNull);
+      expect(PaywallService.periodsFor('pro'),
+          isNot(contains(BillingPeriod.lifetime)));
+      final plan = PaywallService.planForProductId('chess_premium_lifetime');
+      expect(plan?.tier, 'premium');
+      expect(plan?.period, BillingPeriod.lifetime);
+    });
+
+    test('never expires and maps to komovia_core lifetime plan', () {
+      expect(BillingPeriod.lifetime.entitlementLength, isNull);
+      expect(BillingPeriod.lifetime.plan, SubscriptionPlan.lifetime);
+      expect(PaywallService.fallbackPriceYenByPeriod[BillingPeriod.lifetime],
+          isNotNull);
+    });
+
+    test('purchase grants lifetime flag and exclusive frames', () {
+      final update = PaywallService.lifetimeEntitlementUpdate('premium');
+      expect(update['isLifetime'], true);
+      expect(update['subscriptionTier'], 'premium');
+      expect(update['subscriptionExpiry'], isNull);
+      expect(update['unlockedFrameIds'], isNotNull);
+      expect(lifetimeExclusiveFrameIds, contains('eternal_laurel'));
     });
   });
 }

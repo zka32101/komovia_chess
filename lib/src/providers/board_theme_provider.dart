@@ -17,5 +17,6 @@ final selectedBoardThemeProvider = Provider<BoardTheme>((ref) {
     user?.boardSkinId ?? legacy,
     hasActiveSubscription: ref.watch(hasActiveSubscriptionProvider),
     purchasedProductIds: ref.watch(purchasedCosmeticProductIdsProvider),
+    isLifetimePurchaser: ref.watch(isLifetimePurchaserProvider),
   );
 });

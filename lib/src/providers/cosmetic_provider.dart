@@ -19,11 +19,18 @@ final hasActiveSubscriptionProvider = Provider<bool>((ref) {
   return sub != null && (sub.isPro || sub.isPremium);
 });
 
+/// Whether the user bought the premium lifetime plan (false while loading).
+final isLifetimePurchaserProvider = Provider<bool>((ref) {
+  return ref.watch(userSubscriptionProvider).value?.isLifetimePurchaser ??
+      false;
+});
+
 /// Whether [item] is owned by the signed-in user.
 final cosmeticOwnedProvider = Provider.family<bool, CosmeticItem>(
   (ref, item) => item.isOwnedBy(
     hasActiveSubscription: ref.watch(hasActiveSubscriptionProvider),
     purchasedProductIds: ref.watch(purchasedCosmeticProductIdsProvider),
+    isLifetimePurchaser: ref.watch(isLifetimePurchaserProvider),
   ),
 );
 
@@ -38,12 +45,14 @@ T resolveOwnedSkin<T>({
   required T fallback,
   required bool hasActiveSubscription,
   required Set<String> purchasedProductIds,
+  bool isLifetimePurchaser = false,
 }) {
   for (final skin in catalog) {
     if (idOf(skin) != storedId) continue;
     final owned = cosmeticOf(skin).isOwnedBy(
       hasActiveSubscription: hasActiveSubscription,
       purchasedProductIds: purchasedProductIds,
+      isLifetimePurchaser: isLifetimePurchaser,
     );
     return owned ? skin : fallback;
   }
@@ -61,6 +70,7 @@ final selectedPieceSkinProvider = Provider<PieceSkin>((ref) {
     fallback: PieceSkinCatalog.standard,
     hasActiveSubscription: ref.watch(hasActiveSubscriptionProvider),
     purchasedProductIds: ref.watch(purchasedCosmeticProductIdsProvider),
+    isLifetimePurchaser: ref.watch(isLifetimePurchaserProvider),
   );
 });
 
@@ -70,6 +80,7 @@ BoardTheme resolveBoardSkin(
   String? storedId, {
   required bool hasActiveSubscription,
   required Set<String> purchasedProductIds,
+  bool isLifetimePurchaser = false,
 }) => resolveOwnedSkin<BoardTheme>(
   storedId: storedId,
   catalog: BoardThemeCatalog.all,
@@ -78,6 +89,7 @@ BoardTheme resolveBoardSkin(
   fallback: BoardThemeCatalog.classic,
   hasActiveSubscription: hasActiveSubscription,
   purchasedProductIds: purchasedProductIds,
+  isLifetimePurchaser: isLifetimePurchaser,
 );
 
 /// Localized store prices for every purchasable cosmetic, keyed by

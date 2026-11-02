@@ -540,6 +540,8 @@
   "avatarFrameReqGames": "{count}局対局する",
   "avatarFrameReqPuzzles": "パズルを{count}問解く",
   "avatarFrameReqRating": "レーティング{count}に到達",
+  "cosmeticShopIncludedWithLifetime": "プレミアム買い切り限定",
+  "avatarFrameReqLifetime": "プレミアム買い切り購入特典",
   "avatarFrameReqStreak": "パズル{count}日連続",
   "aiAnalysisPlanName": "AI分析プラン",
   "aiAnalysisPlanPrice": "月額 ¥990",
