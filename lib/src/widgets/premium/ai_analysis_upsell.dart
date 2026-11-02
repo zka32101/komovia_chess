@@ -3,7 +3,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../l10n/app_localizations.dart';
 import '../../providers/premium_provider.dart';
 import '../../services/feature_gating_service.dart';
-import '../../services/paywall_service.dart' show PurchaseUnavailableException;
+import 'package:komovia_core/komovia_core.dart'
+    show PurchaseUnavailableException;
 
 /// Starts the AI分析プラン purchase and reports the outcome via SnackBar.
 /// Returns true when the purchase completed.

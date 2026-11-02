@@ -2,17 +2,15 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../models/subscription.dart' show PremiumFeature;
 import '../../providers/premium_provider.dart';
-import '../../services/paywall_service.dart'
-    show BillingPeriod, PaywallService, PurchaseUnavailableException;
+import 'package:komovia_core/komovia_core.dart'
+    show PurchaseUnavailableException;
+import '../../services/paywall_service.dart' show BillingPeriod, PaywallService;
 import '../../utils/animations.dart';
 import '../../widgets/premium/ai_analysis_upsell.dart';
 
 /// A purchasable premium plan (mirrors the tiers [UserSubscription] supports)
 class _PremiumPlan {
-  const _PremiumPlan({
-    required this.tier,
-    required this.displayName,
-  });
+  const _PremiumPlan({required this.tier, required this.displayName});
   final String tier;
   final String displayName;
 }
@@ -50,10 +48,7 @@ class _PremiumScreenState extends ConsumerState<PremiumScreen> {
 
     try {
       final service = ref.read(paywallServiceProvider);
-      await service.purchaseSubscription(
-        plan.tier,
-        period: period ?? _period,
-      );
+      await service.purchaseSubscription(plan.tier, period: period ?? _period);
 
       if (mounted) {
         ref.invalidate(userSubscriptionProvider);
@@ -68,10 +63,7 @@ class _PremiumScreenState extends ConsumerState<PremiumScreen> {
     } on PurchaseUnavailableException catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(e.message),
-            backgroundColor: Colors.orange,
-          ),
+          SnackBar(content: Text(e.message), backgroundColor: Colors.orange),
         );
       }
     } catch (e) {
@@ -118,8 +110,10 @@ class _PremiumScreenState extends ConsumerState<PremiumScreen> {
               // Header section
               Container(
                 width: double.infinity,
-                padding:
-                    const EdgeInsets.symmetric(vertical: 32, horizontal: 24),
+                padding: const EdgeInsets.symmetric(
+                  vertical: 32,
+                  horizontal: 24,
+                ),
                 decoration: BoxDecoration(
                   gradient: LinearGradient(
                     begin: Alignment.topLeft,
@@ -144,9 +138,9 @@ class _PremiumScreenState extends ConsumerState<PremiumScreen> {
                     const SizedBox(height: 12),
                     Text(
                       'Unlock all features and enhance your chess experience',
-                      style: Theme.of(context).textTheme.bodyLarge?.copyWith(
-                            color: Colors.white70,
-                          ),
+                      style: Theme.of(
+                        context,
+                      ).textTheme.bodyLarge?.copyWith(color: Colors.white70),
                     ),
                     if (status.isPro || status.isPremium)
                       Padding(
@@ -187,8 +181,8 @@ class _PremiumScreenState extends ConsumerState<PremiumScreen> {
                     Text(
                       'Premium Features',
                       style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                            fontWeight: FontWeight.bold,
-                          ),
+                        fontWeight: FontWeight.bold,
+                      ),
                     ),
                     const SizedBox(height: 16),
                     ...PremiumFeature.values.asMap().entries.map((entry) {
@@ -213,8 +207,8 @@ class _PremiumScreenState extends ConsumerState<PremiumScreen> {
                     Text(
                       'Choose Your Plan',
                       style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                            fontWeight: FontWeight.bold,
-                          ),
+                        fontWeight: FontWeight.bold,
+                      ),
                     ),
                     const SizedBox(height: 16),
                     SegmentedButton<BillingPeriod>(
@@ -247,9 +241,9 @@ class _PremiumScreenState extends ConsumerState<PremiumScreen> {
                       onLifetimeTap: status.isLifetime
                           ? null
                           : () => _handlePurchase(
-                                _premiumPlan,
-                                period: BillingPeriod.lifetime,
-                              ),
+                              _premiumPlan,
+                              period: BillingPeriod.lifetime,
+                            ),
                       isLoading: _isLoading,
                       isPopular: true,
                     ),
@@ -272,10 +266,7 @@ class _PremiumScreenState extends ConsumerState<PremiumScreen> {
                     children: [
                       Row(
                         children: [
-                          Icon(
-                            Icons.info_outline,
-                            color: Colors.blue.shade300,
-                          ),
+                          Icon(Icons.info_outline, color: Colors.blue.shade300),
                           const SizedBox(width: 12),
                           const Expanded(
                             child: Text(
@@ -305,8 +296,10 @@ class _PremiumScreenState extends ConsumerState<PremiumScreen> {
               // Restore button
               if (!status.isPremium)
                 Padding(
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 24,
+                    vertical: 12,
+                  ),
                   child: TextButton(
                     onPressed: () async {
                       try {
@@ -345,47 +338,47 @@ class _PremiumScreenState extends ConsumerState<PremiumScreen> {
   }
 
   Widget _buildFeatureItem(PremiumFeature feature) => Padding(
-        padding: const EdgeInsets.only(bottom: 12),
-        child: Container(
-          padding: const EdgeInsets.all(12),
-          decoration: BoxDecoration(
-            border: Border.all(color: Colors.grey.shade300),
-            borderRadius: BorderRadius.circular(8),
+    padding: const EdgeInsets.only(bottom: 12),
+    child: Container(
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        border: Border.all(color: Colors.grey.shade300),
+        borderRadius: BorderRadius.circular(8),
+      ),
+      child: Row(
+        children: [
+          Container(
+            width: 36,
+            height: 36,
+            decoration: BoxDecoration(
+              color: Colors.green.withOpacity(0.1),
+              borderRadius: BorderRadius.circular(8),
+            ),
+            child: const Icon(
+              Icons.check_circle,
+              color: Colors.green,
+              size: 20,
+            ),
           ),
-          child: Row(
-            children: [
-              Container(
-                width: 36,
-                height: 36,
-                decoration: BoxDecoration(
-                  color: Colors.green.withOpacity(0.1),
-                  borderRadius: BorderRadius.circular(8),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  feature.displayName,
+                  style: const TextStyle(
+                    fontWeight: FontWeight.bold,
+                    fontSize: 14,
+                  ),
                 ),
-                child: const Icon(
-                  Icons.check_circle,
-                  color: Colors.green,
-                  size: 20,
-                ),
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      feature.displayName,
-                      style: const TextStyle(
-                        fontWeight: FontWeight.bold,
-                        fontSize: 14,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ],
+              ],
+            ),
           ),
-        ),
-      );
+        ],
+      ),
+    ),
+  );
 
   Widget _buildPricingCard({
     required _PremiumPlan plan,
@@ -394,134 +387,127 @@ class _PremiumScreenState extends ConsumerState<PremiumScreen> {
     required bool isLoading,
     bool isPopular = false,
     VoidCallback? onLifetimeTap,
-  }) =>
-      Stack(
-        children: [
-          if (isPopular)
-            Positioned(
-              top: -12,
-              left: 16,
-              child: Container(
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
-                decoration: BoxDecoration(
-                  color: Colors.amber,
-                  borderRadius: BorderRadius.circular(4),
-                ),
-                child: const Text(
-                  'MOST POPULAR',
-                  style: TextStyle(
-                    fontSize: 10,
-                    fontWeight: FontWeight.bold,
-                    color: Colors.white,
-                  ),
-                ),
-              ),
+  }) => Stack(
+    children: [
+      if (isPopular)
+        Positioned(
+          top: -12,
+          left: 16,
+          child: Container(
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+            decoration: BoxDecoration(
+              color: Colors.amber,
+              borderRadius: BorderRadius.circular(4),
             ),
-          GestureDetector(
-            onTap: onTap,
-            child: Container(
-              padding: const EdgeInsets.all(16),
-              decoration: BoxDecoration(
-                border: Border.all(
-                  color: isSelected ? Colors.blue : Colors.grey.shade300,
-                  width: isSelected ? 2 : 1,
-                ),
-                borderRadius: BorderRadius.circular(12),
-                color: isPopular ? Colors.blue.withOpacity(0.05) : null,
-              ),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      Text(
-                        plan.displayName,
-                        style: const TextStyle(
-                          fontSize: 16,
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
-                      if (isSelected)
-                        Container(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 8,
-                            vertical: 4,
-                          ),
-                          decoration: BoxDecoration(
-                            color: Colors.blue,
-                            borderRadius: BorderRadius.circular(4),
-                          ),
-                          child: const Text(
-                            'ACTIVE',
-                            style: TextStyle(
-                              fontSize: 10,
-                              fontWeight: FontWeight.bold,
-                              color: Colors.white,
-                            ),
-                          ),
-                        ),
-                    ],
-                  ),
-                  const SizedBox(height: 8),
-                  Row(
-                    children: [
-                      Text(
-                        _formatYen(
-                          PaywallService.fallbackPriceYenByPeriod[_period]!,
-                        ),
-                        style: const TextStyle(
-                          fontSize: 24,
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
-                      const SizedBox(width: 4),
-                      Text(
-                        _period == BillingPeriod.annual ? '/year' : '/month',
-                        style: TextStyle(
-                          fontSize: 12,
-                          color: Colors.grey.shade600,
-                        ),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 16),
-                  SizedBox(
-                    width: double.infinity,
-                    child: FilledButton(
-                      onPressed: _isLoading ? null : onTap,
-                      child: _isLoading
-                          ? const SizedBox(
-                              height: 20,
-                              width: 20,
-                              child: CircularProgressIndicator(strokeWidth: 2),
-                            )
-                          : Text(
-                              isSelected ? 'Current Plan' : 'Subscribe Now',
-                            ),
-                    ),
-                  ),
-                  // Lifetime (one-time) option - premium tier only.
-                  if (onLifetimeTap != null) ...[
-                    const SizedBox(height: 8),
-                    SizedBox(
-                      width: double.infinity,
-                      child: OutlinedButton.icon(
-                        key: const Key('premium_lifetime_button'),
-                        onPressed: _isLoading ? null : onLifetimeTap,
-                        icon: const Icon(Icons.all_inclusive, size: 18),
-                        label: Text(
-                          'Lifetime ${_formatYen(PaywallService.fallbackPriceYenByPeriod[BillingPeriod.lifetime]!)}'
-                          ' (one-time) + exclusive skin & frame',
-                        ),
-                      ),
-                    ),
-                  ],
-                ],
+            child: const Text(
+              'MOST POPULAR',
+              style: TextStyle(
+                fontSize: 10,
+                fontWeight: FontWeight.bold,
+                color: Colors.white,
               ),
             ),
           ),
-        ],
-      );
+        ),
+      GestureDetector(
+        onTap: onTap,
+        child: Container(
+          padding: const EdgeInsets.all(16),
+          decoration: BoxDecoration(
+            border: Border.all(
+              color: isSelected ? Colors.blue : Colors.grey.shade300,
+              width: isSelected ? 2 : 1,
+            ),
+            borderRadius: BorderRadius.circular(12),
+            color: isPopular ? Colors.blue.withOpacity(0.05) : null,
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Text(
+                    plan.displayName,
+                    style: const TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                  if (isSelected)
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 8,
+                        vertical: 4,
+                      ),
+                      decoration: BoxDecoration(
+                        color: Colors.blue,
+                        borderRadius: BorderRadius.circular(4),
+                      ),
+                      child: const Text(
+                        'ACTIVE',
+                        style: TextStyle(
+                          fontSize: 10,
+                          fontWeight: FontWeight.bold,
+                          color: Colors.white,
+                        ),
+                      ),
+                    ),
+                ],
+              ),
+              const SizedBox(height: 8),
+              Row(
+                children: [
+                  Text(
+                    _formatYen(
+                      PaywallService.fallbackPriceYenByPeriod[_period]!,
+                    ),
+                    style: const TextStyle(
+                      fontSize: 24,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                  const SizedBox(width: 4),
+                  Text(
+                    _period == BillingPeriod.annual ? '/year' : '/month',
+                    style: TextStyle(fontSize: 12, color: Colors.grey.shade600),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 16),
+              SizedBox(
+                width: double.infinity,
+                child: FilledButton(
+                  onPressed: _isLoading ? null : onTap,
+                  child: _isLoading
+                      ? const SizedBox(
+                          height: 20,
+                          width: 20,
+                          child: CircularProgressIndicator(strokeWidth: 2),
+                        )
+                      : Text(isSelected ? 'Current Plan' : 'Subscribe Now'),
+                ),
+              ),
+              // Lifetime (one-time) option - premium tier only.
+              if (onLifetimeTap != null) ...[
+                const SizedBox(height: 8),
+                SizedBox(
+                  width: double.infinity,
+                  child: OutlinedButton.icon(
+                    key: const Key('premium_lifetime_button'),
+                    onPressed: _isLoading ? null : onLifetimeTap,
+                    icon: const Icon(Icons.all_inclusive, size: 18),
+                    label: Text(
+                      'Lifetime ${_formatYen(PaywallService.fallbackPriceYenByPeriod[BillingPeriod.lifetime]!)}'
+                      ' (one-time) + exclusive skin & frame',
+                    ),
+                  ),
+                ),
+              ],
+            ],
+          ),
+        ),
+      ),
+    ],
+  );
 }
