@@ -2,21 +2,10 @@ import 'dart:async';
 import 'package:in_app_purchase/in_app_purchase.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
-import 'package:komovia_core/komovia_core.dart' show SubscriptionPlan;
+import 'package:komovia_core/komovia_core.dart'
+    show SubscriptionPlan, PurchaseUnavailableException;
 import '../models/avatar_frames.dart';
 import '../models/cosmetic_catalog.dart';
-
-/// Thrown when a purchase can't be started - the store isn't available on
-/// this device, or the requested plan's product id isn't configured in
-/// App Store Connect / Play Console yet. Distinct from a user-canceled or
-/// store-rejected purchase so the UI can show an honest message instead
-/// of a generic "purchase failed".
-class PurchaseUnavailableException implements Exception {
-  PurchaseUnavailableException(this.message);
-  final String message;
-  @override
-  String toString() => message;
-}
 
 /// Service for managing in-app purchases and subscriptions
 class PaywallService {
@@ -71,8 +60,8 @@ class PaywallService {
 
   /// Every pro/premium subscription product id (all tiers, all periods).
   static List<String> get allSubscriptionProductIds => [
-        for (final byPeriod in _productIdsByTier.values) ...byPeriod.values,
-      ];
+    for (final byPeriod in _productIdsByTier.values) ...byPeriod.values,
+  ];
 
   /// Reverse lookup: which tier/period a store product id belongs to.
   static ({String tier, BillingPeriod period})? planForProductId(
