@@ -1,12 +1,30 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:flutter/foundation.dart' show visibleForTesting;
 
 /// Service for managing feature gates and daily action limits
 class FeatureGatingService {
-  FeatureGatingService._();
+  FeatureGatingService._()
+      : _authOverride = null,
+        _firestoreOverride = null;
+
+  /// Same service with its Firebase handles replaced, so the gating logic can
+  /// be unit-tested without a Firebase app.
+  @visibleForTesting
+  FeatureGatingService.forTesting({
+    FirebaseAuth? auth,
+    FirebaseFirestore? firestore,
+  })  : _authOverride = auth,
+        _firestoreOverride = firestore;
+
   static final FeatureGatingService _instance = FeatureGatingService._();
-  final FirebaseAuth _auth = FirebaseAuth.instance;
-  final FirebaseFirestore _firestore = FirebaseFirestore.instance;
+  final FirebaseAuth? _authOverride;
+  final FirebaseFirestore? _firestoreOverride;
+  // Read lazily: the singleton is created on first access, which tests (and
+  // any early caller) may do before Firebase.initializeApp().
+  FirebaseAuth get _auth => _authOverride ?? FirebaseAuth.instance;
+  FirebaseFirestore get _firestore =>
+      _firestoreOverride ?? FirebaseFirestore.instance;
 
   // Feature availability
   static const Map<String, Set<String>> FEATURE_TIERS = {
