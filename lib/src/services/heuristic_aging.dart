@@ -25,6 +25,14 @@ class AgedKillerMoveHeuristic extends KillerMoveHeuristic {
   /// Maximum age before move is discarded
   final int _maxAge;
 
+  /// Record a killer move and start tracking its age. Without this the age
+  /// table stays empty, so [ageAllMoves] / [getMoveAge] never do anything.
+  @override
+  void recordKiller(int depth, String moveUci) {
+    super.recordKiller(depth, moveUci);
+    _moveAge.putIfAbsent(moveUci, () => 0);
+  }
+
   /// Get killer moves with age-based score adjustment
   List<String> getAgedKillers(int depth, {double timeRemaining = 1.0}) {
     final baseKillers = getKillers(depth);
